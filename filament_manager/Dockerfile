@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/app/ ./app/
 COPY --from=frontend-builder /frontend/dist/ ./static/
+COPY config.yaml /config.yaml
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 

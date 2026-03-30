@@ -10,7 +10,7 @@ from ..schemas import BrandSpoolWeightOut
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
-_CONFIG = Path(__file__).parents[4] / "config.yaml"
+_CONFIG = Path("/config.yaml")
 
 def _read_version() -> str:
     try:
