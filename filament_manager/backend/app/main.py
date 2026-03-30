@@ -96,13 +96,6 @@ async def lifespan(app: FastAPI):
 
     log.info("Database ready")
 
-    # Auto-seed from spreadsheet data on first run
-    try:
-        from .seed_data import run_seed
-        run_seed()
-    except Exception as exc:
-        log.warning("Seed skipped: %s", exc)
-
     # Seed default filament materials if table is empty
     _DEFAULT_MATERIALS = [
         "ABS", "ASA", "ASA-CF", "HIPS", "PA", "PA-CF", "PC",
