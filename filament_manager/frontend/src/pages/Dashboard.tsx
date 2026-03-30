@@ -1,21 +1,23 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { DashboardStats, PrintJob } from '../types'
 import { AlertTriangle, Printer } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import { enUS, de, es } from 'date-fns/locale'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
 } from 'recharts'
 
-// ── Palette for pie chart ─────────────────────────────────────────────────────
+const LOCALE_MAP: Record<string, Locale> = { en: enUS, de, es }
+
 const PIE_COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
   '#06b6d4', '#f97316', '#84cc16', '#ec4899', '#6366f1',
 ]
 
-// ── Metric group ──────────────────────────────────────────────────────────────
 function MetricGroup({
   title,
   rows,
@@ -40,12 +42,14 @@ function MetricGroup({
 }
 
 function PrintRow({ job }: { job: PrintJob }) {
+  const { i18n } = useTranslation()
+  const locale = LOCALE_MAP[i18n.resolvedLanguage ?? 'en'] ?? enUS
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-surface-3 last:border-0">
       <div className="min-w-0">
         <p className="text-sm font-medium text-white truncate">{job.name}</p>
         <p className="text-xs text-gray-500">
-          {formatDistanceToNow(new Date(job.started_at), { addSuffix: true })}
+          {formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale })}
           {job.printer_name && ` · ${job.printer_name}`}
         </p>
       </div>
@@ -59,21 +63,20 @@ function PrintRow({ job }: { job: PrintJob }) {
   )
 }
 
-// ── Tooltip style shared across charts ───────────────────────────────────────
 const TT_STYLE = { background: '#2c2c2e', border: '1px solid #3a3a3c', borderRadius: 8 }
 
-// ── Tabbed chart section ──────────────────────────────────────────────────────
 type ChartTab = 'materials' | 'cost' | 'weight' | 'location'
 
-const TAB_LABELS: { key: ChartTab; label: string }[] = [
-  { key: 'materials', label: 'Materials' },
-  { key: 'cost',      label: 'Cost (€)' },
-  { key: 'weight',    label: 'Filament (kg)' },
-  { key: 'location',  label: 'Avg Price / Location' },
-]
-
 function ChartSection({ stats }: { stats: DashboardStats }) {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<ChartTab>('materials')
+
+  const TAB_LABELS: { key: ChartTab; label: string }[] = [
+    { key: 'materials', label: t('dashboard.tabs.materials') },
+    { key: 'cost',      label: t('dashboard.tabs.cost') },
+    { key: 'weight',    label: t('dashboard.tabs.weight') },
+    { key: 'location',  label: t('dashboard.tabs.location') },
+  ]
 
   const pieData = stats.material_breakdown.map((m, i) => ({
     name: m.material,
@@ -83,15 +86,15 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
   }))
 
   const costData = [
-    { name: 'Purchased', value: stats.total_filament_spent_eur },
-    { name: 'Printed',   value: +(stats.total_filament_spent_eur - stats.total_available_eur).toFixed(2) },
-    { name: 'Available', value: stats.total_available_eur },
+    { name: t('dashboard.chart.purchased'), value: stats.total_filament_spent_eur },
+    { name: t('dashboard.chart.printed'),   value: +(stats.total_filament_spent_eur - stats.total_available_eur).toFixed(2) },
+    { name: t('common.available'),          value: stats.total_available_eur },
   ]
 
   const weightData = [
-    { name: 'Purchased', value: stats.total_filament_kg },
-    { name: 'Printed',   value: +(stats.total_filament_kg - stats.total_available_kg).toFixed(3) },
-    { name: 'Available', value: stats.total_available_kg },
+    { name: t('dashboard.chart.purchased'), value: stats.total_filament_kg },
+    { name: t('dashboard.chart.printed'),   value: +(stats.total_filament_kg - stats.total_available_kg).toFixed(3) },
+    { name: t('common.available'),          value: stats.total_available_kg },
   ]
 
   const locationData = stats.price_by_location.map((l, i) => ({
@@ -103,7 +106,6 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
 
   return (
     <div className="card">
-      {/* Tab bar */}
       <div className="flex gap-1 mb-4 border-b border-surface-3 pb-3 flex-wrap">
         {TAB_LABELS.map(t => (
           <button
@@ -120,10 +122,9 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
         ))}
       </div>
 
-      {/* Materials pie */}
       {tab === 'materials' && (
         pieData.length === 0
-          ? <p className="text-sm text-gray-500">No spools yet.</p>
+          ? <p className="text-sm text-gray-500">{t('dashboard.noSpools')}</p>
           : <ResponsiveContainer width="100%" height={260}>
               <PieChart>
                 <Pie
@@ -141,7 +142,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                 <Tooltip
                   contentStyle={TT_STYLE}
                   formatter={(value: number, name: string, props) => [
-                    `${value} spools · ${props.payload.kg.toFixed(2)} kg`, name,
+                    `${value} ${value === 1 ? t('dashboard.chart.spool') : t('dashboard.chart.spools')} · ${props.payload.kg.toFixed(2)} kg`, name,
                   ]}
                 />
                 <Legend formatter={(v) => <span style={{ color: '#9ca3af', fontSize: 12 }}>{v}</span>} />
@@ -149,10 +150,9 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
             </ResponsiveContainer>
       )}
 
-      {/* Cost bar */}
       {tab === 'cost' && (
         stats.total_filament_spent_eur === 0
-          ? <p className="text-sm text-gray-500">No purchase data yet.</p>
+          ? <p className="text-sm text-gray-500">{t('dashboard.noPurchaseData')}</p>
           : <ResponsiveContainer width="100%" height={240}>
               <BarChart data={costData} barSize={48}>
                 <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -167,10 +167,9 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
             </ResponsiveContainer>
       )}
 
-      {/* Filament weight bar */}
       {tab === 'weight' && (
         stats.total_filament_kg === 0
-          ? <p className="text-sm text-gray-500">No filament data yet.</p>
+          ? <p className="text-sm text-gray-500">{t('dashboard.noFilamentData')}</p>
           : <ResponsiveContainer width="100%" height={240}>
               <BarChart data={weightData} barSize={48}>
                 <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -185,10 +184,9 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
             </ResponsiveContainer>
       )}
 
-      {/* Avg price by location */}
       {tab === 'location' && (
         locationData.length === 0
-          ? <p className="text-sm text-gray-500">No spools with both a purchase location and price set yet.</p>
+          ? <p className="text-sm text-gray-500">{t('dashboard.noLocationData')}</p>
           : <ResponsiveContainer width="100%" height={240}>
               <BarChart data={locationData} barSize={40}>
                 <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -196,8 +194,8 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                 <Tooltip
                   contentStyle={TT_STYLE}
                   formatter={(v: number, _: string, props) => [
-                    `€${v.toFixed(2)} avg (${props.payload.count} spool${props.payload.count !== 1 ? 's' : ''})`,
-                    'Avg price',
+                    `€${v.toFixed(2)} avg (${props.payload.count} ${props.payload.count !== 1 ? t('dashboard.chart.spools') : t('dashboard.chart.spool')})`,
+                    t('dashboard.chart.avgPrice'),
                   ]}
                 />
                 <Bar dataKey="avg" radius={[4, 4, 0, 0]}>
@@ -210,9 +208,9 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export default function Dashboard() {
+  const { t } = useTranslation()
+
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ['dashboard'],
     queryFn: api.getDashboard,
@@ -225,71 +223,67 @@ export default function Dashboard() {
     refetchInterval: 30_000,
   })
 
-  if (isLoading) return <div className="text-gray-500 text-sm">Loading…</div>
+  if (isLoading) return <div className="text-gray-500 text-sm">{t('common.loading')}</div>
   if (!stats) return null
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Dashboard</h2>
+        <h2 className="text-lg font-bold">{t('dashboard.title')}</h2>
         <span className={`text-xs px-2 py-0.5 rounded-full ${
           haStatus?.ha_available ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'
         }`}>
-          HA {haStatus?.ha_available ? 'connected' : 'offline'}
+          {haStatus?.ha_available ? t('dashboard.haConnected') : t('dashboard.haOffline')}
         </span>
       </div>
 
-      {/* Metric groups */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
         <MetricGroup
-          title="Cost (€)"
+          title={t('dashboard.costGroup')}
           rows={[
-            { label: 'Total purchased', value: `€${stats.total_filament_spent_eur.toFixed(2)}` },
-            { label: 'Printed / spent', value: `€${(stats.total_filament_spent_eur - stats.total_available_eur).toFixed(2)}`, dim: true },
-            { label: 'Available',       value: `€${stats.total_available_eur.toFixed(2)}`, sub: 'est.' },
+            { label: t('dashboard.totalPurchased'), value: `€${stats.total_filament_spent_eur.toFixed(2)}` },
+            { label: t('dashboard.printedSpent'),   value: `€${(stats.total_filament_spent_eur - stats.total_available_eur).toFixed(2)}`, dim: true },
+            { label: t('dashboard.available'),      value: `€${stats.total_available_eur.toFixed(2)}`, sub: t('common.est') },
           ]}
         />
         <MetricGroup
-          title="Filament (kg)"
+          title={t('dashboard.filamentGroup')}
           rows={[
-            { label: 'Total purchased', value: `${stats.total_filament_kg.toFixed(2)} kg` },
-            { label: 'Printed / spent', value: `${(stats.total_filament_kg - stats.total_available_kg).toFixed(2)} kg`, dim: true },
-            { label: 'Available',       value: `${stats.total_available_kg.toFixed(2)} kg` },
+            { label: t('dashboard.totalPurchased'), value: `${stats.total_filament_kg.toFixed(2)} kg` },
+            { label: t('dashboard.printedSpent'),   value: `${(stats.total_filament_kg - stats.total_available_kg).toFixed(2)} kg`, dim: true },
+            { label: t('dashboard.available'),      value: `${stats.total_available_kg.toFixed(2)} kg` },
           ]}
         />
         <MetricGroup
-          title="Spools"
+          title={t('dashboard.spoolsGroup')}
           rows={[
-            { label: 'Total spools',  value: stats.total_spools.toString(), sub: `${stats.active_spools} active` },
-            { label: 'Low stock',     value: stats.low_stock_spools.toString(), dim: stats.low_stock_spools === 0 },
-            { label: 'Total prints',  value: stats.total_prints.toString(), sub: `${stats.total_prints} jobs` },
+            { label: t('dashboard.totalSpools'), value: stats.total_spools.toString(), sub: `${stats.active_spools} ${t('common.active')}` },
+            { label: t('dashboard.lowStock'),    value: stats.low_stock_spools.toString(), dim: stats.low_stock_spools === 0 },
+            { label: t('dashboard.totalPrints'), value: stats.total_prints.toString() },
           ]}
         />
       </div>
 
-      {/* Tabbed charts */}
       <ChartSection stats={stats} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent Prints */}
         <div className="card">
           <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
-            <Printer size={14} /> Recent Prints
+            <Printer size={14} /> {t('dashboard.recentPrints')}
           </h3>
           {stats.recent_prints.length === 0 ? (
-            <p className="text-gray-500 text-sm">No prints logged yet.</p>
+            <p className="text-gray-500 text-sm">{t('dashboard.noPrints')}</p>
           ) : (
             stats.recent_prints.map(job => <PrintRow key={job.id} job={job} />)
           )}
         </div>
 
-        {/* Low Stock */}
         <div className="card">
           <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
-            <AlertTriangle size={14} className="text-yellow-400" /> Low Stock Alerts
+            <AlertTriangle size={14} className="text-yellow-400" /> {t('dashboard.lowStockAlerts')}
           </h3>
           {stats.low_stock.length === 0 ? (
-            <p className="text-gray-500 text-sm">All spools well stocked.</p>
+            <p className="text-gray-500 text-sm">{t('dashboard.allWellStocked')}</p>
           ) : (
             stats.low_stock.map(spool => (
               <div key={spool.id} className="flex items-center gap-3 py-2 border-b border-surface-3 last:border-0">

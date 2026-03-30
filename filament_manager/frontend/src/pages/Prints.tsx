@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { PrintJob, Spool, AMSTray, PrinterConfig } from '../types'
 import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download } from 'lucide-react'
@@ -23,6 +24,7 @@ function PrintForm({
   onSave: (data: unknown) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
   const now = format(new Date(), "yyyy-MM-dd'T'HH:mm")
   const [name, setName] = useState(initial?.name ?? '')
   const [modelName, setModelName] = useState(initial?.model_name ?? '')
@@ -53,7 +55,6 @@ function PrintForm({
     queryFn: api.getPrinters,
   })
 
-  // When editing, try to pre-select the printer by name
   useEffect(() => {
     if (initial?.printer_name && printers.length > 0) {
       const match = printers.find(p => p.name === initial.printer_name)
@@ -108,48 +109,51 @@ function PrintForm({
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div className="bg-surface-2 border border-surface-3 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-3">
-          <h2 className="font-semibold">{initial ? 'Edit Print' : 'Log Print'}</h2>
+          <h2 className="font-semibold">{initial ? t('prints.editPrint') : t('prints.logPrint')}</h2>
           <button onClick={onCancel} className="btn-ghost p-1"><X size={16} /></button>
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="label">Print Name *</label>
-            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Benchy, Phone Stand, …" />
+            <label className="label">{t('prints.form.printName')} *</label>
+            <input className="input" value={name} onChange={e => setName(e.target.value)}
+              placeholder={t('prints.form.namePlaceholder')} />
           </div>
           <div>
-            <label className="label">Model File</label>
-            <input className="input" value={modelName} onChange={e => setModelName(e.target.value)} placeholder="benchy.3mf" />
+            <label className="label">{t('prints.form.modelFile')}</label>
+            <input className="input" value={modelName} onChange={e => setModelName(e.target.value)}
+              placeholder={t('prints.form.modelPlaceholder')} />
           </div>
           <div>
-            <label className="label">Description</label>
+            <label className="label">{t('prints.form.description')}</label>
             <input className="input" value={description} onChange={e => setDescription(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Started At *</label>
+              <label className="label">{t('prints.form.startedAt')} *</label>
               <input className="input" type="datetime-local" value={startedAt} onChange={e => setStartedAt(e.target.value)} />
             </div>
             <div>
-              <label className="label">Finished At</label>
+              <label className="label">{t('prints.form.finishedAt')}</label>
               <input className="input" type="datetime-local" value={finishedAt} onChange={e => setFinishedAt(e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Duration (hours)</label>
-              <input className="input" type="number" step="0.1" min="0" value={durationH} onChange={e => setDurationH(e.target.value)} placeholder="2.5" />
+              <label className="label">{t('prints.form.duration')}</label>
+              <input className="input" type="number" step="0.1" min="0" value={durationH}
+                onChange={e => setDurationH(e.target.value)} placeholder="2.5" />
             </div>
             <div>
-              <label className="label">Printer</label>
+              <label className="label">{t('prints.form.printer')}</label>
               <select
                 className="input"
                 value={printerId}
                 onChange={e => setPrinterId(e.target.value ? Number(e.target.value) : '')}
               >
-                <option value="">— none —</option>
+                <option value="">{t('common.none')}</option>
                 {printers.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -159,31 +163,29 @@ function PrintForm({
 
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={success} onChange={e => setSuccess(e.target.checked)} />
-            Print succeeded
+            {t('prints.form.printSucceeded')}
           </label>
 
           {/* Filament usages */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="label mb-0">Filament Used</label>
+              <label className="label mb-0">{t('prints.form.filamentUsed')}</label>
               <div className="flex items-center gap-2">
                 <button
                   className="btn-ghost text-xs py-0.5 flex items-center gap-1 disabled:opacity-40"
                   onClick={loadFromAMS}
                   disabled={!selectedPrinter || loadingAMS}
-                  title={selectedPrinter ? `Load current AMS tray assignments from ${selectedPrinter.name}` : 'Select a printer first'}
+                  title={selectedPrinter ? `Load current AMS tray assignments from ${selectedPrinter.name}` : t('prints.form.selectPrinterFirst')}
                 >
                   <Download size={11} />
-                  {loadingAMS ? 'Loading…' : 'Load from AMS'}
+                  {loadingAMS ? t('prints.form.loading') : t('prints.form.loadFromAMS')}
                 </button>
-                <button className="btn-ghost text-xs py-0.5" onClick={addUsage}>+ Add spool</button>
+                <button className="btn-ghost text-xs py-0.5" onClick={addUsage}>{t('prints.form.addSpool')}</button>
               </div>
             </div>
             {usages.length === 0 && (
               <p className="text-xs text-gray-500">
-                {selectedPrinter
-                  ? 'Click "Load from AMS" to pre-fill from current tray assignments, or add manually.'
-                  : 'Select a printer to load AMS assignments, or add spools manually.'}
+                {selectedPrinter ? t('prints.form.loadAMSHint') : t('prints.form.noAMSPrinter')}
               </p>
             )}
             {usages.map((u, i) => (
@@ -219,14 +221,14 @@ function PrintForm({
           </div>
 
           <div>
-            <label className="label">Notes</label>
+            <label className="label">{t('prints.form.notes')}</label>
             <textarea className="input h-16 resize-none" value={notes} onChange={e => setNotes(e.target.value)} />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-3">
-          <button className="btn-ghost" onClick={onCancel}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave} disabled={!name || !startedAt}>Save</button>
+          <button className="btn-ghost" onClick={onCancel}>{t('common.cancel')}</button>
+          <button className="btn-primary" onClick={handleSave} disabled={!name || !startedAt}>{t('common.save')}</button>
         </div>
       </div>
     </div>
@@ -244,6 +246,7 @@ function LogUsageModal({
   onSave: (usages: { spool_id: number; grams_used: number; ams_slot: string }[]) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
   const { data: printers = [] } = useQuery<PrinterConfig[]>({
     queryKey: ['printers'],
     queryFn: api.getPrinters,
@@ -272,20 +275,17 @@ function LogUsageModal({
       <div className="bg-surface-2 border border-surface-3 rounded-2xl w-full max-w-md">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-3">
           <div>
-            <h2 className="font-semibold">Log Filament Usage</h2>
+            <h2 className="font-semibold">{t('prints.logUsage')}</h2>
             <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{job.name}</p>
           </div>
           <button onClick={onCancel} className="btn-ghost p-1"><X size={16} /></button>
         </div>
 
         <div className="p-5 space-y-3">
-          {isLoading && <p className="text-sm text-gray-500">Loading tray assignments…</p>}
+          {isLoading && <p className="text-sm text-gray-500">{t('prints.form.loading')}</p>}
 
           {!isLoading && assigned.length === 0 && (
-            <p className="text-sm text-gray-500">
-              No spools are currently assigned to AMS trays.
-              Go to Settings → Printer → AMS Tray Assignment to link spools to trays.
-            </p>
+            <p className="text-sm text-gray-500">{t('prints.form.noAMSAssigned')}</p>
           )}
 
           {assigned.map(t => (
@@ -300,7 +300,9 @@ function LogUsageModal({
                   {t.spool!.subtype ? ` ${t.spool!.subtype}` : ''} · {t.spool!.color_name}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Tray {t.tray} · {t.spool!.remaining_pct}% remaining ({(t.spool!.current_weight_g / 1000).toFixed(3)} kg)
+                  {t.tray} · {t.spool!.remaining_pct}% {t.spool!.current_weight_g !== undefined
+                    ? `(${(t.spool!.current_weight_g / 1000).toFixed(3)} kg)`
+                    : ''}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -318,19 +320,17 @@ function LogUsageModal({
             </div>
           ))}
 
-          <p className="text-xs text-gray-500 pt-1">
-            Enter grams used per tray. Inventory will be updated on save.
-          </p>
+          <p className="text-xs text-gray-500 pt-1">{t('prints.gramsHint')}</p>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-3">
-          <button className="btn-ghost" onClick={onCancel}>Cancel</button>
+          <button className="btn-ghost" onClick={onCancel}>{t('common.cancel')}</button>
           <button
             className="btn-primary"
             onClick={handleSave}
             disabled={assigned.length === 0}
           >
-            Save Usage
+            {t('prints.saveUsage')}
           </button>
         </div>
       </div>
@@ -348,8 +348,6 @@ function PrintRow({ job, onEdit, onDelete, onLogUsage }: {
 }) {
   const [expanded, setExpanded] = useState(false)
   const needsUsage = job.source === 'auto' && job.finished_at && job.usages.length === 0
-
-  // Show model name as subtitle if it differs from the display name
   const showModel = job.model_name && job.model_name !== job.name
 
   return (
@@ -428,6 +426,7 @@ function PrintRow({ job, onEdit, onDelete, onLogUsage }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Prints() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<PrintJob | null>(null)
@@ -445,7 +444,6 @@ export default function Prints() {
     queryFn: () => api.getPrints(PAGE_SIZE, page * PAGE_SIZE),
   })
 
-  // Append newly fetched page to accumulated list
   useEffect(() => {
     if (pagePrints.length === 0) return
     setShown(prev => {
@@ -487,20 +485,20 @@ export default function Prints() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-bold">
-            Print History ({shown.length}{totalCount > shown.length ? ` of ${totalCount}` : ''})
+            {t('prints.history')} ({shown.length}{totalCount > shown.length ? ` of ${totalCount}` : ''})
           </h2>
           {shown.length > 0 && (
             <p className="text-xs text-gray-500">
-              {totalGrams.toFixed(0)}g total · €{totalCost.toFixed(2)} total cost
+              {totalGrams.toFixed(0)}g · €{totalCost.toFixed(2)}
             </p>
           )}
         </div>
         <button className="btn-primary flex items-center gap-1.5" onClick={() => setShowForm(true)}>
-          <Plus size={14} /> Log Print
+          <Plus size={14} /> {t('prints.logPrint')}
         </button>
       </div>
 
-      {isLoading && shown.length === 0 && <p className="text-gray-500 text-sm">Loading…</p>}
+      {isLoading && shown.length === 0 && <p className="text-gray-500 text-sm">{t('common.loading')}</p>}
 
       <div className="space-y-2">
         {shown.map(job => (
@@ -508,7 +506,7 @@ export default function Prints() {
             key={job.id}
             job={job}
             onEdit={() => setEditing(job)}
-            onDelete={() => { if (confirm(`Delete print "${job.name}"?`)) deleteMut.mutate(job.id) }}
+            onDelete={() => { if (confirm(t('prints.confirmDelete', { name: job.name }))) deleteMut.mutate(job.id) }}
             onLogUsage={() => setLoggingUsage(job)}
           />
         ))}
@@ -521,7 +519,7 @@ export default function Prints() {
             onClick={() => setPage(p => p + 1)}
             disabled={isLoading}
           >
-            {isLoading ? 'Loading…' : `Load more (${totalCount - shown.length} remaining)`}
+            {isLoading ? t('common.loading') : t('prints.loadMore', { n: totalCount - shown.length })}
           </button>
         </div>
       )}

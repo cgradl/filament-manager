@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype } from '../types'
 import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
@@ -16,6 +17,7 @@ function PrinterForm({
   onSave: (data: { name: string; device_slug: string; ams_device_slug: string | null; ams_unit_count: number; is_active: boolean }) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
   const [name, setName] = useState(initial?.name ?? '')
   const [deviceName, setDeviceName] = useState(
     initial?.device_slug.replace(/_/g, ' ') ?? ''
@@ -67,22 +69,19 @@ function PrinterForm({
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div className="bg-surface-2 border border-surface-3 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-3">
-          <h2 className="font-semibold">{initial ? 'Edit Printer' : 'Add Printer'}</h2>
+          <h2 className="font-semibold">{initial ? t('settings.printers.editPrinter') : t('settings.printers.addPrinter')}</h2>
           <button onClick={onCancel} className="btn-ghost p-1"><X size={16} /></button>
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="label">Printer Name (label in this app)</label>
+            <label className="label">{t('settings.printers.name')} *</label>
             <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="H2S" />
           </div>
 
-          {/* Printer device name */}
           <div>
-            <label className="label">Printer Device Name in Home Assistant</label>
-            <p className="text-xs text-gray-500 mb-1.5">
-              The name shown in HA under <strong className="text-gray-300">Settings → Devices & Services → Bambu Lab</strong>.
-            </p>
+            <label className="label">{t('settings.printers.haDeviceName')}</label>
+            <p className="text-xs text-gray-500 mb-1.5">{t('settings.printers.haDeviceHint')}</p>
             <div className="flex gap-2">
               <input
                 className="input flex-1"
@@ -96,7 +95,7 @@ function PrinterForm({
                 disabled={!deviceName.trim() || discovering}
               >
                 <Search size={13} className={discovering ? 'animate-spin' : ''} />
-                Test
+                {t('settings.printers.discoverSearch')}
               </button>
             </div>
             {slug && (
@@ -106,17 +105,14 @@ function PrinterForm({
             )}
           </div>
 
-          {/* AMS device name */}
           <div>
-            <label className="label">AMS Device Name in Home Assistant</label>
-            <p className="text-xs text-gray-500 mb-1.5">
-              Usually the same as the printer. Only change if AMS entities use a different prefix.
-            </p>
+            <label className="label">{t('settings.printers.amsDeviceName')}</label>
+            <p className="text-xs text-gray-500 mb-1.5">{t('settings.printers.amsDeviceHint')}</p>
             <input
               className="input"
               value={amsDeviceName}
               onChange={e => { setAmsDeviceName(e.target.value); setDiscovery(null) }}
-              placeholder="Leave blank to use same as printer"
+              placeholder={t('settings.printers.leaveBlank')}
             />
             {amsSlug && amsSlug !== slug && (
               <p className="text-xs text-gray-500 mt-1">
@@ -125,7 +121,6 @@ function PrinterForm({
             )}
           </div>
 
-          {/* Discovery results */}
           {discovery && (
             <div className="bg-surface-3/50 rounded-xl p-3 space-y-3">
               <div>
@@ -184,7 +179,7 @@ function PrinterForm({
           )}
 
           <div>
-            <label className="label">Number of AMS Units</label>
+            <label className="label">{t('settings.printers.amsUnitCount')}</label>
             <select
               className="input w-32"
               value={amsCount}
@@ -198,12 +193,12 @@ function PrinterForm({
 
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
-            Monitor this printer
+            {t('settings.printers.monitorPrinter')}
           </label>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-3">
-          <button className="btn-ghost" onClick={onCancel}>Cancel</button>
+          <button className="btn-ghost" onClick={onCancel}>{t('common.cancel')}</button>
           <button
             className="btn-primary"
             onClick={() => onSave({
@@ -215,7 +210,7 @@ function PrinterForm({
             })}
             disabled={!name.trim() || !deviceName.trim()}
           >
-            Save
+            {t('common.save')}
           </button>
         </div>
       </div>
@@ -226,6 +221,7 @@ function PrinterForm({
 // ── AMS Tray Panel ────────────────────────────────────────────────────────────
 
 function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
 
   const { data: trays, isLoading, refetch } = useQuery<AMSTray[]>({
@@ -264,16 +260,15 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
     },
   })
 
-  if (isLoading) return <p className="text-xs text-gray-500 py-2">Loading AMS data…</p>
-  if (!trays?.length) return <p className="text-xs text-gray-500 py-2">No AMS tray data found.</p>
+  if (isLoading) return <p className="text-xs text-gray-500 py-2">{t('settings.printers.loadingAMS')}</p>
+  if (!trays?.length) return <p className="text-xs text-gray-500 py-2">{t('settings.printers.noAMSData')}</p>
 
-  // Group trays by AMS unit
   const units = Array.from(new Set(trays.map(t => t.ams_id))).sort()
 
   return (
     <div className="mt-3 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-gray-400">AMS Tray Assignment</p>
+        <p className="text-xs font-medium text-gray-400">{t('settings.printers.amsAssignment')}</p>
         <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh display">
           <RefreshCw size={11} />
         </button>
@@ -282,7 +277,7 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
       {units.map(amsId => (
         <div key={amsId}>
           {units.length > 1 && (
-            <p className="text-xs text-gray-500 mb-1.5">AMS Unit {amsId}</p>
+            <p className="text-xs text-gray-500 mb-1.5">{t('settings.printers.amsUnit', { n: amsId })}</p>
           )}
           <div className="space-y-1.5">
             {trays.filter(t => t.ams_id === amsId).map(tray => (
@@ -318,14 +313,13 @@ function AMSTrayRow({
   onSyncWeight: () => void
   syncingWeight: boolean
 }) {
+  const { t } = useTranslation()
   const selectedId = tray.spool?.id ?? null
 
   return (
     <div className="flex items-center gap-2 bg-surface-3/40 rounded-lg px-3 py-2">
-      {/* Slot label */}
       <span className="text-xs font-mono text-gray-400 w-6 shrink-0">T{tray.tray}</span>
 
-      {/* HA reading */}
       <div className="flex items-center gap-1.5 min-w-0 w-28 shrink-0">
         {tray.ha_color_hex ? (
           <span
@@ -340,19 +334,17 @@ function AMSTrayRow({
         </span>
       </div>
 
-      {/* HA remaining */}
       <span className="text-xs text-gray-500 w-10 shrink-0 text-right">
         {tray.ha_remaining != null ? `${tray.ha_remaining}%` : '—'}
       </span>
 
-      {/* Spool selector */}
       <select
         className="input text-xs flex-1 py-1 min-w-0"
         value={selectedId ?? ''}
         disabled={saving}
         onChange={e => onAssign(e.target.value ? Number(e.target.value) : null)}
       >
-        <option value="">— unassigned —</option>
+        <option value="">{t('settings.printers.unassigned')}</option>
         {spools.map(s => (
           <option key={s.id} value={s.id}>
             {s.brand} {s.material}{s.subtype ? ` ${s.subtype}` : ''} · {s.color_name} ({Math.round(s.remaining_pct)}%)
@@ -360,7 +352,6 @@ function AMSTrayRow({
         ))}
       </select>
 
-      {/* Spool color dot + per-tray sync if assigned */}
       {tray.spool ? (
         <>
           <span
@@ -391,6 +382,7 @@ function PrinterCard({ printer, onEdit, onDelete }: {
   onEdit: () => void
   onDelete: () => void
 }) {
+  const { t } = useTranslation()
   const [showAMS, setShowAMS] = useState(false)
 
   const { data: status, refetch, isFetching } = useQuery({
@@ -454,13 +446,12 @@ function PrinterCard({ printer, onEdit, onDelete }: {
         </div>
       )}
 
-      {/* AMS tray toggle */}
       <button
         className="mt-3 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
         onClick={() => setShowAMS(v => !v)}
       >
         {showAMS ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-        AMS Tray Assignment
+        {t('settings.printers.amsAssignment')}
       </button>
 
       {showAMS && <AMSTrayPanel printer={printer} />}
@@ -471,6 +462,7 @@ function PrinterCard({ printer, onEdit, onDelete }: {
 // ── Brand Spool Weights ───────────────────────────────────────────────────────
 
 function BrandWeightsSection() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [newBrand, setNewBrand] = useState('')
   const [newWeight, setNewWeight] = useState('')
@@ -503,16 +495,13 @@ function BrandWeightsSection() {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-300">Brand Spool Tare Weights</h3>
+        <h3 className="text-sm font-semibold text-gray-300">{t('settings.brandWeights.title')}</h3>
       </div>
-      <p className="text-xs text-gray-500 mb-3">
-        The weight of the empty plastic spool (without filament) per brand.
-        Used to calculate remaining filament from a scale reading.
-      </p>
+      <p className="text-xs text-gray-500 mb-3">{t('settings.brandWeights.hint')}</p>
 
       <div className="card space-y-2">
         {entries.length === 0 && (
-          <p className="text-xs text-gray-500 py-1">No brands configured yet.</p>
+          <p className="text-xs text-gray-500 py-1">{t('settings.brandWeights.noEntries')}</p>
         )}
 
         {entries.map(e => (
@@ -523,7 +512,7 @@ function BrandWeightsSection() {
                   className="input flex-1 text-sm py-1"
                   value={editBrand}
                   onChange={ev => setEditBrand(ev.target.value)}
-                  placeholder="Brand"
+                  placeholder={t('settings.brandWeights.brand')}
                 />
                 <input
                   className="input w-24 text-sm py-1 text-right"
@@ -537,7 +526,7 @@ function BrandWeightsSection() {
                   onClick={() => updateMut.mutate({ id: e.id })}
                   disabled={!editBrand || !editWeight}
                 >
-                  Save
+                  {t('common.save')}
                 </button>
                 <button className="btn-ghost p-1" onClick={() => setEditingId(null)}><X size={12} /></button>
               </>
@@ -555,13 +544,12 @@ function BrandWeightsSection() {
           </div>
         ))}
 
-        {/* Add new */}
         <div className="flex items-center gap-2 pt-2 border-t border-surface-3">
           <input
             className="input flex-1 text-sm py-1"
             value={newBrand}
             onChange={e => setNewBrand(e.target.value)}
-            placeholder="Brand name (e.g. SUNLU)"
+            placeholder={t('settings.brandWeights.brandPlaceholder')}
           />
           <input
             className="input w-24 text-sm py-1 text-right"
@@ -576,7 +564,7 @@ function BrandWeightsSection() {
             onClick={() => createMut.mutate()}
             disabled={!newBrand.trim() || !newWeight || createMut.isPending}
           >
-            <Plus size={12} /> Add
+            <Plus size={12} /> {t('common.add')}
           </button>
         </div>
       </div>
@@ -588,23 +576,26 @@ function BrandWeightsSection() {
 
 function NameListSection({
   title,
-  description,
+  hint,
   queryKey,
   fetchFn,
   createFn,
   updateFn,
   deleteFn,
   placeholder,
+  noEntries,
 }: {
   title: string
-  description: string
+  hint?: string
   queryKey: string
   fetchFn: () => Promise<FilamentSubtype[]>
   createFn: (name: string) => Promise<FilamentSubtype>
   updateFn: (id: number, name: string) => Promise<FilamentSubtype>
   deleteFn: (id: number) => Promise<void>
   placeholder: string
+  noEntries: string
 }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [newName, setNewName] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -630,11 +621,11 @@ function NameListSection({
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-300 mb-1">{title}</h3>
-      <p className="text-xs text-gray-500 mb-3">{description}</p>
+      {hint && <p className="text-xs text-gray-500 mb-3">{hint}</p>}
 
       <div className="card space-y-2">
         {entries.length === 0 && (
-          <p className="text-xs text-gray-500 py-1">No entries yet.</p>
+          <p className="text-xs text-gray-500 py-1">{noEntries}</p>
         )}
 
         {entries.map(e => (
@@ -652,7 +643,7 @@ function NameListSection({
                   className="btn-primary text-xs px-2 py-1"
                   onClick={() => updateMut.mutate({ id: e.id })}
                   disabled={!editName.trim()}
-                >Save</button>
+                >{t('common.save')}</button>
                 <button className="btn-ghost p-1" onClick={() => setEditingId(null)}><X size={12} /></button>
               </>
             ) : (
@@ -678,7 +669,7 @@ function NameListSection({
             onClick={() => createMut.mutate()}
             disabled={!newName.trim() || createMut.isPending}
           >
-            <Plus size={12} /> Add
+            <Plus size={12} /> {t('common.add')}
           </button>
         </div>
       </div>
@@ -689,6 +680,7 @@ function NameListSection({
 // ── Data Transfer ─────────────────────────────────────────────────────────────
 
 function DataTransferSection() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const [exporting, setExporting] = useState(false)
@@ -724,7 +716,6 @@ function DataTransferSection() {
       const bundle = JSON.parse(text)
       const result = await api.importData(bundle)
       setImportResult(result.imported)
-      // Refresh all cached data
       qc.invalidateQueries()
     } catch (e: unknown) {
       setImportError(e instanceof Error ? e.message : String(e))
@@ -735,25 +726,23 @@ function DataTransferSection() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-1">Data Export / Import</h2>
-      <p className="text-sm text-gray-500 mb-6">
-        Export all spools, prints, settings and printer configs to a JSON file. Use this to migrate data between installations.
-      </p>
+    <div className="card">
+      <h3 className="text-sm font-semibold text-gray-300 mb-1">{t('settings.dataTransfer.title')}</h3>
+      <p className="text-xs text-gray-500 mb-4">{t('settings.dataTransfer.exportHint')}</p>
 
       <div className="flex flex-wrap gap-3 mb-4">
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="btn-primary flex items-center gap-2"
         >
-          <Download size={16} />
-          {exporting ? 'Exporting…' : 'Export data'}
+          <Download size={14} />
+          {exporting ? t('settings.dataTransfer.exporting') : t('settings.dataTransfer.exportBtn')}
         </button>
 
-        <label className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg cursor-pointer border ${importing ? 'opacity-50 pointer-events-none' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
-          <Upload size={16} />
-          {importing ? 'Importing…' : 'Import data'}
+        <label className={`btn-ghost flex items-center gap-2 cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+          <Upload size={14} />
+          {importing ? t('settings.dataTransfer.importing') : t('settings.dataTransfer.importBtn')}
           <input
             ref={fileRef}
             type="file"
@@ -766,11 +755,11 @@ function DataTransferSection() {
       </div>
 
       {importResult && (
-        <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">
+        <div className="rounded-lg bg-green-900/30 border border-green-700 p-4 text-sm text-green-300 mb-3">
           <div className="flex items-center gap-2 font-medium mb-2">
-            <CheckCircle size={16} /> Import successful
+            <CheckCircle size={16} /> {t('settings.dataTransfer.importSuccessTitle')}
           </div>
-          <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-green-700">
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-green-400">
             {Object.entries(importResult).map(([key, count]) => (
               <li key={key} className="flex justify-between">
                 <span className="capitalize">{key.replace(/_/g, ' ')}</span>
@@ -782,15 +771,13 @@ function DataTransferSection() {
       )}
 
       {importError && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700 flex items-start gap-2">
+        <div className="rounded-lg bg-red-900/30 border border-red-700 p-4 text-sm text-red-300 flex items-start gap-2 mb-3">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <span>{importError}</span>
         </div>
       )}
 
-      <p className="mt-4 text-xs text-gray-400">
-        Import is additive — existing data is never deleted. Duplicate spools will be added as new entries. Printer configs with the same device slug are skipped.
-      </p>
+      <p className="text-xs text-gray-500">{t('settings.dataTransfer.importNote')}</p>
     </div>
   )
 }
@@ -798,6 +785,7 @@ function DataTransferSection() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Settings() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<PrinterConfig | null>(null)
@@ -829,36 +817,32 @@ export default function Settings() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-bold">Settings</h2>
+        <h2 className="text-lg font-bold">{t('settings.title')}</h2>
         {versionData && <span className="text-xs text-gray-500">v{versionData.version}</span>}
       </div>
 
       {/* HA Connection */}
       <div className="card">
-        <h3 className="text-sm font-semibold text-gray-300 mb-3">Home Assistant</h3>
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">{t('settings.ha.title')}</h3>
         <div className="flex items-center gap-2">
           {haStatus?.ha_available
-            ? <><CheckCircle size={16} className="text-green-400" /><span className="text-sm text-green-400">Connected via Supervisor API</span></>
-            : <><AlertCircle size={16} className="text-red-400" /><span className="text-sm text-red-400">Cannot reach HA Supervisor API</span></>
+            ? <><CheckCircle size={16} className="text-green-400" /><span className="text-sm text-green-400">{t('settings.ha.connected')}</span></>
+            : <><AlertCircle size={16} className="text-red-400" /><span className="text-sm text-red-400">{t('settings.ha.disconnected')}</span></>
           }
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          Communicates with HA internally using the Supervisor token — no manual configuration needed.
-        </p>
+        <p className="text-xs text-gray-500 mt-2">{t('settings.ha.hint')}</p>
       </div>
 
       {/* Printers */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-300">Printers</h3>
+          <h3 className="text-sm font-semibold text-gray-300">{t('settings.printers.title')}</h3>
           <button className="btn-primary flex items-center gap-1.5 text-xs" onClick={() => setShowForm(true)}>
-            <Plus size={13} /> Add Printer
+            <Plus size={13} /> {t('settings.printers.addPrinter')}
           </button>
         </div>
         {printers.length === 0 && (
-          <p className="text-sm text-gray-500">
-            No printers configured. Add your Bambu Lab H2S to enable auto print detection.
-          </p>
+          <p className="text-sm text-gray-500">{t('settings.printers.noPrintersHint')}</p>
         )}
         <div className="space-y-3">
           {printers.map(p => (
@@ -866,7 +850,11 @@ export default function Settings() {
               key={p.id}
               printer={p}
               onEdit={() => setEditing(p)}
-              onDelete={() => { if (confirm(`Remove printer "${p.name}"?`)) deleteMut.mutate(p.id) }}
+              onDelete={() => {
+                if (confirm(t('settings.printers.confirmDelete', { name: p.name }))) {
+                  deleteMut.mutate(p.id)
+                }
+              }}
             />
           ))}
         </div>
@@ -877,50 +865,50 @@ export default function Settings() {
 
       {/* Brands */}
       <NameListSection
-        title="Filament Brands"
-        description="Brand names shown in the spool form autocomplete."
+        title={t('settings.brands.title')}
         queryKey="filament-brands"
         fetchFn={api.getFilamentBrands}
         createFn={api.createFilamentBrand}
         updateFn={api.updateFilamentBrand}
         deleteFn={api.deleteFilamentBrand}
-        placeholder="New brand (e.g. Polymaker)"
+        placeholder={t('settings.brands.placeholder')}
+        noEntries={t('settings.brands.noEntries')}
       />
 
       {/* Materials */}
       <NameListSection
-        title="Filament Materials"
-        description="Material types shown in the spool form dropdown."
+        title={t('settings.materials.title')}
         queryKey="filament-materials"
         fetchFn={api.getFilamentMaterials}
         createFn={api.createFilamentMaterial}
         updateFn={api.updateFilamentMaterial}
         deleteFn={api.deleteFilamentMaterial}
-        placeholder="New material (e.g. PLA-HF)"
+        placeholder={t('settings.materials.placeholder')}
+        noEntries={t('settings.materials.noEntries')}
       />
 
       {/* Subtypes */}
       <NameListSection
-        title="Filament Subtypes"
-        description="Subtype options shown in the spool form (e.g. Basic, Matte, Silk)."
+        title={t('settings.subtypes.title')}
         queryKey="filament-subtypes"
         fetchFn={api.getFilamentSubtypes}
         createFn={api.createFilamentSubtype}
         updateFn={api.updateFilamentSubtype}
         deleteFn={api.deleteFilamentSubtype}
-        placeholder="New subtype (e.g. Glow)"
+        placeholder={t('settings.subtypes.placeholder')}
+        noEntries={t('settings.subtypes.noEntries')}
       />
 
       {/* Purchase Locations */}
       <NameListSection
-        title="Purchase Locations"
-        description="Where spools were bought (Amazon, Aliexpress, etc.)."
+        title={t('settings.purchaseLocations.title')}
         queryKey="purchase-locations"
         fetchFn={api.getPurchaseLocations}
         createFn={api.createPurchaseLocation}
         updateFn={api.updatePurchaseLocation}
         deleteFn={api.deletePurchaseLocation}
-        placeholder="New location (e.g. Reichelt)"
+        placeholder={t('settings.purchaseLocations.placeholder')}
+        noEntries={t('settings.purchaseLocations.noEntries')}
       />
 
       {/* Data Transfer */}

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard, Layers, Printer, Settings,
-  ChevronLeft, ChevronRight, Menu, X,
+  ChevronLeft, ChevronRight, Menu, X, Globe,
 } from 'lucide-react'
 
 function AppIcon({ size = 24 }: { size?: number }) {
@@ -13,45 +14,66 @@ function AppIcon({ size = 24 }: { size?: number }) {
   )
 }
 
-const nav = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/spools',    icon: Layers,          label: 'Spools' },
-  { to: '/prints',    icon: Printer,         label: 'Prints' },
-  { to: '/settings',  icon: Settings,        label: 'Settings' },
+const LANGUAGES = [
+  { code: 'en', label: 'EN' },
+  { code: 'de', label: 'DE' },
+  { code: 'es', label: 'ES' },
 ]
 
-function NavItems({ collapsed, onClick }: { collapsed?: boolean; onClick?: () => void }) {
+function LanguageSwitcher({ collapsed }: { collapsed?: boolean }) {
+  const { i18n } = useTranslation()
+  const [open, setOpen] = useState(false)
+
+  const current = LANGUAGES.find(l => l.code === i18n.resolvedLanguage) ?? LANGUAGES[0]
+
   return (
-    <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-      {nav.map(({ to, icon: Icon, label }) => (
-        <NavLink
-          key={to}
-          to={to}
-          onClick={onClick}
-          title={collapsed ? label : undefined}
-          className={({ isActive }) =>
-            `flex items-center gap-3 rounded-lg text-sm transition-colors
-             ${collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'}
-             ${isActive
-               ? 'bg-accent text-white'
-               : 'text-gray-400 hover:text-white hover:bg-surface-3'
-             }`
-          }
-        >
-          <Icon size={16} className="shrink-0" />
-          {!collapsed && <span>{label}</span>}
-        </NavLink>
-      ))}
-    </nav>
+    <div className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Language"
+        className={`flex items-center gap-1.5 text-gray-400 hover:text-white hover:bg-surface-3 rounded-lg transition-colors
+          ${collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-1.5'}`}
+      >
+        <Globe size={14} className="shrink-0" />
+        {!collapsed && <span className="text-xs font-medium">{current.label}</span>}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-full left-0 mb-1 z-50 bg-surface-2 border border-surface-3 rounded-lg shadow-xl overflow-hidden min-w-[80px]">
+            {LANGUAGES.map(lang => (
+              <button
+                key={lang.code}
+                onClick={() => { i18n.changeLanguage(lang.code); setOpen(false) }}
+                className={`w-full text-left px-3 py-1.5 text-xs transition-colors
+                  ${i18n.resolvedLanguage === lang.code
+                    ? 'bg-accent text-white'
+                    : 'text-gray-300 hover:bg-surface-3 hover:text-white'}`}
+              >
+                {lang.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const location = useLocation()
 
-  // Close drawer on route change
+  const nav = [
+    { to: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
+    { to: '/spools',    icon: Layers,          label: t('nav.spools') },
+    { to: '/prints',    icon: Printer,         label: t('nav.prints') },
+    { to: '/settings',  icon: Settings,        label: t('nav.settings') },
+  ]
+
   useEffect(() => {
     setDrawerOpen(false)
   }, [location.pathname])
@@ -68,21 +90,46 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className={`border-b border-surface-3 py-4 flex items-center
                          ${collapsed ? 'justify-center px-2' : 'px-4 gap-2'}`}>
           {collapsed ? (
-            <span className="text-accent" title="Filament Manager">
+            <span className="text-accent" title={t('nav.appName')}>
               <AppIcon size={22} />
             </span>
           ) : (
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <span className="text-accent shrink-0"><AppIcon size={20} /></span>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-white leading-tight truncate">Filament Manager</p>
-                <p className="text-xs text-gray-500">3D Print Tracker</p>
+                <p className="text-sm font-bold text-white leading-tight truncate">{t('nav.appName')}</p>
+                <p className="text-xs text-gray-500">{t('nav.appSub')}</p>
               </div>
             </div>
           )}
         </div>
 
-        <NavItems collapsed={collapsed} />
+        {/* Nav items */}
+        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+          {nav.map(({ to, icon: Icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              title={collapsed ? label : undefined}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg text-sm transition-colors
+                 ${collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'}
+                 ${isActive
+                   ? 'bg-accent text-white'
+                   : 'text-gray-400 hover:text-white hover:bg-surface-3'
+                 }`
+              }
+            >
+              <Icon size={16} className="shrink-0" />
+              {!collapsed && <span>{label}</span>}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Language switcher */}
+        <div className={`border-t border-surface-3 px-2 py-2 ${collapsed ? 'flex justify-center' : ''}`}>
+          <LanguageSwitcher collapsed={collapsed} />
+        </div>
 
         {/* Collapse toggle */}
         <button
@@ -98,22 +145,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* ── Mobile overlay + drawer (<768px) ─────────────────────────────────── */}
       {drawerOpen && (
         <>
-          {/* Backdrop */}
           <div
             className="fixed inset-0 z-40 bg-black/60"
             onClick={() => setDrawerOpen(false)}
           />
-
-          {/* Drawer panel */}
           <aside className="fixed inset-y-0 left-0 z-50 flex flex-col w-64
                             bg-surface-2 border-r border-surface-3 shadow-xl">
-            {/* Drawer header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-surface-3 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-accent shrink-0"><AppIcon size={20} /></span>
                 <div>
-                  <p className="text-sm font-bold text-white leading-tight">Filament Manager</p>
-                  <p className="text-xs text-gray-500">3D Print Tracker</p>
+                  <p className="text-sm font-bold text-white leading-tight">{t('nav.appName')}</p>
+                  <p className="text-xs text-gray-500">{t('nav.appSub')}</p>
                 </div>
               </div>
               <button
@@ -124,7 +167,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
 
-            <NavItems onClick={() => setDrawerOpen(false)} />
+            <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+              {nav.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => setDrawerOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-lg text-sm px-3 py-2.5 transition-colors
+                     ${isActive
+                       ? 'bg-accent text-white'
+                       : 'text-gray-400 hover:text-white hover:bg-surface-3'
+                     }`
+                  }
+                >
+                  <Icon size={16} className="shrink-0" />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="border-t border-surface-3 px-3 py-2">
+              <LanguageSwitcher />
+            </div>
           </aside>
         </>
       )}
@@ -142,7 +207,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           >
             <Menu size={20} />
           </button>
-          <p className="text-sm font-bold text-white">Filament Manager</p>
+          <p className="text-sm font-bold text-white">{t('nav.appName')}</p>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
