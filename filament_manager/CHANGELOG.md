@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.6
+
+- Fix TypeScript build error: missing Locale type import in Dashboard.tsx
+
 ## 0.5.5
 
 - Automatically inherit language from Home Assistant instance on first load
