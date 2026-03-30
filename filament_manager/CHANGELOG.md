@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3
+
+- Fix startup crash: copy config.yaml into Docker image and use absolute path for version lookup
+- Show app icon in collapsed sidebar and mobile drawer header
+
 ## 0.5.2
 
 - Add data export / import feature (Settings → Export / Import)
