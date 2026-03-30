@@ -120,6 +120,7 @@ export const api = {
 
   // Version
   getVersion: () => request<{ version: string }>('settings/version'),
+  getHALocale: () => request<{ language: string }>('settings/ha-locale'),
 
   // Data transfer
   exportData: () => fetch(`${BASE}/data/export`).then(r => r.blob()),

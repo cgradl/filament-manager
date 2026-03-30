@@ -27,6 +27,27 @@ def get_version():
     return {"version": _read_version()}
 
 
+_SUPPORTED_LANGS = {"en", "de", "es"}
+
+@router.get("/ha-locale")
+async def get_ha_locale():
+    """Return the HA instance language, mapped to a supported locale (en/de/es)."""
+    from ..ha_client import _headers
+    import httpx, re
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get("http://supervisor/core/api/config", headers=_headers())
+            r.raise_for_status()
+            lang: str = r.json().get("language", "en")
+            # HA uses codes like "de", "en", "es-419" — take first two chars
+            code = re.match(r"[a-z]{2}", lang.lower())
+            if code and code.group() in _SUPPORTED_LANGS:
+                return {"language": code.group()}
+    except Exception:
+        pass
+    return {"language": "en"}
+
+
 class BrandWeightIn(BaseModel):
     brand: str
     spool_weight_g: float
