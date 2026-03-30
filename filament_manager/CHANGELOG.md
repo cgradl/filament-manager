@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2
+
+- Add data export / import feature (Settings → Export / Import)
+- Remove personal spool seed data — new installs start empty
+- Version number now visible in Settings header
+- Version endpoint: GET /api/settings/version
+
 ## 0.5.0
 
 - Initial public release

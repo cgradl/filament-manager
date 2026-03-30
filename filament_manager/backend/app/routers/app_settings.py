@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
@@ -8,6 +9,22 @@ from ..models import BrandSpoolWeight, FilamentSubtype, FilamentMaterial, Filame
 from ..schemas import BrandSpoolWeightOut
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
+
+_CONFIG = Path(__file__).parents[4] / "config.yaml"
+
+def _read_version() -> str:
+    try:
+        for line in _CONFIG.read_text().splitlines():
+            if line.startswith("version:"):
+                return line.split(":", 1)[1].strip().strip('"')
+    except Exception:
+        pass
+    return "unknown"
+
+
+@router.get("/version")
+def get_version():
+    return {"version": _read_version()}
 
 
 class BrandWeightIn(BaseModel):

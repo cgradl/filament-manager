@@ -118,6 +118,9 @@ export const api = {
   deletePurchaseLocation: (id: number) =>
     request<void>(`settings/purchase-locations/${id}`, { method: 'DELETE' }),
 
+  // Version
+  getVersion: () => request<{ version: string }>('settings/version'),
+
   // Data transfer
   exportData: () => fetch(`${BASE}/data/export`).then(r => r.blob()),
   importData: (bundle: unknown) =>

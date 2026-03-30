@@ -811,6 +811,11 @@ export default function Settings() {
     queryFn: api.getHAStatus,
     refetchInterval: 15_000,
   })
+  const { data: versionData } = useQuery({
+    queryKey: ['version'],
+    queryFn: api.getVersion,
+    staleTime: Infinity,
+  })
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['printers'] })
 
@@ -823,7 +828,10 @@ export default function Settings() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <h2 className="text-lg font-bold">Settings</h2>
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-lg font-bold">Settings</h2>
+        {versionData && <span className="text-xs text-gray-500">v{versionData.version}</span>}
+      </div>
 
       {/* HA Connection */}
       <div className="card">
