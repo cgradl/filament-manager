@@ -2,7 +2,7 @@
 
 A Home Assistant app for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via the [greghesp Bambu Lab integration](https://github.com/greghesp/ha-bambulab).
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.5.3-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -19,9 +19,15 @@ A Home Assistant app for tracking 3D printer filament inventory, monitoring prin
 
 ## Screenshots
 
-| Dashboard | Spools | Print History | Settings |
-|-----------|--------|---------------|----------|
-| Stats, charts, alerts | Inventory with weight/cost | Timeline with filament breakdown | Printer & AMS setup |
+![Dashboard](filament_manager/docs/Dashboard.png)
+
+![Spools](filament_manager/docs/spools.png)
+
+![Spool Tiles](filament_manager/docs/spoolstiles.png)
+
+![Print History](filament_manager/docs/prints.png)
+
+![Settings](filament_manager/docs/settings.png)
 
 ---
 
