@@ -1,0 +1,39 @@
+#include <tunables/global>
+
+profile filament_manager flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Capabilities
+  file,
+  signal (send) set=(kill,term,int,hup,cont),
+
+  # S6-Overlay
+  /init ix,
+  /bin/** ix,
+  /usr/bin/** ix,
+  /run/{s6,s6-rc*,fix-attrs.d}/** ix,
+  /package/** ix,
+  /command/** ix,
+  /etc/s6/** rwix,
+  /run/s6/** rwix,
+  /etc/s6-overlay/** ix,
+
+  # Bashio
+  /usr/lib/bashio/** ix,
+  /tmp/** rwk,
+
+  # Data access
+  /data/** rw,
+
+  # App files
+  /app/** r,
+  /app/main.py rix,
+
+  # Python
+  /usr/local/bin/python3* ix,
+  /usr/local/lib/python3*/** r,
+
+  # Network
+  network tcp,
+  network udp,
+}
