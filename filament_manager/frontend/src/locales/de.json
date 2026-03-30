@@ -150,7 +150,7 @@
       "modelPlaceholder": "benchy.3mf",
       "noAMSPrinter": "Wähle einen Drucker, um AMS-Belegung zu laden, oder Spulen manuell hinzufügen.",
       "noAMSAssigned": "Keine Spulen den AMS-Fächern zugeordnet. Gehe zu Einstellungen → Drucker → AMS-Fachzuordnung.",
-      "loadAMSHint": "Klicke auf „Aus AMS laden", um die aktuelle Fachbelegung zu übernehmen, oder manuell hinzufügen.",
+      "loadAMSHint": "Klicke auf 'Aus AMS laden', um die aktuelle Fachbelegung zu übernehmen, oder manuell hinzufügen.",
       "selectPrinterFirst": "Zuerst einen Drucker auswählen"
     },
     "table": {
