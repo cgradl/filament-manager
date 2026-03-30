@@ -5,7 +5,7 @@ import { api } from '../api'
 import type { DashboardStats, PrintJob } from '../types'
 import { AlertTriangle, Printer } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { enUS, de, es } from 'date-fns/locale'
+import { enUS, de, es, type Locale } from 'date-fns/locale'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
