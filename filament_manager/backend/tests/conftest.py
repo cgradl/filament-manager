@@ -11,8 +11,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
+import app.models  # noqa: F401 — registers all ORM models with Base before create_all
 from app.routers import spools, prints, printers, dashboard, app_settings, data_transfer
 
 
@@ -26,6 +28,7 @@ def engine():
     eng = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     Base.metadata.create_all(eng)
     yield eng
