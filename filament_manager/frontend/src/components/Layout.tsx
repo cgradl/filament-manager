@@ -5,6 +5,14 @@ import {
   ChevronLeft, ChevronRight, Menu, X,
 } from 'lucide-react'
 
+function AppIcon({ size = 24 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+      <path d="M20 6h-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h3v2a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2h3a1 1 0 0 0 1-1V8a2 2 0 0 0-2-2M10 4h4v2h-4zm-2 16v-5h8v5zm10-7H6v-1h12zm0-3H6V8h12z" />
+    </svg>
+  )
+}
+
 const nav = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/spools',    icon: Layers,          label: 'Spools' },
@@ -59,10 +67,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <div className={`border-b border-surface-3 py-4 flex items-center
                          ${collapsed ? 'justify-center px-2' : 'px-4 gap-2'}`}>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white leading-tight truncate">Filament Manager</p>
-              <p className="text-xs text-gray-500">3D Print Tracker</p>
+          {collapsed ? (
+            <span className="text-accent" title="Filament Manager">
+              <AppIcon size={22} />
+            </span>
+          ) : (
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="text-accent shrink-0"><AppIcon size={20} /></span>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white leading-tight truncate">Filament Manager</p>
+                <p className="text-xs text-gray-500">3D Print Tracker</p>
+              </div>
             </div>
           )}
         </div>
@@ -94,9 +109,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             bg-surface-2 border-r border-surface-3 shadow-xl">
             {/* Drawer header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-surface-3 shrink-0">
-              <div>
-                <p className="text-sm font-bold text-white leading-tight">Filament Manager</p>
-                <p className="text-xs text-gray-500">3D Print Tracker</p>
+              <div className="flex items-center gap-2">
+                <span className="text-accent shrink-0"><AppIcon size={20} /></span>
+                <div>
+                  <p className="text-sm font-bold text-white leading-tight">Filament Manager</p>
+                  <p className="text-xs text-gray-500">3D Print Tracker</p>
+                </div>
               </div>
               <button
                 className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-surface-3 transition-colors"
