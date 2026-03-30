@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.5
+
+- Automatically inherit language from Home Assistant instance on first load
+- User-selected language (via in-app switcher) still takes precedence
+
 ## 0.5.4
 
 - Full EN / DE / ES interface translations with in-app language switcher
