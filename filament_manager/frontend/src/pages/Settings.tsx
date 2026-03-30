@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype } from '../types'
-import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
 import Modal from '../components/Modal'
 
 // ── Printer Form ──────────────────────────────────────────────────────────────
@@ -686,6 +686,115 @@ function NameListSection({
   )
 }
 
+// ── Data Transfer ─────────────────────────────────────────────────────────────
+
+function DataTransferSection() {
+  const qc = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<Record<string, number> | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await api.exportData()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `filament_manager_export_${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e: unknown) {
+      alert('Export failed: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    setImportResult(null)
+    setImportError(null)
+    try {
+      const text = await file.text()
+      const bundle = JSON.parse(text)
+      const result = await api.importData(bundle)
+      setImportResult(result.imported)
+      // Refresh all cached data
+      qc.invalidateQueries()
+    } catch (e: unknown) {
+      setImportError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setImporting(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-1">Data Export / Import</h2>
+      <p className="text-sm text-gray-500 mb-6">
+        Export all spools, prints, settings and printer configs to a JSON file. Use this to migrate data between installations.
+      </p>
+
+      <div className="flex flex-wrap gap-3 mb-4">
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        >
+          <Download size={16} />
+          {exporting ? 'Exporting…' : 'Export data'}
+        </button>
+
+        <label className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg cursor-pointer border ${importing ? 'opacity-50 pointer-events-none' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+          <Upload size={16} />
+          {importing ? 'Importing…' : 'Import data'}
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleFileChange}
+            disabled={importing}
+          />
+        </label>
+      </div>
+
+      {importResult && (
+        <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">
+          <div className="flex items-center gap-2 font-medium mb-2">
+            <CheckCircle size={16} /> Import successful
+          </div>
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-green-700">
+            {Object.entries(importResult).map(([key, count]) => (
+              <li key={key} className="flex justify-between">
+                <span className="capitalize">{key.replace(/_/g, ' ')}</span>
+                <span className="font-medium">{count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {importError && (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700 flex items-start gap-2">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" />
+          <span>{importError}</span>
+        </div>
+      )}
+
+      <p className="mt-4 text-xs text-gray-400">
+        Import is additive — existing data is never deleted. Duplicate spools will be added as new entries. Printer configs with the same device slug are skipped.
+      </p>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Settings() {
@@ -805,6 +914,9 @@ export default function Settings() {
         deleteFn={api.deletePurchaseLocation}
         placeholder="New location (e.g. Reichelt)"
       />
+
+      {/* Data Transfer */}
+      <DataTransferSection />
 
       {(showForm || editing) && (
         <Modal>

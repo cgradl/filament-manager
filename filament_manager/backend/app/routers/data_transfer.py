@@ -1,0 +1,278 @@
+"""
+Export / Import all application data as a single JSON bundle.
+
+Export:  GET  /api/data/export
+Import:  POST /api/data/import
+
+The bundle format is versioned so future schema changes can be handled gracefully.
+On import, existing records are never deleted — data is merged additively.
+Spool IDs in print_usages are remapped from the source database to the target database.
+"""
+
+from datetime import datetime
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from ..database import get_db
+from ..models import (
+    Spool, PrintJob, PrintUsage,
+    BrandSpoolWeight, FilamentMaterial, FilamentSubtype, FilamentBrand,
+    PurchaseLocation, PrinterConfig,
+)
+
+router = APIRouter(prefix="/api/data", tags=["data-transfer"])
+
+EXPORT_VERSION = 1
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def _dt(v) -> str | None:
+    return v.isoformat() if v else None
+
+def _spool_dict(s: Spool) -> dict:
+    return {
+        "id": s.id,
+        "brand": s.brand,
+        "material": s.material,
+        "subtype": s.subtype,
+        "subtype2": s.subtype2,
+        "color_name": s.color_name,
+        "color_hex": s.color_hex,
+        "diameter_mm": s.diameter_mm,
+        "initial_weight_g": s.initial_weight_g,
+        "current_weight_g": s.current_weight_g,
+        "spool_weight_g": s.spool_weight_g,
+        "purchase_price": s.purchase_price,
+        "purchased_at": _dt(s.purchased_at),
+        "purchase_location": s.purchase_location,
+        "ams_slot": s.ams_slot,
+        "notes": s.notes,
+        "created_at": _dt(s.created_at),
+    }
+
+def _usage_dict(u: PrintUsage) -> dict:
+    return {
+        "spool_id": u.spool_id,
+        "grams_used": u.grams_used,
+        "meters_used": u.meters_used,
+        "ams_slot": u.ams_slot,
+    }
+
+def _job_dict(j: PrintJob) -> dict:
+    return {
+        "id": j.id,
+        "name": j.name,
+        "model_name": j.model_name,
+        "description": j.description,
+        "started_at": _dt(j.started_at),
+        "finished_at": _dt(j.finished_at),
+        "duration_seconds": j.duration_seconds,
+        "success": j.success,
+        "notes": j.notes,
+        "printer_name": j.printer_name,
+        "source": j.source,
+        "ams_snapshot_start": j.ams_snapshot_start,
+        "created_at": _dt(j.created_at),
+        "usages": [_usage_dict(u) for u in j.usages],
+    }
+
+
+# ── export ────────────────────────────────────────────────────────────────────
+
+@router.get("/export")
+def export_data(db: Session = Depends(get_db)):
+    spools     = db.query(Spool).order_by(Spool.id).all()
+    jobs       = db.query(PrintJob).order_by(PrintJob.id).all()
+    printers   = db.query(PrinterConfig).order_by(PrinterConfig.id).all()
+    bw         = db.query(BrandSpoolWeight).order_by(BrandSpoolWeight.brand).all()
+    materials  = db.query(FilamentMaterial).order_by(FilamentMaterial.name).all()
+    subtypes   = db.query(FilamentSubtype).order_by(FilamentSubtype.name).all()
+    brands     = db.query(FilamentBrand).order_by(FilamentBrand.name).all()
+    locations  = db.query(PurchaseLocation).order_by(PurchaseLocation.name).all()
+
+    bundle = {
+        "version": EXPORT_VERSION,
+        "exported_at": datetime.utcnow().isoformat(),
+        "spools": [_spool_dict(s) for s in spools],
+        "print_jobs": [_job_dict(j) for j in jobs],
+        "printer_configs": [
+            {
+                "name": p.name,
+                "device_slug": p.device_slug,
+                "ams_device_slug": p.ams_device_slug,
+                "ams_unit_count": p.ams_unit_count,
+                "is_active": p.is_active,
+            }
+            for p in printers
+        ],
+        "settings": {
+            "brand_weights": [{"brand": b.brand, "spool_weight_g": b.spool_weight_g} for b in bw],
+            "materials":     [m.name for m in materials],
+            "subtypes":      [s.name for s in subtypes],
+            "brands":        [b.name for b in brands],
+            "purchase_locations": [l.name for l in locations],
+        },
+    }
+
+    return JSONResponse(
+        content=bundle,
+        headers={"Content-Disposition": 'attachment; filename="filament_manager_export.json"'},
+    )
+
+
+# ── import ────────────────────────────────────────────────────────────────────
+
+class ImportBundle(BaseModel):
+    version: int
+    spools: list[dict[str, Any]] = []
+    print_jobs: list[dict[str, Any]] = []
+    printer_configs: list[dict[str, Any]] = []
+    settings: dict[str, Any] = {}
+
+
+@router.post("/import")
+def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
+    if bundle.version != EXPORT_VERSION:
+        raise HTTPException(400, f"Unsupported export version {bundle.version} (expected {EXPORT_VERSION})")
+
+    stats: dict[str, int] = {
+        "spools": 0,
+        "print_jobs": 0,
+        "print_usages": 0,
+        "printer_configs": 0,
+        "materials": 0,
+        "subtypes": 0,
+        "brands": 0,
+        "purchase_locations": 0,
+        "brand_weights": 0,
+    }
+
+    # ── settings lists (skip duplicates by name) ──────────────────────────────
+    s = bundle.settings
+
+    existing_mats = {r.name for r in db.query(FilamentMaterial).all()}
+    for name in s.get("materials", []):
+        if name and name not in existing_mats:
+            db.add(FilamentMaterial(name=name))
+            stats["materials"] += 1
+
+    existing_sub = {r.name for r in db.query(FilamentSubtype).all()}
+    for name in s.get("subtypes", []):
+        if name and name not in existing_sub:
+            db.add(FilamentSubtype(name=name))
+            stats["subtypes"] += 1
+
+    existing_br = {r.name for r in db.query(FilamentBrand).all()}
+    for name in s.get("brands", []):
+        if name and name not in existing_br:
+            db.add(FilamentBrand(name=name))
+            stats["brands"] += 1
+
+    existing_loc = {r.name for r in db.query(PurchaseLocation).all()}
+    for name in s.get("purchase_locations", []):
+        if name and name not in existing_loc:
+            db.add(PurchaseLocation(name=name))
+            stats["purchase_locations"] += 1
+
+    existing_bw = {r.brand for r in db.query(BrandSpoolWeight).all()}
+    for bw in s.get("brand_weights", []):
+        if bw.get("brand") and bw["brand"] not in existing_bw:
+            db.add(BrandSpoolWeight(brand=bw["brand"], spool_weight_g=bw["spool_weight_g"]))
+            stats["brand_weights"] += 1
+
+    db.flush()
+
+    # ── printer configs (skip if same device_slug already exists) ─────────────
+    existing_slugs = {r.device_slug for r in db.query(PrinterConfig).all()}
+    for p in bundle.printer_configs:
+        if p.get("device_slug") and p["device_slug"] not in existing_slugs:
+            db.add(PrinterConfig(
+                name=p.get("name", p["device_slug"]),
+                device_slug=p["device_slug"],
+                ams_device_slug=p.get("ams_device_slug"),
+                ams_unit_count=p.get("ams_unit_count", 1),
+                is_active=p.get("is_active", True),
+            ))
+            stats["printer_configs"] += 1
+
+    db.flush()
+
+    # ── spools: import all, build old_id → new_id map ─────────────────────────
+    spool_id_map: dict[int, int] = {}
+    for sp in bundle.spools:
+        old_id = sp.get("id")
+        new_spool = Spool(
+            brand=sp.get("brand", "Unknown"),
+            material=sp.get("material", "PLA"),
+            subtype=sp.get("subtype"),
+            subtype2=sp.get("subtype2"),
+            color_name=sp.get("color_name", ""),
+            color_hex=sp.get("color_hex", "#888888"),
+            diameter_mm=sp.get("diameter_mm", 1.75),
+            initial_weight_g=sp.get("initial_weight_g", 1000),
+            current_weight_g=sp.get("current_weight_g", 0),
+            spool_weight_g=sp.get("spool_weight_g", 0),
+            purchase_price=sp.get("purchase_price"),
+            purchased_at=_parse_dt(sp.get("purchased_at")),
+            purchase_location=sp.get("purchase_location"),
+            ams_slot=sp.get("ams_slot"),
+            notes=sp.get("notes"),
+            created_at=_parse_dt(sp.get("created_at")) or datetime.utcnow(),
+        )
+        db.add(new_spool)
+        db.flush()
+        if old_id is not None:
+            spool_id_map[old_id] = new_spool.id
+        stats["spools"] += 1
+
+    # ── print jobs + usages: remap spool IDs ──────────────────────────────────
+    for job_data in bundle.print_jobs:
+        job = PrintJob(
+            name=job_data.get("name", "Imported print"),
+            model_name=job_data.get("model_name"),
+            description=job_data.get("description"),
+            started_at=_parse_dt(job_data.get("started_at")) or datetime.utcnow(),
+            finished_at=_parse_dt(job_data.get("finished_at")),
+            duration_seconds=job_data.get("duration_seconds"),
+            success=job_data.get("success", True),
+            notes=job_data.get("notes"),
+            printer_name=job_data.get("printer_name"),
+            source=job_data.get("source", "imported"),
+            ams_snapshot_start=job_data.get("ams_snapshot_start") or {},
+            created_at=_parse_dt(job_data.get("created_at")) or datetime.utcnow(),
+        )
+        db.add(job)
+        db.flush()
+        stats["print_jobs"] += 1
+
+        for u in job_data.get("usages", []):
+            old_spool_id = u.get("spool_id")
+            new_spool_id = spool_id_map.get(old_spool_id) if old_spool_id is not None else None
+            if new_spool_id is None:
+                # spool not in this import — skip usage rather than fail
+                continue
+            db.add(PrintUsage(
+                print_job_id=job.id,
+                spool_id=new_spool_id,
+                grams_used=u.get("grams_used", 0),
+                meters_used=u.get("meters_used"),
+                ams_slot=u.get("ams_slot"),
+            ))
+            stats["print_usages"] += 1
+
+    db.commit()
+    return {"ok": True, "imported": stats}
+
+
+def _parse_dt(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        return None

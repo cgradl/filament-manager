@@ -117,4 +117,12 @@ export const api = {
     request<FilamentSubtype>(`settings/purchase-locations/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
   deletePurchaseLocation: (id: number) =>
     request<void>(`settings/purchase-locations/${id}`, { method: 'DELETE' }),
+
+  // Data transfer
+  exportData: () => fetch(`${BASE}/data/export`).then(r => r.blob()),
+  importData: (bundle: unknown) =>
+    request<{ ok: boolean; imported: Record<string, number> }>('data/import', {
+      method: 'POST',
+      body: JSON.stringify(bundle),
+    }),
 }

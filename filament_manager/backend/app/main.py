@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from .database import engine, Base
-from .routers import spools, prints, printers, dashboard, app_settings
+from .routers import spools, prints, printers, dashboard, app_settings, data_transfer
 from . import print_monitor
 
 logging.basicConfig(level=logging.INFO)
@@ -223,6 +223,7 @@ app.include_router(prints.router)
 app.include_router(printers.router)
 app.include_router(dashboard.router)
 app.include_router(app_settings.router)
+app.include_router(data_transfer.router)
 
 # Serve React frontend
 # In container: __file__ = /app/app/main.py → parent.parent = /app → /app/static
