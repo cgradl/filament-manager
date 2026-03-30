@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.4
+
+- Full EN / DE / ES interface translations with in-app language switcher
+- Language preference persisted across sessions (localStorage)
+- Date-fns relative times now locale-aware in dashboard and print history
+- Settings page data-transfer section redesigned to match dark card style
+
 ## 0.5.3
 
 - Fix startup crash: copy config.yaml into Docker image and use absolute path for version lookup
