@@ -243,7 +243,15 @@
       "haDeviceHint": "El nombre que aparece en HA bajo Ajustes → Dispositivos y servicios → Bambu Lab.",
       "amsDeviceName": "Nombre del dispositivo AMS en Home Assistant",
       "amsDeviceHint": "Normalmente igual que la impresora. Cambia solo si las entidades AMS usan un prefijo diferente.",
-      "leaveBlank": "Dejar vacío para usar el mismo nombre que la impresora"
+      "leaveBlank": "Dejar vacío para usar el mismo nombre que la impresora",
+      "customSensors": "IDs de entidad de sensor personalizadas",
+      "customSensorsHint": "Sobrescribe las IDs de entidad si tu integración de HA usa nombres diferentes (p.ej. en otro idioma). Dejar vacío para usar el valor predeterminado calculado automáticamente.",
+      "sensor_print_stage": "Fase de impresión",
+      "sensor_print_progress": "Progreso de impresión",
+      "sensor_remaining_time": "Tiempo restante",
+      "sensor_nozzle_temp": "Temperatura de boquilla",
+      "sensor_bed_temp": "Temperatura de cama",
+      "sensor_current_file": "Archivo actual"
     },
     "brandWeights": {
       "title": "Pesos de bobina vacía por marca",

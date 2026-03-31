@@ -182,5 +182,25 @@ class PrinterConfig(Base):
     is_active = Column(Boolean, default=True)
     bambu_serial = Column(String, nullable=True)          # Bambu Lab device serial number
     bambu_source = Column(String, nullable=False, default="ha")  # "ha" | "cloud"
+
+    # Optional per-printer sensor entity ID overrides (for non-English HA installations)
+    sensor_print_stage    = Column(String, nullable=True)
+    sensor_print_progress = Column(String, nullable=True)
+    sensor_remaining_time = Column(String, nullable=True)
+    sensor_nozzle_temp    = Column(String, nullable=True)
+    sensor_bed_temp       = Column(String, nullable=True)
+    sensor_current_file   = Column(String, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def sensor_overrides(self) -> dict:
+        """Return only the keys that have a non-empty override set."""
+        keys = ("print_stage", "print_progress", "remaining_time",
+                "nozzle_temp", "bed_temp", "current_file")
+        return {
+            k: getattr(self, f"sensor_{k}")
+            for k in keys
+            if getattr(self, f"sensor_{k}", None)
+        }

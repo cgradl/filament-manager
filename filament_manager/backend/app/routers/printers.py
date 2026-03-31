@@ -21,6 +21,20 @@ class PrinterIn(BaseModel):
     is_active: bool = True
     bambu_serial: str | None = None
     bambu_source: str = "ha"
+    # Per-printer sensor entity ID overrides (empty string = use default)
+    sensor_print_stage:    str | None = None
+    sensor_print_progress: str | None = None
+    sensor_remaining_time: str | None = None
+    sensor_nozzle_temp:    str | None = None
+    sensor_bed_temp:       str | None = None
+    sensor_current_file:   str | None = None
+
+    def model_post_init(self, __context) -> None:
+        # Normalise empty strings to None so they're not stored as overrides
+        for field in ("sensor_print_stage", "sensor_print_progress", "sensor_remaining_time",
+                      "sensor_nozzle_temp", "sensor_bed_temp", "sensor_current_file"):
+            if isinstance(getattr(self, field), str) and not getattr(self, field).strip():
+                setattr(self, field, None)
 
 
 class PrinterOut(BaseModel):
@@ -32,6 +46,12 @@ class PrinterOut(BaseModel):
     is_active: bool
     bambu_serial: str | None
     bambu_source: str
+    sensor_print_stage:    str | None
+    sensor_print_progress: str | None
+    sensor_remaining_time: str | None
+    sensor_nozzle_temp:    str | None
+    sensor_bed_temp:       str | None
+    sensor_current_file:   str | None
 
     class Config:
         from_attributes = True
@@ -371,7 +391,7 @@ async def get_printer_status(printer_id: int, db: Session = Depends(get_db)):
             "current_file":   raw.get("subtask_name"),
         }
 
-    entities = ha_client.get_printer_entity_ids(p.device_slug)
+    entities = ha_client.get_printer_entity_ids(p.device_slug, p.sensor_overrides)
     result = {}
     for key, eid in entities.items():
         result[key] = await ha_client.get_entity_value(eid)

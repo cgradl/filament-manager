@@ -61,6 +61,12 @@ export interface PrinterConfig {
   is_active: boolean
   bambu_serial: string | null
   bambu_source: string   // "ha" | "cloud"
+  sensor_print_stage:    string | null
+  sensor_print_progress: string | null
+  sensor_remaining_time: string | null
+  sensor_nozzle_temp:    string | null
+  sensor_bed_temp:       string | null
+  sensor_current_file:   string | null
 }
 
 export interface BambuCloudStatus {

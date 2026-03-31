@@ -9,13 +9,24 @@ import BambuCloudSection from '../components/BambuCloudSection'
 
 // ── Printer Form ──────────────────────────────────────────────────────────────
 
+type SensorKey = 'print_stage' | 'print_progress' | 'remaining_time' | 'nozzle_temp' | 'bed_temp' | 'current_file'
+
+const SENSOR_DEFAULTS: Record<SensorKey, string> = {
+  print_stage:    'current_stage',
+  print_progress: 'print_progress',
+  remaining_time: 'remaining_time',
+  nozzle_temp:    'nozzle_temperature',
+  bed_temp:       'bed_temperature',
+  current_file:   'gcode_file',
+}
+
 function PrinterForm({
   initial,
   onSave,
   onCancel,
 }: {
   initial?: PrinterConfig
-  onSave: (data: { name: string; device_slug: string; ams_device_slug: string | null; ams_unit_count: number; is_active: boolean }) => void
+  onSave: (data: Record<string, unknown>) => void
   onCancel: () => void
 }) {
   const { t } = useTranslation()
@@ -30,6 +41,15 @@ function PrinterForm({
   const [isActive, setIsActive] = useState(initial?.is_active ?? true)
   const [discovery, setDiscovery] = useState<DiscoverResult | null>(null)
   const [discovering, setDiscovering] = useState(false)
+  const [showSensors, setShowSensors] = useState(false)
+  const [sensorOverrides, setSensorOverrides] = useState<Partial<Record<SensorKey, string>>>({
+    print_stage:    initial?.sensor_print_stage    ?? '',
+    print_progress: initial?.sensor_print_progress ?? '',
+    remaining_time: initial?.sensor_remaining_time ?? '',
+    nozzle_temp:    initial?.sensor_nozzle_temp    ?? '',
+    bed_temp:       initial?.sensor_bed_temp       ?? '',
+    current_file:   initial?.sensor_current_file   ?? '',
+  })
 
   const haSlugify = (s: string) =>
     s.toLowerCase().trim()
@@ -203,6 +223,35 @@ function PrinterForm({
             <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
             {t('settings.printers.monitorPrinter')}
           </label>
+
+          {/* Custom sensor entity ID overrides */}
+          <div>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+              onClick={() => setShowSensors(v => !v)}
+            >
+              {showSensors ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {t('settings.printers.customSensors')}
+            </button>
+
+            {showSensors && (
+              <div className="mt-2 space-y-2 bg-surface-3/40 rounded-xl p-3">
+                <p className="text-xs text-gray-500">{t('settings.printers.customSensorsHint')}</p>
+                {(Object.keys(SENSOR_DEFAULTS) as SensorKey[]).map(key => (
+                  <div key={key}>
+                    <label className="label text-xs">{t(`settings.printers.sensor_${key}`)}</label>
+                    <input
+                      className="input text-xs"
+                      value={sensorOverrides[key] ?? ''}
+                      onChange={e => setSensorOverrides(prev => ({ ...prev, [key]: e.target.value }))}
+                      placeholder={`sensor.${slug || '…'}_${SENSOR_DEFAULTS[key]}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-3">
@@ -215,6 +264,12 @@ function PrinterForm({
               ams_device_slug: amsSlug !== slug ? amsSlug : null,
               ams_unit_count: amsCount,
               is_active: isActive,
+              sensor_print_stage:    sensorOverrides.print_stage    || null,
+              sensor_print_progress: sensorOverrides.print_progress || null,
+              sensor_remaining_time: sensorOverrides.remaining_time || null,
+              sensor_nozzle_temp:    sensorOverrides.nozzle_temp    || null,
+              sensor_bed_temp:       sensorOverrides.bed_temp       || null,
+              sensor_current_file:   sensorOverrides.current_file   || null,
             })}
             disabled={!name.trim() || !deviceName.trim()}
           >

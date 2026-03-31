@@ -74,6 +74,14 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added printer_configs.bambu_source")
 
+        # printer_configs: add per-printer sensor entity ID overrides
+        for _col in ("sensor_print_stage", "sensor_print_progress", "sensor_remaining_time",
+                     "sensor_nozzle_temp", "sensor_bed_temp", "sensor_current_file"):
+            if _col not in printer_cols:
+                conn.execute(text(f"ALTER TABLE printer_configs ADD COLUMN {_col} TEXT"))
+                conn.commit()
+                log.info("Migration: added printer_configs.%s", _col)
+
         # spools: if current_weight_g is 0 for ALL spools and initial_weight_g exists,
         # recover from is_active flag (legacy) — set current = initial for active spools
         if "is_active" in spool_cols:

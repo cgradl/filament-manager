@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+- Add per-printer custom sensor entity ID overrides — users with non-English HA installations (or renamed entities) can now specify the exact entity ID for each of the 6 printer sensors (print stage, progress, remaining time, nozzle/bed temp, current file)
+- Overrides are configured under Settings → Printer → Custom Sensor Entity IDs (collapsible)
+- EN / DE / ES translations for all new UI
+- When blank, the auto-computed default (`sensor.{slug}_current_stage` etc.) is used as before
+
 ## 0.7.1
 
 - Fix Docker build on Alpine aarch64: replace `bambu-lab-cloud-api` (which transitively required `opencv-python` from source) with direct `paho-mqtt` + `requests` calls

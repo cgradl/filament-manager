@@ -243,7 +243,15 @@
       "haDeviceHint": "The name shown in HA under Settings → Devices & Services → Bambu Lab.",
       "amsDeviceName": "AMS Device Name in Home Assistant",
       "amsDeviceHint": "Usually the same as the printer. Only change if AMS entities use a different prefix.",
-      "leaveBlank": "Leave blank to use same as printer"
+      "leaveBlank": "Leave blank to use same as printer",
+      "customSensors": "Custom Sensor Entity IDs",
+      "customSensorsHint": "Override entity IDs if your HA integration uses different names (e.g. installed in a different language). Leave blank to use the auto-computed default.",
+      "sensor_print_stage": "Print Stage",
+      "sensor_print_progress": "Print Progress",
+      "sensor_remaining_time": "Remaining Time",
+      "sensor_nozzle_temp": "Nozzle Temperature",
+      "sensor_bed_temp": "Bed Temperature",
+      "sensor_current_file": "Current File"
     },
     "brandWeights": {
       "title": "Brand Spool Tare Weights",

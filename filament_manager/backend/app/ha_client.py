@@ -29,9 +29,19 @@ def slugify(name: str) -> str:
     return s.strip("_")
 
 
-def get_printer_entity_ids(device_slug: str) -> dict[str, str]:
-    """Return the expected entity_id for each printer sensor."""
-    return {k: f"sensor.{device_slug}_{v}" for k, v in _PRINTER_SUFFIXES.items()}
+def get_printer_entity_ids(device_slug: str, sensor_overrides: dict | None = None) -> dict[str, str]:
+    """
+    Return the effective entity_id for each printer sensor.
+    Any key present in sensor_overrides replaces the auto-computed default,
+    allowing users with non-English HA installations (or renamed entities) to
+    specify their actual entity IDs.
+    """
+    result = {k: f"sensor.{device_slug}_{v}" for k, v in _PRINTER_SUFFIXES.items()}
+    if sensor_overrides:
+        for k, v in sensor_overrides.items():
+            if v and v.strip():
+                result[k] = v.strip()
+    return result
 
 
 def get_ams_config(device_slug: str, ams_unit_count: int, trays_per_ams: int = 4,

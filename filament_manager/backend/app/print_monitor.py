@@ -61,7 +61,7 @@ async def _check_printer(printer: PrinterConfig, db: Session) -> None:
         else:
             _state[printer.id] = {"stage": "idle", "job_id": None}
 
-    entities = ha_client.get_printer_entity_ids(printer.device_slug)
+    entities = ha_client.get_printer_entity_ids(printer.device_slug, printer.sensor_overrides)
     stage_raw = await ha_client.get_entity_value(entities["print_stage"])
     if stage_raw is None:
         return

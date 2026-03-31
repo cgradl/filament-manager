@@ -243,7 +243,15 @@
       "haDeviceHint": "Der Name, der in HA unter Einstellungen → Geräte & Dienste → Bambu Lab angezeigt wird.",
       "amsDeviceName": "AMS-Gerätename in Home Assistant",
       "amsDeviceHint": "Normalerweise identisch mit dem Drucker. Nur ändern, wenn AMS-Entitäten ein anderes Präfix verwenden.",
-      "leaveBlank": "Leer lassen für denselben Namen wie Drucker"
+      "leaveBlank": "Leer lassen für denselben Namen wie Drucker",
+      "customSensors": "Benutzerdefinierte Sensor-Entitäts-IDs",
+      "customSensorsHint": "Entitäts-IDs überschreiben, wenn die HA-Integration andere Namen verwendet (z.B. bei anderer Sprache). Leer lassen für den automatisch berechneten Standard.",
+      "sensor_print_stage": "Druckphase",
+      "sensor_print_progress": "Druckfortschritt",
+      "sensor_remaining_time": "Verbleibende Zeit",
+      "sensor_nozzle_temp": "Düsentemperatur",
+      "sensor_bed_temp": "Betttemperatur",
+      "sensor_current_file": "Aktuelle Datei"
     },
     "brandWeights": {
       "title": "Leerspulengewichte je Marke",
