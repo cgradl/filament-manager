@@ -2,7 +2,7 @@
 Bambu Lab Cloud integration.
 
 Handles:
-- Email/password + 2FA authentication via bambu-lab-cloud-api
+- Email/password + 2FA authentication via Bambu Cloud REST API
 - Encrypted credential storage in /data/.bambu_cloud.json (chmod 0600)
 - Cloud MQTT connection per printer (us.mqtt.bambulab.com:8883)
 - Bridging MQTT events → print_monitor state machine
@@ -16,14 +16,17 @@ Security model:
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
+import ssl
 import stat
 import threading
 from datetime import datetime, timezone
-from typing import Callable
 
+import paho.mqtt.client as mqtt
+import requests
 from cryptography.fernet import Fernet
 from fastapi import HTTPException
 
@@ -34,6 +37,11 @@ log = logging.getLogger(__name__)
 CRED_FILE = "/data/.bambu_cloud.json"
 _2FA_TIMEOUT_SECONDS = 600  # 10 minutes
 
+_AUTH_BASE = "https://api.bambulab.com/v1/user-service/user"
+_IOT_BASE  = "https://api.bambulab.com/v1/iot-service/api"
+MQTT_HOST  = "us.mqtt.bambulab.com"
+MQTT_PORT  = 8883
+
 # ── Module-level state ────────────────────────────────────────────────────────
 
 _status: dict = {
@@ -42,11 +50,11 @@ _status: dict = {
     "error": None,
 }
 
-# Temporarily holds login context during 2FA flow
-_pending: dict = {}   # {email, password, initiated_at}
+# Holds login context during 2FA flow
+_pending: dict = {}   # {email, password}
 
-# serial → MQTTClient
-_mqtt_clients: dict[str, object] = {}
+# serial → paho MQTT client
+_mqtt_clients: dict[str, mqtt.Client] = {}
 
 # serial → last parsed printer status dict
 _printer_status_cache: dict[str, dict] = {}
@@ -59,6 +67,24 @@ _serial_to_printer_id: dict[str, int] = {}
 
 # Running asyncio event loop (stored at startup for thread-safe task scheduling)
 _loop: asyncio.AbstractEventLoop | None = None
+
+
+# ── JWT / auth helpers ────────────────────────────────────────────────────────
+
+def _jwt_uid(token: str) -> str:
+    """Decode UID from JWT payload without signature verification."""
+    try:
+        payload_b64 = token.split(".")[1]
+        padded = payload_b64 + "=" * (-len(payload_b64) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded))
+        return str(payload.get("uid") or payload.get("sub", ""))
+    except Exception:
+        return ""
+
+
+def _mqtt_username(email: str, token: str) -> str:
+    uid = _jwt_uid(token)
+    return f"u_{uid}" if uid else email
 
 
 # ── Credential helpers ────────────────────────────────────────────────────────
@@ -100,29 +126,54 @@ def _delete_credentials() -> None:
         pass
 
 
+# ── HTTP auth calls ───────────────────────────────────────────────────────────
+
+def _http_login(email: str, password: str, code: str | None = None) -> dict:
+    """POST to Bambu login endpoint. Returns response JSON."""
+    payload: dict = {"account": email, "password": password}
+    if code:
+        payload["code"] = code
+        payload["loginType"] = "verifyCode"
+    resp = requests.post(f"{_AUTH_BASE}/login", json=payload, timeout=20)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _http_send_2fa_email(email: str) -> None:
+    """Ask Bambu to send the verification code to the user's email."""
+    try:
+        requests.post(
+            f"{_AUTH_BASE}/sendemail/code",
+            json={"email": email, "type": "codeLogin"},
+            timeout=20,
+        )
+    except Exception as exc:
+        log.warning("Failed to request 2FA email: %s", exc)
+
+
+def _http_get_devices(token: str) -> list[dict]:
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(f"{_IOT_BASE}/user/bind", headers=headers, timeout=20)
+    resp.raise_for_status()
+    data = resp.json()
+    return data.get("devices", [])
+
+
 # ── MQTT helpers ──────────────────────────────────────────────────────────────
 
-def _on_mqtt_message(device_id: str, data: dict) -> None:
-    """
-    Called from paho-mqtt's background thread.
-    Parses payload, updates caches, and schedules print_monitor calls
-    on the asyncio event loop thread-safely.
-    """
+def _process_device_message(serial: str, data: dict) -> None:
+    """Parse MQTT payload, update caches, schedule print_monitor calls."""
     print_data = data.get("print", {})
     gcode_state = print_data.get("gcode_state", "")
     subtask_name = print_data.get("subtask_name", "")
 
-    # Update AMS cache
-    ams_raw = data.get("ams", {})
-    if ams_raw:
-        _parse_ams_into_cache(device_id, ams_raw)
-    # Also handle ams nested under print
-    ams_in_print = print_data.get("ams", {})
-    if ams_in_print:
-        _parse_ams_into_cache(device_id, ams_in_print)
+    # Update AMS cache from top-level or nested ams object
+    for ams_source in (data.get("ams", {}), print_data.get("ams", {})):
+        if ams_source:
+            _parse_ams_into_cache(serial, ams_source)
 
     # Update general status cache
-    _printer_status_cache[device_id] = {
+    _printer_status_cache[serial] = {
         "gcode_state": gcode_state,
         "mc_percent": print_data.get("mc_percent"),
         "mc_remaining_time": print_data.get("mc_remaining_time"),
@@ -131,30 +182,25 @@ def _on_mqtt_message(device_id: str, data: dict) -> None:
         "subtask_name": subtask_name,
     }
 
-    if not gcode_state:
+    if not gcode_state or _loop is None:
         return
 
-    printer_id = _serial_to_printer_id.get(device_id)
+    printer_id = _serial_to_printer_id.get(serial)
     if printer_id is None:
-        return
-
-    state_upper = gcode_state.upper()
-
-    if _loop is None:
         return
 
     # Import here to avoid circular import at module level
     from . import print_monitor
 
+    state_upper = gcode_state.upper()
     if state_upper == "RUNNING":
         asyncio.run_coroutine_threadsafe(
-            print_monitor.on_cloud_print_start(printer_id, subtask_name, device_id),
+            print_monitor.on_cloud_print_start(printer_id, subtask_name, serial),
             _loop,
         )
     elif state_upper in ("FINISH", "FAILED", "IDLE"):
-        success = state_upper != "FAILED"
         asyncio.run_coroutine_threadsafe(
-            print_monitor.on_cloud_print_end(printer_id, success, state_upper),
+            print_monitor.on_cloud_print_end(printer_id, state_upper != "FAILED", state_upper),
             _loop,
         )
 
@@ -162,7 +208,7 @@ def _on_mqtt_message(device_id: str, data: dict) -> None:
 def _parse_ams_into_cache(serial: str, ams_raw: dict) -> None:
     snapshot: dict[str, float] = {}
     for unit in ams_raw.get("ams", []):
-        ams_id = int(unit.get("id", 0)) + 1  # HA uses 1-based
+        ams_id = int(unit.get("id", 0)) + 1   # HA uses 1-based
         for tray in unit.get("tray", []):
             tray_id = int(tray.get("id", 0)) + 1  # 1-based
             remain = tray.get("remain")
@@ -175,35 +221,58 @@ def _parse_ams_into_cache(serial: str, ams_raw: dict) -> None:
 
 
 def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
-    """Start a non-blocking MQTT client for a device serial. Called from sync context."""
+    """Create and start a non-blocking paho MQTT client for a device serial."""
     if serial in _mqtt_clients:
         try:
+            _mqtt_clients[serial].loop_stop()
             _mqtt_clients[serial].disconnect()
         except Exception:
             pass
 
     try:
-        from bambulab.mqtt import MQTTClient
-
-        def _cb(device_id: str, data: dict) -> None:
-            _on_mqtt_message(device_id, data)
-
-        client = MQTTClient(
-            username=email,
-            access_token=token,
-            device_id=serial,
-            on_message=_cb,
+        username = _mqtt_username(email, token)
+        client = mqtt.Client(
+            client_id=f"bambu-filament-manager-{serial}",
+            protocol=mqtt.MQTTv311,
         )
-        # connect in background thread — non-blocking
-        t = threading.Thread(target=client.connect, kwargs={"blocking": True}, daemon=True)
-        t.start()
+        client.username_pw_set(username, token)
+
+        tls_ctx = ssl.create_default_context()
+        client.tls_set_context(tls_ctx)
+
+        def on_connect(c, userdata, flags, rc):
+            if rc == 0:
+                topic = f"device/{serial}/report"
+                c.subscribe(topic, qos=0)
+                log.info("Bambu Cloud MQTT connected for %s", serial)
+                # Request a full status push immediately
+                c.publish(
+                    f"device/{serial}/request",
+                    json.dumps({"pushing": {"sequence_id": "0", "command": "pushall"}}),
+                    qos=0,
+                )
+            else:
+                log.error("Bambu Cloud MQTT connect failed for %s, rc=%d", serial, rc)
+
+        def on_message(c, userdata, msg):
+            try:
+                data = json.loads(msg.payload)
+            except Exception:
+                return
+            _process_device_message(serial, data)
+
+        def on_disconnect(c, userdata, rc):
+            log.warning("Bambu Cloud MQTT disconnected for %s, rc=%d", serial, rc)
+
+        client.on_connect = on_connect
+        client.on_message = on_message
+        client.on_disconnect = on_disconnect
+
+        client.connect_async(MQTT_HOST, MQTT_PORT)
+        client.loop_start()  # background thread — non-blocking
+
         _mqtt_clients[serial] = client
-        log.info("Bambu Cloud MQTT started for serial %s", serial)
-        # Request a full status dump immediately
-        try:
-            client.request_full_status()
-        except Exception:
-            pass
+        log.info("Bambu Cloud MQTT client started for serial %s", serial)
     except Exception as exc:
         log.error("Failed to start MQTT for %s: %s", serial, exc)
 
@@ -230,14 +299,14 @@ async def startup() -> None:
     _status["email"] = email
     _status["error"] = None
 
-    # Reconnect MQTT for all cloud-source printers
     await _connect_mqtt_for_cloud_printers(email, token)
 
 
 async def shutdown() -> None:
-    """Cleanly disconnect all MQTT clients."""
+    """Cleanly stop all MQTT clients."""
     for serial, client in list(_mqtt_clients.items()):
         try:
+            client.loop_stop()
             client.disconnect()
             log.info("Bambu Cloud MQTT disconnected for %s", serial)
         except Exception:
@@ -247,101 +316,77 @@ async def shutdown() -> None:
 
 async def begin_login(email: str, password: str) -> dict:
     """
-    Start the login flow. Stores pending context and initiates 2FA by
-    calling BambuAuthenticator.login() in a thread (it's synchronous).
-
-    The library sends a 2FA email then invokes the code_callback we pass.
-    We use a threading.Event to pause that callback until verify_2fa() is called.
-    Returns {"requires_2fa": True} immediately so the frontend can show the code form.
+    Start the login flow.
+    - If Bambu requires 2FA: sends the verification email and returns
+      {"requires_2fa": True} so the frontend can show the code form.
+    - If no 2FA needed: completes login immediately.
     """
     global _pending
 
-    _pending = {
-        "email": email,
-        "password": password,
-        "initiated_at": datetime.now(timezone.utc),
-        "code_event": threading.Event(),
-        "code_value": None,
-        "result_event": threading.Event(),
-        "result_token": None,
-        "result_error": None,
-    }
-    _status["status"] = "pending_2fa"
-    _status["email"] = email
-    _status["error"] = None
-
-    # Run the blocking login in a thread
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _run_login_in_thread)
-
-    return {"requires_2fa": True}
-
-
-def _run_login_in_thread() -> None:
-    """Blocking login call — runs in executor thread."""
     try:
-        from bambulab.auth import BambuAuthenticator, BambuAuthError
-
-        auth = BambuAuthenticator(region="global")
-
-        def code_callback() -> str:
-            log.info("Bambu Cloud: waiting for 2FA code from user")
-            got_code = _pending["code_event"].wait(timeout=_2FA_TIMEOUT_SECONDS)
-            if not got_code or not _pending.get("code_value"):
-                raise RuntimeError("2FA timeout — code not received")
-            return _pending["code_value"]
-
-        token = auth.login(
-            _pending["email"],
-            _pending["password"],
-            code_callback=code_callback,
+        resp = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: _http_login(email, password)
         )
-        _pending["result_token"] = token
     except Exception as exc:
-        _pending["result_error"] = str(exc)
-    finally:
-        _pending["result_event"].set()
-
-
-async def verify_2fa(code: str) -> None:
-    """
-    Submit the 2FA code. Unblocks the login thread, waits for result,
-    then persists credentials and starts MQTT.
-    """
-    if not _pending or _status["status"] != "pending_2fa":
-        raise HTTPException(400, "No pending login — start login first")
-
-    initiated = _pending.get("initiated_at")
-    if initiated:
-        age = (datetime.now(timezone.utc) - initiated).total_seconds()
-        if age > _2FA_TIMEOUT_SECONDS:
-            _status["status"] = "disconnected"
-            raise HTTPException(408, "2FA session expired — please log in again")
-
-    _pending["code_value"] = code
-    _pending["code_event"].set()
-
-    # Wait for the login thread to finish (up to 30s)
-    loop = asyncio.get_event_loop()
-    done = await loop.run_in_executor(
-        None,
-        lambda: _pending["result_event"].wait(timeout=30),
-    )
-
-    if not done or _pending.get("result_error"):
-        err = _pending.get("result_error", "Unknown error")
         _status["status"] = "error"
-        _status["error"] = err
-        raise HTTPException(400, f"Login failed: {err}")
+        _status["error"] = str(exc)
+        raise HTTPException(400, f"Login failed: {exc}")
 
-    token = _pending["result_token"]
-    email = _pending["email"]
-    password = _pending["password"]
+    login_type = resp.get("loginType", "")
+
+    if login_type == "verifyCode":
+        _pending = {"email": email, "password": password}
+        _status["status"] = "pending_2fa"
+        _status["email"] = email
+        _status["error"] = None
+        # Ask Bambu to send the 2FA email
+        await asyncio.get_event_loop().run_in_executor(
+            None, lambda: _http_send_2fa_email(email)
+        )
+        return {"requires_2fa": True}
+
+    # No 2FA required — token is in the first response
+    token = resp.get("accessToken", "")
+    if not token:
+        raise HTTPException(400, "Login failed: no access token returned")
 
     _save_credentials(email, password, token)
     _status["status"] = "connected"
     _status["email"] = email
     _status["error"] = None
+    await _connect_mqtt_for_cloud_printers(email, token)
+    return {"requires_2fa": False}
+
+
+async def verify_2fa(code: str) -> None:
+    """Submit the 2FA code, complete login, persist credentials, start MQTT."""
+    if not _pending or _status["status"] != "pending_2fa":
+        raise HTTPException(400, "No pending login — start login first")
+
+    email = _pending["email"]
+    password = _pending["password"]
+
+    try:
+        resp = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: _http_login(email, password, code=code)
+        )
+    except Exception as exc:
+        _status["status"] = "error"
+        _status["error"] = str(exc)
+        raise HTTPException(400, f"Verification failed: {exc}")
+
+    token = resp.get("accessToken", "")
+    if not token:
+        err = resp.get("message", "No access token returned")
+        _status["status"] = "error"
+        _status["error"] = err
+        raise HTTPException(400, f"Login failed: {err}")
+
+    _save_credentials(email, password, token)
+    _status["status"] = "connected"
+    _status["email"] = email
+    _status["error"] = None
+    _pending.clear()
 
     await _connect_mqtt_for_cloud_printers(email, token)
     log.info("Bambu Cloud: login complete for %s", email)
@@ -357,6 +402,7 @@ async def logout() -> None:
     _serial_to_printer_id.clear()
     _printer_status_cache.clear()
     _ams_cache.clear()
+    _pending.clear()
     log.info("Bambu Cloud: logged out")
 
 
@@ -376,9 +422,7 @@ def get_devices() -> list[dict]:
     if not creds:
         raise HTTPException(503, "No credentials found")
     try:
-        from bambulab.client import BambuClient
-        client = BambuClient(token=creds["token"])
-        raw = client.get_devices()
+        raw = _http_get_devices(creds["token"])
         return [
             {
                 "serial": d.get("dev_id", ""),
@@ -423,14 +467,13 @@ async def _connect_mqtt_for_cloud_printers(email: str, token: str) -> None:
             db.query(PrinterConfig)
             .filter(PrinterConfig.bambu_source == "cloud")
             .filter(PrinterConfig.bambu_serial != None)  # noqa: E711
-            .filter(PrinterConfig.is_active == True)  # noqa: E712
+            .filter(PrinterConfig.is_active == True)    # noqa: E712
             .all()
         )
         for p in printers:
             _serial_to_printer_id[p.bambu_serial] = p.id
-            loop = asyncio.get_event_loop()
             serial = p.bambu_serial
-            loop.run_in_executor(
+            asyncio.get_event_loop().run_in_executor(
                 None,
                 lambda s=serial: _start_mqtt_for_serial(s, email, token),
             )

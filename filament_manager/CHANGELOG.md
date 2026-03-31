@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1
+
+- Fix Docker build on Alpine aarch64: replace `bambu-lab-cloud-api` (which transitively required `opencv-python` from source) with direct `paho-mqtt` + `requests` calls
+- Rewrite Bambu Cloud auth and MQTT client using Bambu REST API and raw paho-mqtt — no external wrappers needed
+
 ## 0.7.0
 
 - Add Bambu Lab Cloud integration (experimental) — direct MQTT connection to `us.mqtt.bambulab.com:8883`
