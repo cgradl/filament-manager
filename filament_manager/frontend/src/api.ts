@@ -124,6 +124,7 @@ export const api = {
 
   // Data transfer
   exportData: () => fetch(`${BASE}/data/export`).then(r => r.blob()),
+  exportSpoolman: () => fetch(`${BASE}/data/export-spoolman`).then(r => r.blob()),
   importData: (bundle: unknown) =>
     request<{ ok: boolean; imported: Record<string, number> }>('data/import', {
       method: 'POST',

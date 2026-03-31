@@ -264,7 +264,9 @@
       "exporting": "Exporting…",
       "importing": "Importing…",
       "importSuccessTitle": "Import successful",
-      "importNote": "Import is additive — existing data is never deleted. Duplicate spools will be added as new entries. Printer configs with the same device slug are skipped."
+      "importNote": "Import is additive — existing data is never deleted. Duplicate spools will be added as new entries. Printer configs with the same device slug are skipped.",
+      "exportSpoolmanBtn": "Export for Spoolman",
+      "exportSpoolmanHint": "Downloads a Spoolman-compatible JSON with your filament types and spool inventory."
     }
   }
 }

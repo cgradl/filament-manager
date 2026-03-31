@@ -691,6 +691,7 @@ function DataTransferSection() {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const [exporting, setExporting] = useState(false)
+  const [exportingSpoolman, setExportingSpoolman] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<Record<string, number> | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
@@ -709,6 +710,23 @@ function DataTransferSection() {
       alert('Export failed: ' + (e instanceof Error ? e.message : String(e)))
     } finally {
       setExporting(false)
+    }
+  }
+
+  const handleExportSpoolman = async () => {
+    setExportingSpoolman(true)
+    try {
+      const blob = await api.exportSpoolman()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `spoolman_export_${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e: unknown) {
+      alert('Export failed: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setExportingSpoolman(false)
     }
   }
 
@@ -745,6 +763,15 @@ function DataTransferSection() {
         >
           <Download size={14} />
           {exporting ? t('settings.dataTransfer.exporting') : t('settings.dataTransfer.exportBtn')}
+        </button>
+
+        <button
+          onClick={handleExportSpoolman}
+          disabled={exportingSpoolman}
+          className="btn-ghost flex items-center gap-2"
+        >
+          <Download size={14} />
+          {exportingSpoolman ? t('settings.dataTransfer.exporting') : t('settings.dataTransfer.exportSpoolmanBtn')}
         </button>
 
         <label className={`btn-ghost flex items-center gap-2 cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>

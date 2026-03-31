@@ -21,7 +21,7 @@ from ..database import get_db
 from ..models import (
     Spool, PrintJob, PrintUsage,
     BrandSpoolWeight, FilamentMaterial, FilamentSubtype, FilamentBrand,
-    PurchaseLocation, PrinterConfig,
+    PurchaseLocation, PrinterConfig, MATERIAL_DENSITY,
 )
 
 router = APIRouter(prefix="/api/data", tags=["data-transfer"])
@@ -122,6 +122,76 @@ def export_data(db: Session = Depends(get_db)):
     return JSONResponse(
         content=bundle,
         headers={"Content-Disposition": 'attachment; filename="filament_manager_export.json"'},
+    )
+
+
+# ── Spoolman export ───────────────────────────────────────────────────────────
+
+@router.get("/export-spoolman")
+def export_spoolman(db: Session = Depends(get_db)):
+    """
+    Export spool inventory as a Spoolman-compatible JSON file.
+
+    The file contains two lists:
+      - filaments  — one entry per unique (brand, material, color, diameter)
+      - spools     — one entry per spool, referencing a filament by id
+
+    Users can import these into Spoolman via its REST API or compatible tools.
+    """
+    spools = db.query(Spool).order_by(Spool.id).all()
+
+    # Deduplicate filament types by (brand, material, color_hex, diameter_mm)
+    filament_key_to_id: dict[tuple, int] = {}
+    filaments: list[dict] = []
+
+    for spool in spools:
+        color_hex_raw = (spool.color_hex or "#888888").lstrip("#").upper()
+        key = (spool.brand, spool.material or "PLA", color_hex_raw, spool.diameter_mm or 1.75)
+        if key not in filament_key_to_id:
+            fid = len(filaments) + 1
+            filament_key_to_id[key] = fid
+            density = MATERIAL_DENSITY.get(spool.material or "PLA", 1.24)
+            filaments.append({
+                "id": fid,
+                "name": spool.color_name or spool.material or "Unknown",
+                "vendor": {"name": spool.brand},
+                "material": spool.material or "PLA",
+                "color_hex": color_hex_raw,
+                "weight": spool.initial_weight_g,
+                "spool_weight": spool.spool_weight_g or None,
+                "price": spool.purchase_price,
+                "density": density,
+                "diameter": spool.diameter_mm or 1.75,
+                "comment": " / ".join(filter(None, [spool.subtype, spool.subtype2])) or None,
+            })
+
+    spoolman_spools: list[dict] = []
+    for spool in spools:
+        color_hex_raw = (spool.color_hex or "#888888").lstrip("#").upper()
+        key = (spool.brand, spool.material or "PLA", color_hex_raw, spool.diameter_mm or 1.75)
+        fid = filament_key_to_id[key]
+        used_weight = max(0.0, (spool.initial_weight_g or 0) - (spool.current_weight_g or 0))
+        spoolman_spools.append({
+            "id": spool.id,
+            "registered": _dt(spool.created_at) or datetime.utcnow().isoformat(),
+            "filament": {"id": fid},
+            "remaining_weight": spool.current_weight_g,
+            "used_weight": used_weight,
+            "archived": (spool.current_weight_g or 0) <= 0,
+            "location": spool.purchase_location or None,
+            "comment": spool.notes or None,
+        })
+
+    bundle = {
+        "spoolman_export": True,
+        "created": datetime.utcnow().isoformat(),
+        "filaments": filaments,
+        "spools": spoolman_spools,
+    }
+
+    return JSONResponse(
+        content=bundle,
+        headers={"Content-Disposition": 'attachment; filename="spoolman_export.json"'},
     )
 
 

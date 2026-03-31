@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- Add Spoolman-compatible export (Settings → Export for Spoolman)
+- Generates a JSON file with deduplicated filament types and spool inventory matching the Spoolman API schema
+- Available in EN / DE / ES
+
 ## 0.5.7
 
 - Fix device name slugification to handle special characters (dots, parentheses, exclamation marks, etc.) so printer entity lookups work for any HA device name, not just simple ones
