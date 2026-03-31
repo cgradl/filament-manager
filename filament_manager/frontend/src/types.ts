@@ -59,6 +59,21 @@ export interface PrinterConfig {
   ams_device_slug: string | null
   ams_unit_count: number
   is_active: boolean
+  bambu_serial: string | null
+  bambu_source: string   // "ha" | "cloud"
+}
+
+export interface BambuCloudStatus {
+  status: 'disconnected' | 'pending_2fa' | 'connected' | 'error'
+  email: string | null
+  error: string | null
+}
+
+export interface BambuCloudDevice {
+  serial: string
+  name: string
+  model: string
+  online: boolean
 }
 
 export interface BrandSpoolWeight {

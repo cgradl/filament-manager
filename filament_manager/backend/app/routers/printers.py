@@ -19,6 +19,8 @@ class PrinterIn(BaseModel):
     ams_device_slug: str | None = None
     ams_unit_count: int = 1
     is_active: bool = True
+    bambu_serial: str | None = None
+    bambu_source: str = "ha"
 
 
 class PrinterOut(BaseModel):
@@ -28,6 +30,8 @@ class PrinterOut(BaseModel):
     ams_device_slug: str | None
     ams_unit_count: int
     is_active: bool
+    bambu_serial: str | None
+    bambu_source: str
 
     class Config:
         from_attributes = True
@@ -306,10 +310,13 @@ def list_printers(db: Session = Depends(get_db)):
 
 @router.post("", response_model=PrinterOut, status_code=201)
 def create_printer(body: PrinterIn, db: Session = Depends(get_db)):
+    from .. import bambu_cloud_client
     p = PrinterConfig(**body.model_dump())
     db.add(p)
     db.commit()
     db.refresh(p)
+    if p.bambu_source == "cloud" and p.bambu_serial:
+        bambu_cloud_client.register_printer(p.id, p.bambu_serial)
     return p
 
 
@@ -323,6 +330,7 @@ def get_printer(printer_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/{printer_id}", response_model=PrinterOut)
 def update_printer(printer_id: int, body: PrinterIn, db: Session = Depends(get_db)):
+    from .. import bambu_cloud_client
     p = db.get(PrinterConfig, printer_id)
     if not p:
         raise HTTPException(404, "Printer not found")
@@ -331,6 +339,8 @@ def update_printer(printer_id: int, body: PrinterIn, db: Session = Depends(get_d
     p.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(p)
+    if p.bambu_source == "cloud" and p.bambu_serial:
+        bambu_cloud_client.register_printer(p.id, p.bambu_serial)
     return p
 
 
@@ -348,6 +358,19 @@ async def get_printer_status(printer_id: int, db: Session = Depends(get_db)):
     p = db.get(PrinterConfig, printer_id)
     if not p:
         raise HTTPException(404, "Printer not found")
+
+    if getattr(p, "bambu_source", "ha") == "cloud":
+        from .. import bambu_cloud_client
+        raw = bambu_cloud_client.get_printer_cloud_status(p.bambu_serial)
+        return {
+            "print_stage":    raw.get("gcode_state"),
+            "print_progress": str(raw["mc_percent"]) if raw.get("mc_percent") is not None else None,
+            "remaining_time": str(raw["mc_remaining_time"]) if raw.get("mc_remaining_time") is not None else None,
+            "nozzle_temp":    str(raw["nozzle_temper"]) if raw.get("nozzle_temper") is not None else None,
+            "bed_temp":       str(raw["bed_temper"]) if raw.get("bed_temper") is not None else None,
+            "current_file":   raw.get("subtask_name"),
+        }
+
     entities = ha_client.get_printer_entity_ids(p.device_slug)
     result = {}
     for key, eid in entities.items():

@@ -5,6 +5,7 @@ import { api } from '../api'
 import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype } from '../types'
 import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
 import Modal from '../components/Modal'
+import BambuCloudSection from '../components/BambuCloudSection'
 
 // ── Printer Form ──────────────────────────────────────────────────────────────
 
@@ -869,6 +870,9 @@ export default function Settings() {
         </div>
         <p className="text-xs text-gray-500 mt-2">{t('settings.ha.hint')}</p>
       </div>
+
+      {/* Bambu Lab Cloud */}
+      <BambuCloudSection />
 
       {/* Printers */}
       <div>

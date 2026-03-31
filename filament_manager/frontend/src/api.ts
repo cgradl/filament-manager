@@ -122,6 +122,24 @@ export const api = {
   getVersion: () => request<{ version: string }>('settings/version'),
   getHALocale: () => request<{ language: string }>('settings/ha-locale'),
 
+  // Bambu Cloud
+  getBambuCloudStatus: () =>
+    request<import('./types').BambuCloudStatus>('bambu-cloud/status'),
+  bambuCloudLogin: (email: string, password: string) =>
+    request<{ requires_2fa: boolean }>('bambu-cloud/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  bambuCloudVerify: (code: string) =>
+    request<{ ok: boolean }>('bambu-cloud/verify', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  bambuCloudLogout: () =>
+    fetch(`${BASE}/bambu-cloud/logout`, { method: 'DELETE' }).then(() => undefined),
+  getBambuCloudDevices: () =>
+    request<import('./types').BambuCloudDevice[]>('bambu-cloud/devices'),
+
   // Data transfer
   exportData: () => fetch(`${BASE}/data/export`).then(r => r.blob()),
   exportSpoolman: () => fetch(`${BASE}/data/export-spoolman`).then(r => r.blob()),

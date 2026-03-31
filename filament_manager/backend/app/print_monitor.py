@@ -32,6 +32,8 @@ async def poll_printers() -> None:
     try:
         printers = db.query(PrinterConfig).filter(PrinterConfig.is_active == True).all()  # noqa: E712
         for printer in printers:
+            if getattr(printer, "bambu_source", "ha") == "cloud":
+                continue  # driven by MQTT, not HA polling
             await _check_printer(printer, db)
     except Exception as exc:
         log.error("print_monitor poll error: %s", exc)
@@ -161,3 +163,72 @@ async def _record_ams_usage(
                           grams_used=grams_used, ams_slot=slot_key))
         log.info("Recorded %.1fg from spool #%d (%s) for job #%d",
                  grams_used, spool.id, slot_key, job.id)
+
+
+# ── Bambu Cloud MQTT bridge ───────────────────────────────────────────────────
+
+async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str) -> None:
+    """
+    Called by bambu_cloud_client when MQTT gcode_state transitions to RUNNING.
+    Creates a PrintJob using AMS data from the cloud MQTT cache.
+    """
+    db: Session = SessionLocal()
+    try:
+        printer = db.get(PrinterConfig, printer_id)
+        if not printer:
+            return
+
+        # Guard: don't open a duplicate job if already tracking one
+        prev = _state.get(printer_id, {})
+        if prev.get("stage") in _PRINTING_STAGES:
+            return
+
+        display_name = subtask_name or ""
+        for ext in (".gcode", ".3mf", ".bgcode"):
+            if display_name.lower().endswith(ext):
+                display_name = display_name[: -len(ext)]
+                break
+        if not display_name:
+            display_name = f"Print {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+
+        # Get AMS snapshot from cloud MQTT cache
+        from . import bambu_cloud_client
+        ams_snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(serial)
+
+        job = PrintJob(
+            name=display_name,
+            model_name=subtask_name or None,
+            started_at=datetime.now(timezone.utc),
+            source="auto",
+            printer_name=printer.name,
+            success=True,
+            ams_snapshot_start=ams_snapshot,
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+        _state[printer_id] = {"stage": "printing", "job_id": job.id}
+        log.info("Cloud: Created PrintJob #%d for %s", job.id, printer.name)
+    finally:
+        db.close()
+
+
+async def on_cloud_print_end(printer_id: int, success: bool, gcode_state: str) -> None:
+    """
+    Called by bambu_cloud_client when MQTT gcode_state transitions to FINISH,
+    FAILED, or IDLE (with an open job). Delegates to _on_print_end.
+    """
+    # Only close an open job — ignore IDLE events when nothing was printing
+    prev = _state.get(printer_id, {})
+    if prev.get("stage") not in _PRINTING_STAGES:
+        return
+
+    db: Session = SessionLocal()
+    try:
+        printer = db.get(PrinterConfig, printer_id)
+        if not printer:
+            return
+        job_id = prev.get("job_id")
+        await _on_print_end(printer, db, job_id, success=success)
+    finally:
+        db.close()

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0
+
+- Add Bambu Lab Cloud integration (experimental) — direct MQTT connection to `us.mqtt.bambulab.com:8883`
+- Email + 2FA login flow in Settings; credentials stored Fernet-encrypted at `/data/.bambu_cloud.json` (0600)
+- Per-printer data source selector: Home Assistant or Bambu Cloud — both coexist
+- Cloud printers skip HA polling; MQTT events drive the same print tracking state machine
+- Printer status endpoint serves real-time MQTT data for cloud-source printers
+- Auto-reconnects MQTT on container restart if credentials are saved
+- EN / DE / ES translations for all new UI
+
 ## 0.6.2
 
 - Fix Spoolman export: embed full filament object (with full vendor) in each spool, matching Spoolman's native GET response shape so import tools can read brand, material and color correctly

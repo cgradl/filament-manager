@@ -6,3 +6,5 @@ httpx==0.28.1
 apscheduler==3.10.4
 aiofiles==24.1.0
 python-multipart==0.0.20
+bambu-lab-cloud-api
+cryptography

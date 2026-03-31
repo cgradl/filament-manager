@@ -9,8 +9,8 @@ from fastapi.responses import FileResponse
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from .database import engine, Base
-from .routers import spools, prints, printers, dashboard, app_settings, data_transfer
-from . import print_monitor
+from .routers import spools, prints, printers, dashboard, app_settings, data_transfer, bambu_cloud
+from . import print_monitor, bambu_cloud_client
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -59,6 +59,20 @@ async def lifespan(app: FastAPI):
             conn.execute(text("ALTER TABLE printer_configs ADD COLUMN ams_device_slug TEXT"))
             conn.commit()
             log.info("Migration: added printer_configs.ams_device_slug")
+
+        # printer_configs: add bambu_serial if missing
+        if "bambu_serial" not in printer_cols:
+            conn.execute(text("ALTER TABLE printer_configs ADD COLUMN bambu_serial TEXT"))
+            conn.commit()
+            log.info("Migration: added printer_configs.bambu_serial")
+
+        # printer_configs: add bambu_source if missing
+        if "bambu_source" not in printer_cols:
+            conn.execute(text(
+                "ALTER TABLE printer_configs ADD COLUMN bambu_source TEXT NOT NULL DEFAULT 'ha'"
+            ))
+            conn.commit()
+            log.info("Migration: added printer_configs.bambu_source")
 
         # spools: if current_weight_g is 0 for ALL spools and initial_weight_g exists,
         # recover from is_active flag (legacy) — set current = initial for active spools
@@ -196,8 +210,11 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     log.info("Print monitor started (30s interval)")
 
+    await bambu_cloud_client.startup()
+
     yield
 
+    await bambu_cloud_client.shutdown()
     scheduler.shutdown()
     log.info("Scheduler stopped")
 
@@ -217,6 +234,7 @@ app.include_router(printers.router)
 app.include_router(dashboard.router)
 app.include_router(app_settings.router)
 app.include_router(data_transfer.router)
+app.include_router(bambu_cloud.router)
 
 # Serve React frontend
 # In container: __file__ = /app/app/main.py → parent.parent = /app → /app/static

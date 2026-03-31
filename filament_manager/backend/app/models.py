@@ -180,5 +180,7 @@ class PrinterConfig(Base):
     ams_device_slug = Column(String)                   # AMS device slug if different from printer
     ams_unit_count = Column(Integer, default=1)        # number of AMS units (1-4)
     is_active = Column(Boolean, default=True)
+    bambu_serial = Column(String, nullable=True)          # Bambu Lab device serial number
+    bambu_source = Column(String, nullable=False, default="ha")  # "ha" | "cloud"
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
