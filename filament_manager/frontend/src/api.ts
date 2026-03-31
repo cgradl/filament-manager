@@ -136,7 +136,9 @@ export const api = {
       body: JSON.stringify({ code }),
     }),
   bambuCloudLogout: () =>
-    fetch(`${BASE}/bambu-cloud/logout`, { method: 'DELETE' }).then(() => undefined),
+    request<void>('bambu-cloud/logout', { method: 'DELETE' }),
+  bambuCloudCancel2fa: () =>
+    request<void>('bambu-cloud/cancel-2fa', { method: 'POST' }),
   getBambuCloudDevices: () =>
     request<import('./types').BambuCloudDevice[]>('bambu-cloud/devices'),
 

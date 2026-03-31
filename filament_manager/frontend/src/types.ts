@@ -121,6 +121,7 @@ export interface PrinterStatus {
   nozzle_temp: string | null
   bed_temp: string | null
   current_file: string | null
+  [key: string]: string | null
 }
 
 export interface MaterialBreakdown {

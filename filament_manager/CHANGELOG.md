@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+
+- Fix TypeScript build errors: `bambuCloudCancel2fa` now uses `request<void>` (consistent with other API methods); `PrinterStatus` interface gains an index signature so it can be used as `Record<string, string | null>` in printer card rendering
+
 ## 0.9.0
 
 - Redesign Settings → Printers into a unified tabbed card: "Home Assistant" tab (HA connection status + Add Printer) and "Bambu Lab Cloud" tab (login, 2FA, device list), with the configured printer list always visible below both tabs
