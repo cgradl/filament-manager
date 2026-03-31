@@ -76,7 +76,8 @@ async def lifespan(app: FastAPI):
 
         # printer_configs: add per-printer sensor entity ID overrides
         for _col in ("sensor_print_stage", "sensor_print_progress", "sensor_remaining_time",
-                     "sensor_nozzle_temp", "sensor_bed_temp", "sensor_current_file"):
+                     "sensor_nozzle_temp", "sensor_bed_temp", "sensor_current_file",
+                     "ams_tray_pattern", "ams_suffix_type", "ams_suffix_color", "ams_suffix_remain"):
             if _col not in printer_cols:
                 conn.execute(text(f"ALTER TABLE printer_configs ADD COLUMN {_col} TEXT"))
                 conn.commit()

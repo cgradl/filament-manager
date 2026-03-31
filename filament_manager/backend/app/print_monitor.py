@@ -85,7 +85,8 @@ async def _on_print_start(printer: PrinterConfig, entities: dict, db: Session) -
     log.info("Print started on %s", printer.name)
     filename = await ha_client.get_entity_value(entities["current_file"]) or ""
     ams_config = ha_client.get_ams_config(printer.device_slug, printer.ams_unit_count,
-                                           ams_device_slug=printer.ams_device_slug)
+                                           ams_device_slug=printer.ams_device_slug,
+                                           ams_overrides=printer.ams_overrides)
     ams_snapshot = await ha_client.get_ams_snapshot(ams_config)
 
     # Use the gcode filename as the display name; strip common extensions
@@ -134,7 +135,8 @@ async def _on_print_end(
         job.duration_seconds = int((now - started).total_seconds())
 
     ams_config = ha_client.get_ams_config(printer.device_slug, printer.ams_unit_count,
-                                           ams_device_slug=printer.ams_device_slug)
+                                           ams_device_slug=printer.ams_device_slug,
+                                           ams_overrides=printer.ams_overrides)
     if ams_config and job.ams_snapshot_start:
         ams_now = await ha_client.get_ams_snapshot(ams_config)
         await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)

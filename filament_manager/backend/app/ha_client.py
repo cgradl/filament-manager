@@ -45,26 +45,38 @@ def get_printer_entity_ids(device_slug: str, sensor_overrides: dict | None = Non
 
 
 def get_ams_config(device_slug: str, ams_unit_count: int, trays_per_ams: int = 4,
-                   ams_device_slug: str | None = None) -> list[dict]:
+                   ams_device_slug: str | None = None,
+                   ams_overrides: dict | None = None) -> list[dict]:
     """
     Build the AMS config structure (same format used by print_monitor).
 
     When ams_device_slug is set the AMS is a separate HA device (e.g. "my_printer_ams"):
-      sensor.{ams_device_slug}_tray_{t}
-        state      = material name ("Bambu PLA Marble")
+      sensor.{ams_device_slug}_{tray_pattern}   (default tray_pattern = "tray_{t}")
+        state      = material name
         attributes = { color, remain, ... }
       remaining_source = "attribute"
 
     Otherwise AMS entities live under the printer device slug:
-      sensor.{device_slug}_ams_{u}_tray_{t}_type / _color / _remain
+      sensor.{device_slug}_{tray_pattern}{suffix_type/_color/_remain}
+      (defaults: tray_pattern = "ams_{u}_tray_{t}", suffixes = _type / _color / _remain)
       remaining_source = "state"
+
+    ams_overrides keys: tray_pattern, suffix_type, suffix_color, suffix_remain
+    Use {u} and {t} as unit/tray placeholders inside tray_pattern.
     """
+    ov = ams_overrides or {}
+    tray_pattern  = ov.get("tray_pattern")
+    suffix_type   = ov.get("suffix_type")   or "_type"
+    suffix_color  = ov.get("suffix_color")  or "_color"
+    suffix_remain = ov.get("suffix_remain") or "_remain"
+
     units = []
     for u in range(1, ams_unit_count + 1):
         trays = []
         for t in range(1, trays_per_ams + 1):
             if ams_device_slug:
-                entity = f"sensor.{ams_device_slug}_tray_{t}"
+                slot = (tray_pattern or "tray_{t}").format(u=u, t=t)
+                entity = f"sensor.{ams_device_slug}_{slot}"
                 trays.append({
                     "slot": t,
                     "entity_tray":      entity,
@@ -74,13 +86,14 @@ def get_ams_config(device_slug: str, ams_unit_count: int, trays_per_ams: int = 4
                     "remaining_source": "attribute",
                 })
             else:
-                prefix = f"sensor.{device_slug}_ams_{u}_tray_{t}"
+                base   = (tray_pattern or "ams_{u}_tray_{t}").format(u=u, t=t)
+                prefix = f"sensor.{device_slug}_{base}"
                 trays.append({
                     "slot": t,
                     "entity_tray":      prefix,
-                    "entity_material":  f"{prefix}_type",
-                    "entity_color":     f"{prefix}_color",
-                    "entity_remaining": f"{prefix}_remain",
+                    "entity_material":  f"{prefix}{suffix_type}",
+                    "entity_color":     f"{prefix}{suffix_color}",
+                    "entity_remaining": f"{prefix}{suffix_remain}",
                     "remaining_source": "state",
                 })
         units.append({"ams_id": u, "trays": trays})

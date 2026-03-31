@@ -50,6 +50,10 @@ function PrinterForm({
     bed_temp:       initial?.sensor_bed_temp       ?? '',
     current_file:   initial?.sensor_current_file   ?? '',
   })
+  const [amsTrayPattern,  setAmsTrayPattern]  = useState(initial?.ams_tray_pattern  ?? '')
+  const [amsSuffixType,   setAmsSuffixType]   = useState(initial?.ams_suffix_type   ?? '')
+  const [amsSuffixColor,  setAmsSuffixColor]  = useState(initial?.ams_suffix_color  ?? '')
+  const [amsSuffixRemain, setAmsSuffixRemain] = useState(initial?.ams_suffix_remain ?? '')
 
   const haSlugify = (s: string) =>
     s.toLowerCase().trim()
@@ -249,6 +253,54 @@ function PrinterForm({
                     />
                   </div>
                 ))}
+
+                <div className="border-t border-surface-3 pt-2 mt-1">
+                  <p className="text-xs font-medium text-gray-400 mb-2">{t('settings.printers.amsEntityOverrides')}</p>
+                  <p className="text-xs text-gray-500 mb-2">{t('settings.printers.amsEntityOverridesHint')}</p>
+
+                  <div>
+                    <label className="label text-xs">{t('settings.printers.amsTrayPattern')}</label>
+                    <input
+                      className="input text-xs"
+                      value={amsTrayPattern}
+                      onChange={e => setAmsTrayPattern(e.target.value)}
+                      placeholder={amsSlug ? 'tray_{t}' : 'ams_{u}_tray_{t}'}
+                    />
+                    <p className="text-[10px] text-gray-600 mt-0.5">{t('settings.printers.amsTrayPatternHint')}</p>
+                  </div>
+
+                  {!amsSlug && (
+                    <>
+                      <div className="mt-2">
+                        <label className="label text-xs">{t('settings.printers.amsSuffixType')}</label>
+                        <input
+                          className="input text-xs"
+                          value={amsSuffixType}
+                          onChange={e => setAmsSuffixType(e.target.value)}
+                          placeholder="_type"
+                        />
+                      </div>
+                      <div className="mt-2">
+                        <label className="label text-xs">{t('settings.printers.amsSuffixColor')}</label>
+                        <input
+                          className="input text-xs"
+                          value={amsSuffixColor}
+                          onChange={e => setAmsSuffixColor(e.target.value)}
+                          placeholder="_color"
+                        />
+                      </div>
+                      <div className="mt-2">
+                        <label className="label text-xs">{t('settings.printers.amsSuffixRemain')}</label>
+                        <input
+                          className="input text-xs"
+                          value={amsSuffixRemain}
+                          onChange={e => setAmsSuffixRemain(e.target.value)}
+                          placeholder="_remain"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -270,6 +322,10 @@ function PrinterForm({
               sensor_nozzle_temp:    sensorOverrides.nozzle_temp    || null,
               sensor_bed_temp:       sensorOverrides.bed_temp       || null,
               sensor_current_file:   sensorOverrides.current_file   || null,
+              ams_tray_pattern:  amsTrayPattern  || null,
+              ams_suffix_type:   amsSuffixType   || null,
+              ams_suffix_color:  amsSuffixColor  || null,
+              ams_suffix_remain: amsSuffixRemain || null,
             })}
             disabled={!name.trim() || !deviceName.trim()}
           >

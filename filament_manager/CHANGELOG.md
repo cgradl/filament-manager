@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.2
+
+- Add per-printer custom AMS entity pattern/suffix overrides — users with non-English HA installations can now override the AMS tray entity pattern (default `ams_{u}_tray_{t}`) and the three attribute suffixes (`_type`, `_color`, `_remain`)
+- When an AMS device slug is set, only the tray pattern is configurable (`tray_{t}` default); the three suffixes are hidden as they don't apply in attribute mode
+- Configured under Settings → Printer → Custom Sensor Entity IDs → AMS Sensors (same collapsible)
+- EN / DE / ES translations for new fields
+
 ## 0.8.1
 
 - Bambu Cloud: add "Test" button per cloud-source printer in Settings → Bambu Lab Cloud

@@ -28,11 +28,17 @@ class PrinterIn(BaseModel):
     sensor_nozzle_temp:    str | None = None
     sensor_bed_temp:       str | None = None
     sensor_current_file:   str | None = None
+    # AMS entity pattern/suffix overrides
+    ams_tray_pattern:  str | None = None
+    ams_suffix_type:   str | None = None
+    ams_suffix_color:  str | None = None
+    ams_suffix_remain: str | None = None
 
     def model_post_init(self, __context) -> None:
         # Normalise empty strings to None so they're not stored as overrides
         for field in ("sensor_print_stage", "sensor_print_progress", "sensor_remaining_time",
-                      "sensor_nozzle_temp", "sensor_bed_temp", "sensor_current_file"):
+                      "sensor_nozzle_temp", "sensor_bed_temp", "sensor_current_file",
+                      "ams_tray_pattern", "ams_suffix_type", "ams_suffix_color", "ams_suffix_remain"):
             if isinstance(getattr(self, field), str) and not getattr(self, field).strip():
                 setattr(self, field, None)
 
@@ -52,6 +58,10 @@ class PrinterOut(BaseModel):
     sensor_nozzle_temp:    str | None
     sensor_bed_temp:       str | None
     sensor_current_file:   str | None
+    ams_tray_pattern:  str | None
+    ams_suffix_type:   str | None
+    ams_suffix_color:  str | None
+    ams_suffix_remain: str | None
 
     class Config:
         from_attributes = True
@@ -126,7 +136,8 @@ async def get_ams_trays(printer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Printer not found")
 
     ams_config = ha_client.get_ams_config(
-        p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug
+        p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug,
+        ams_overrides=p.ams_overrides,
     )
     all_entities = await ha_client.get_all_entities()
     entity_map = {e["entity_id"]: e for e in all_entities}
@@ -189,7 +200,8 @@ async def sync_ams_weights(printer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Printer not found")
 
     ams_config = ha_client.get_ams_config(
-        p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug
+        p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug,
+        ams_overrides=p.ams_overrides,
     )
     all_entities = await ha_client.get_all_entities()
     entity_map = {e["entity_id"]: e for e in all_entities}
@@ -247,7 +259,8 @@ async def sync_ams_tray_weight(printer_id: int, slot_key: str, db: Session = Dep
         raise HTTPException(404, "No spool assigned to this tray")
 
     ams_config = ha_client.get_ams_config(
-        p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug
+        p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug,
+        ams_overrides=p.ams_overrides,
     )
     all_entities = await ha_client.get_all_entities()
     entity_map = {e["entity_id"]: e for e in all_entities}

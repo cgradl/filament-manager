@@ -260,7 +260,14 @@
       "sensor_remaining_time": "Verbleibende Zeit",
       "sensor_nozzle_temp": "Düsentemperatur",
       "sensor_bed_temp": "Betttemperatur",
-      "sensor_current_file": "Aktuelle Datei"
+      "sensor_current_file": "Aktuelle Datei",
+      "amsEntityOverrides": "AMS-Sensoren",
+      "amsEntityOverridesHint": "AMS-Entitätsmuster überschreiben, wenn die HA-Integration andere Namen verwendet. {u} = AMS-Einheit, {t} = Schacht.",
+      "amsTrayPattern": "Schacht-Entitätsmuster",
+      "amsTrayPatternHint": "Mit AMS-Gerät: ersetzt \"tray_{t}\". Ohne AMS-Gerät: ersetzt \"ams_{u}_tray_{t}\".",
+      "amsSuffixType": "Material-Suffix",
+      "amsSuffixColor": "Farbe-Suffix",
+      "amsSuffixRemain": "Verbleibend-%-Suffix"
     },
     "brandWeights": {
       "title": "Leerspulengewichte je Marke",

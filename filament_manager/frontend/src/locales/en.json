@@ -260,7 +260,14 @@
       "sensor_remaining_time": "Remaining Time",
       "sensor_nozzle_temp": "Nozzle Temperature",
       "sensor_bed_temp": "Bed Temperature",
-      "sensor_current_file": "Current File"
+      "sensor_current_file": "Current File",
+      "amsEntityOverrides": "AMS Sensors",
+      "amsEntityOverridesHint": "Override the AMS entity patterns if your HA integration uses different naming. Use {u} for AMS unit number and {t} for tray number.",
+      "amsTrayPattern": "Tray Entity Pattern",
+      "amsTrayPatternHint": "With AMS device: replaces \"tray_{t}\". Without AMS device: replaces \"ams_{u}_tray_{t}\".",
+      "amsSuffixType": "Material Suffix",
+      "amsSuffixColor": "Color Suffix",
+      "amsSuffixRemain": "Remaining % Suffix"
     },
     "brandWeights": {
       "title": "Brand Spool Tare Weights",

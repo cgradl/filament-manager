@@ -191,12 +191,20 @@ class PrinterConfig(Base):
     sensor_bed_temp       = Column(String, nullable=True)
     sensor_current_file   = Column(String, nullable=True)
 
+    # Optional AMS entity pattern/suffix overrides
+    # ams_tray_pattern: replaces "ams_{u}_tray_{t}" (no ams_device_slug) or "tray_{t}" (with ams_device_slug)
+    # ams_suffix_*: replaces "_type" / "_color" / "_remain" suffixes (no ams_device_slug mode only)
+    ams_tray_pattern  = Column(String, nullable=True)
+    ams_suffix_type   = Column(String, nullable=True)
+    ams_suffix_color  = Column(String, nullable=True)
+    ams_suffix_remain = Column(String, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     @property
     def sensor_overrides(self) -> dict:
-        """Return only the keys that have a non-empty override set."""
+        """Return only the printer sensor keys that have a non-empty override set."""
         keys = ("print_stage", "print_progress", "remaining_time",
                 "nozzle_temp", "bed_temp", "current_file")
         return {
@@ -204,3 +212,17 @@ class PrinterConfig(Base):
             for k in keys
             if getattr(self, f"sensor_{k}", None)
         }
+
+    @property
+    def ams_overrides(self) -> dict:
+        """Return AMS entity overrides dict, omitting keys that are unset."""
+        result = {}
+        if self.ams_tray_pattern:
+            result["tray_pattern"] = self.ams_tray_pattern
+        if self.ams_suffix_type:
+            result["suffix_type"] = self.ams_suffix_type
+        if self.ams_suffix_color:
+            result["suffix_color"] = self.ams_suffix_color
+        if self.ams_suffix_remain:
+            result["suffix_remain"] = self.ams_suffix_remain
+        return result
