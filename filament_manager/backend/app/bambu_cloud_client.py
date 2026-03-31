@@ -240,10 +240,18 @@ def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
 
     try:
         username = _mqtt_username(email, token)
-        client = mqtt.Client(
-            client_id=f"bambu-filament-manager-{serial}",
-            protocol=mqtt.MQTTv311,
-        )
+        # paho-mqtt 2.x requires callback_api_version; 1.x doesn't have it
+        try:
+            client = mqtt.Client(
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
+                client_id=f"bambu-filament-manager-{serial}",
+                protocol=mqtt.MQTTv311,
+            )
+        except AttributeError:
+            client = mqtt.Client(
+                client_id=f"bambu-filament-manager-{serial}",
+                protocol=mqtt.MQTTv311,
+            )
         client.username_pw_set(username, token)
 
         tls_ctx = ssl.create_default_context()

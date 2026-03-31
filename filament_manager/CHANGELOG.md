@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.4
+
+- Fix Bambu Cloud MQTT silently failing on paho-mqtt 2.x: `mqtt.Client()` in paho-mqtt 2.0+ requires a `callback_api_version` argument, otherwise raises `ValueError` which was swallowed by the exception handler — MQTT never connected, leaving all live-status and AMS tray data empty
+- MQTT client creation now uses `CallbackAPIVersion.VERSION1` on paho-mqtt 2.x with fallback to the 1.x API
+
 ## 0.8.3
 
 - Fix Bambu Cloud integration actually using MQTT data: cloud-source printers now read AMS tray state from the live MQTT cache instead of HA entities across all three paths (print-end consumption tracking, AMS tray display, spool weight sync)

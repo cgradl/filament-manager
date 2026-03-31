@@ -6,6 +6,6 @@ httpx==0.28.1
 apscheduler==3.10.4
 aiofiles==24.1.0
 python-multipart==0.0.20
-paho-mqtt>=1.6.0
+paho-mqtt>=1.6.0,<3.0
 requests>=2.25.0
 cryptography
