@@ -339,6 +339,11 @@ def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
                 c.publish(f"device/{serial}/request", payload, qos=0)
                 log.info("Bambu Cloud MQTT pushall sent for %s", serial)
             elif int(str(rc)) == 5:
+                # Ignore callbacks from stale clients that were replaced by a newer connection
+                if _mqtt_clients.get(serial) is not c:
+                    log.debug("Ignoring rc=5 from stale client for %s", serial)
+                    threading.Thread(target=lambda: (c.disconnect(), c.loop_stop()), daemon=True).start()
+                    return
                 # rc=5 = Not Authorised — disconnect (suppresses auto-reconnect) then stop loop
                 log.warning("Bambu Cloud MQTT auth rejected for %s (rc=5) — stopping client", serial)
                 threading.Thread(target=lambda: (c.disconnect(), c.loop_stop()), daemon=True).start()
@@ -360,6 +365,8 @@ def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
             _process_device_message(serial, data)
 
         def on_disconnect(c, userdata, rc):
+            if _mqtt_clients.get(serial) is not c:
+                return  # stale client disconnecting — ignore
             log.warning("Bambu Cloud MQTT disconnected for %s, rc=%s", serial, rc)
 
         def on_log(c, userdata, level, buf):

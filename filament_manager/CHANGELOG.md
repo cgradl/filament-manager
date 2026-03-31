@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.9
+
+- Fix spurious re-auth after successful login: when a new MQTT client is created (e.g. after login), the replaced old client's in-flight `on_connect` callback could fire with rc=5 and trigger another re-authentication cycle — now ignored by checking `_mqtt_clients[serial] is c`
+- Same stale-client guard applied to `on_disconnect` to suppress noise from replaced clients
+
 ## 0.8.8
 
 - Fix repeated 2FA prompt loop: `_reauth_in_progress` is now left `True` while waiting for 2FA code entry, so further rc=5 MQTT callbacks don't re-trigger re-auth
