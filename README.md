@@ -14,6 +14,9 @@ A Home Assistant app for tracking 3D printer filament inventory, monitoring prin
 - **Cost analytics** — per-print cost, price per kg, inventory value, and spend by purchase location
 - **Dashboard** — overview charts, low-stock alerts, and recent print history
 - **Printer discovery** — scans Home Assistant for your Bambu Lab entities automatically
+- **EN / DE / ES interface** — full translations with in-app language switcher; inherits language from your HA instance by default
+- **Data export / import** — back up and restore all spools, prints, and settings as a single JSON bundle
+- **Spoolman export** *(experimental)* — export your spool inventory in [Spoolman](https://github.com/Donkie/Spoolman)-compatible format
 
 ---
 
