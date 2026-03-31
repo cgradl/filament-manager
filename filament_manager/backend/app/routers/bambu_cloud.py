@@ -53,3 +53,19 @@ async def logout() -> None:
 def get_devices() -> list[dict]:
     """List printers bound to the Bambu Lab account."""
     return bambu_cloud_client.get_devices()
+
+
+@router.get("/debug")
+def get_debug() -> dict:
+    """Diagnostic snapshot: MQTT client state, cache contents, token validity."""
+    return bambu_cloud_client.get_debug_info()
+
+
+@router.post("/reconnect")
+async def force_reconnect() -> dict:
+    """Force restart of all MQTT connections using saved credentials."""
+    try:
+        await bambu_cloud_client.reconnect()
+        return {"ok": True}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}

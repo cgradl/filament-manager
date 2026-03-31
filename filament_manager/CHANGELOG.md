@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.5
+
+- Add `GET /api/bambu-cloud/debug` endpoint: shows MQTT client connection state, token validity/expiry, printer status cache, and AMS cache keys — useful for diagnosing MQTT issues
+- Add `POST /api/bambu-cloud/reconnect` endpoint: force-restarts all MQTT connections from saved credentials without restarting the container
+- Improve MQTT callback logging: `on_connect`, `on_message`, `on_disconnect` now log at INFO/DEBUG level with rc codes; paho internal log forwarded at DEBUG level
+
 ## 0.8.4
 
 - Fix Bambu Cloud MQTT silently failing on paho-mqtt 2.x: `mqtt.Client()` in paho-mqtt 2.0+ requires a `callback_api_version` argument, otherwise raises `ValueError` which was swallowed by the exception handler — MQTT never connected, leaving all live-status and AMS tray data empty

@@ -82,6 +82,16 @@ def _jwt_uid(token: str) -> str:
         return ""
 
 
+def _jwt_payload(token: str) -> dict:
+    """Decode full JWT payload without signature verification."""
+    try:
+        payload_b64 = token.split(".")[1]
+        padded = payload_b64 + "=" * (-len(payload_b64) % 4)
+        return json.loads(base64.urlsafe_b64decode(padded))
+    except Exception:
+        return {}
+
+
 def _mqtt_username(email: str, token: str) -> str:
     uid = _jwt_uid(token)
     return f"u_{uid}" if uid else email
@@ -258,32 +268,37 @@ def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
         client.tls_set_context(tls_ctx)
 
         def on_connect(c, userdata, flags, rc):
+            log.info("Bambu Cloud MQTT on_connect for %s: rc=%s flags=%s", serial, rc, flags)
             if rc == 0:
                 topic = f"device/{serial}/report"
                 c.subscribe(topic, qos=0)
-                log.info("Bambu Cloud MQTT connected for %s", serial)
+                log.info("Bambu Cloud MQTT subscribed to %s", topic)
                 # Request a full status push immediately
-                c.publish(
-                    f"device/{serial}/request",
-                    json.dumps({"pushing": {"sequence_id": "0", "command": "pushall"}}),
-                    qos=0,
-                )
+                payload = json.dumps({"pushing": {"sequence_id": "0", "command": "pushall"}})
+                c.publish(f"device/{serial}/request", payload, qos=0)
+                log.info("Bambu Cloud MQTT pushall sent for %s", serial)
             else:
-                log.error("Bambu Cloud MQTT connect failed for %s, rc=%d", serial, rc)
+                log.error("Bambu Cloud MQTT connect failed for %s, rc=%s", serial, rc)
 
         def on_message(c, userdata, msg):
+            log.debug("Bambu Cloud MQTT message on %s: %d bytes", msg.topic, len(msg.payload))
             try:
                 data = json.loads(msg.payload)
-            except Exception:
+            except Exception as exc:
+                log.warning("Bambu Cloud MQTT bad JSON for %s: %s", serial, exc)
                 return
             _process_device_message(serial, data)
 
         def on_disconnect(c, userdata, rc):
-            log.warning("Bambu Cloud MQTT disconnected for %s, rc=%d", serial, rc)
+            log.warning("Bambu Cloud MQTT disconnected for %s, rc=%s", serial, rc)
+
+        def on_log(c, userdata, level, buf):
+            log.debug("paho [%s]: %s", serial, buf)
 
         client.on_connect = on_connect
         client.on_message = on_message
         client.on_disconnect = on_disconnect
+        client.on_log = on_log
 
         client.connect_async(MQTT_HOST, MQTT_PORT)
         client.loop_start()  # background thread — non-blocking
@@ -474,6 +489,54 @@ def get_ams_detail_for_serial(serial: str) -> dict[str, dict]:
 def register_printer(printer_id: int, serial: str) -> None:
     """Called when a printer config is saved with bambu_source='cloud'."""
     _serial_to_printer_id[serial] = printer_id
+
+
+def get_debug_info() -> dict:
+    """Return diagnostic snapshot of MQTT connection state and caches."""
+    creds = _load_credentials()
+    token_info: dict = {}
+    if creds and creds.get("token"):
+        payload = _jwt_payload(creds["token"])
+        exp = payload.get("exp")
+        token_info = {
+            "uid": payload.get("uid") or payload.get("sub"),
+            "exp": exp,
+            "expired": (exp is not None and exp < __import__("time").time()),
+            "saved_at": creds.get("saved_at"),
+        }
+
+    clients_info = {}
+    for serial, client in _mqtt_clients.items():
+        try:
+            connected = client.is_connected()
+        except AttributeError:
+            # paho < 1.5 doesn't have is_connected()
+            connected = getattr(client, "_state", None) == 2  # CONNECTED = 2
+        clients_info[serial] = {
+            "connected": connected,
+            "printer_id": _serial_to_printer_id.get(serial),
+        }
+
+    return {
+        "status": _status,
+        "token": token_info,
+        "mqtt_clients": clients_info,
+        "printer_status_cache": dict(_printer_status_cache),
+        "ams_cache_keys": {s: list(v.keys()) for s, v in _ams_cache.items()},
+        "serial_to_printer_id": dict(_serial_to_printer_id),
+    }
+
+
+async def reconnect() -> None:
+    """Force re-read credentials and restart all MQTT connections."""
+    creds = _load_credentials()
+    if not creds:
+        raise Exception("No saved credentials")
+    email = creds.get("email", "")
+    token = creds.get("token", "")
+    if not email or not token:
+        raise Exception("Credentials incomplete")
+    await _connect_mqtt_for_cloud_printers(email, token)
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
