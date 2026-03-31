@@ -104,7 +104,7 @@ function PrinterForm({
         <div className="p-5 space-y-4">
           <div>
             <label className="label">{t('settings.printers.name')} *</label>
-            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="H2S" />
+            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="My Printer" />
           </div>
 
           <div>
@@ -115,7 +115,7 @@ function PrinterForm({
                 className="input flex-1"
                 value={deviceName}
                 onChange={e => { setDeviceName(e.target.value); setDiscovery(null) }}
-                placeholder="H2S"
+                placeholder="My Printer"
               />
               <button
                 className="btn-ghost px-3 flex items-center gap-1.5 shrink-0"

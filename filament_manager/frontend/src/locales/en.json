@@ -240,7 +240,7 @@
       "unassign": "Unassign",
       "noSpool": "No spool",
       "haRemaining": "HA: {{pct}}% remaining",
-      "slugHint": "e.g. h2s, x1c",
+      "slugHint": "e.g. my_printer",
       "amsSlugHint": "Leave blank if AMS uses same slug as printer",
       "monitorPrinter": "Monitor this printer",
       "loadingAMS": "Loading AMS data…",

@@ -14,8 +14,8 @@ from tests.conftest import make_spool_payload
 # ---------------------------------------------------------------------------
 
 PRINTER_PAYLOAD = {
-    "name": "Bambu H2S",
-    "device_slug": "h2s",
+    "name": "My Printer",
+    "device_slug": "my_printer",
     "ams_unit_count": 1,
     "is_active": True,
 }
@@ -62,15 +62,15 @@ class TestCreatePrinter:
 
     def test_stores_fields(self, client):
         data = _create_printer(client)
-        assert data["name"] == "Bambu H2S"
-        assert data["device_slug"] == "h2s"
+        assert data["name"] == "My Printer"
+        assert data["device_slug"] == "my_printer"
         assert data["ams_unit_count"] == 1
         assert data["is_active"] is True
         assert data["id"] > 0
 
     def test_optional_ams_device_slug(self, client):
-        data = _create_printer(client, ams_device_slug="h2s_ams")
-        assert data["ams_device_slug"] == "h2s_ams"
+        data = _create_printer(client, ams_device_slug="my_printer_ams")
+        assert data["ams_device_slug"] == "my_printer_ams"
 
     def test_missing_required_field_returns_422(self, client):
         r = client.post("/api/printers", json={"name": "X"})
@@ -101,7 +101,7 @@ class TestUpdatePrinter:
         printer_id = _create_printer(client)["id"]
         r = client.patch(f"/api/printers/{printer_id}", json={
             "name": "New Name",
-            "device_slug": "h2s",
+            "device_slug": "my_printer",
         })
         assert r.status_code == 200
         assert r.json()["name"] == "New Name"
@@ -109,8 +109,8 @@ class TestUpdatePrinter:
     def test_update_ams_unit_count(self, client):
         printer_id = _create_printer(client)["id"]
         r = client.patch(f"/api/printers/{printer_id}", json={
-            "name": "Bambu H2S",
-            "device_slug": "h2s",
+            "name": "My Printer",
+            "device_slug": "my_printer",
             "ams_unit_count": 2,
         })
         assert r.json()["ams_unit_count"] == 2
@@ -168,25 +168,25 @@ class TestPrinterStatus:
 class TestDiscoverPrinter:
     def _mock_entities(self):
         return [
-            {"entity_id": "sensor.h2s_current_stage", "state": "idle", "attributes": {}},
-            {"entity_id": "sensor.h2s_print_progress", "state": "0", "attributes": {}},
-            {"entity_id": "sensor.h2s_gcode_file", "state": "", "attributes": {}},
+            {"entity_id": "sensor.my_printer_current_stage", "state": "idle", "attributes": {}},
+            {"entity_id": "sensor.my_printer_print_progress", "state": "0", "attributes": {}},
+            {"entity_id": "sensor.my_printer_gcode_file", "state": "", "attributes": {}},
         ]
 
     def test_discover_returns_slug(self, client):
         with patch("app.routers.printers.ha_client.get_all_entities",
                    new=AsyncMock(return_value=self._mock_entities())):
-            r = client.get("/api/printers/discover?device=H2S")
+            r = client.get("/api/printers/discover?device=My+Printer")
         assert r.status_code == 200
-        assert r.json()["slug"] == "h2s"
+        assert r.json()["slug"] == "my_printer"
 
     def test_discover_finds_printer_entities(self, client):
         with patch("app.routers.printers.ha_client.get_all_entities",
                    new=AsyncMock(return_value=self._mock_entities())):
-            r = client.get("/api/printers/discover?device=H2S")
+            r = client.get("/api/printers/discover?device=My+Printer")
         entities = r.json()["printer_entities"]
         assert entities["print_stage"]["found"] is True
-        assert entities["print_stage"]["entity_id"] == "sensor.h2s_current_stage"
+        assert entities["print_stage"]["entity_id"] == "sensor.my_printer_current_stage"
 
     def test_discover_unknown_device_shows_not_found(self, client):
         with patch("app.routers.printers.ha_client.get_all_entities",

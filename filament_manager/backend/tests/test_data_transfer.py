@@ -216,9 +216,9 @@ class TestImport:
 
     def test_import_skips_duplicate_printer_config(self, client):
         # Pre-create a printer
-        client.post("/api/printers", json={"name": "H2S", "device_slug": "h2s"})
+        client.post("/api/printers", json={"name": "My Printer", "device_slug": "my_printer"})
         bundle = _minimal_bundle(printer_configs=[
-            {"name": "H2S", "device_slug": "h2s"},
+            {"name": "My Printer", "device_slug": "my_printer"},
         ])
         r = _import(client, bundle)
         assert r.json()["imported"]["printer_configs"] == 0

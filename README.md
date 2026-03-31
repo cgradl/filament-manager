@@ -113,7 +113,7 @@ Full interactive docs available at `http://<ha-host>:8099/docs` (FastAPI Swagger
 The app exposes no user-visible `config.yaml` options. All configuration is done inside the app's **Settings** page after first launch:
 
 1. Verify **HA Connected** shows green
-2. Click **Add Printer** and enter your device slug (e.g. `h2s`)
+2. Click **Add Printer** and enter your device slug (e.g. `my_printer`)
 3. Use the auto-discovery search to map your AMS tray entities
 4. Add your filament spools under **Spools**
 

@@ -20,7 +20,7 @@ _PRINTER_SUFFIXES = {
 
 
 def slugify(name: str) -> str:
-    """'Bambu H2S' → 'bambu_h2s'. Mirrors HA's internal slug logic."""
+    """'My Printer' → 'my_printer'. Mirrors HA's internal slug logic."""
     import re
     s = name.lower().strip()
     s = re.sub(r"[\s-]+", "_", s)   # spaces/hyphens → underscore
@@ -49,7 +49,7 @@ def get_ams_config(device_slug: str, ams_unit_count: int, trays_per_ams: int = 4
     """
     Build the AMS config structure (same format used by print_monitor).
 
-    When ams_device_slug is set the AMS is a separate HA device (e.g. "bambooo_ams_1"):
+    When ams_device_slug is set the AMS is a separate HA device (e.g. "my_printer_ams"):
       sensor.{ams_device_slug}_tray_{t}
         state      = material name ("Bambu PLA Marble")
         attributes = { color, remain, ... }

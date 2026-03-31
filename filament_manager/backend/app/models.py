@@ -175,8 +175,8 @@ class PrinterConfig(Base):
     __tablename__ = "printer_configs"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)              # friendly name, e.g. "H2S"
-    device_slug = Column(String, nullable=False)       # HA entity slug, e.g. "h2s"
+    name = Column(String, nullable=False)              # friendly name, e.g. "My Printer"
+    device_slug = Column(String, nullable=False)       # HA entity slug, e.g. "my_printer"
     ams_device_slug = Column(String)                   # AMS device slug if different from printer
     ams_unit_count = Column(Integer, default=1)        # number of AMS units (1-4)
     is_active = Column(Boolean, default=True)

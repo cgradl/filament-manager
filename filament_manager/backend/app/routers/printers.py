@@ -62,7 +62,7 @@ class PrinterOut(BaseModel):
 @router.get("/discover")
 async def discover_printer(device: str, ams_device: str | None = None):
     """
-    Given a device name (e.g. "H2S"), derive entity IDs and check which ones
+    Given a device name (e.g. "My Printer"), derive entity IDs and check which ones
     actually exist in HA. Returns discovered entities + current state values.
     Optional ams_device to test a separate AMS device name.
     """

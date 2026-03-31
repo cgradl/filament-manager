@@ -98,12 +98,12 @@ class TestCreatePrint:
             started_at="2024-03-15T14:30:00",
             duration_seconds=7200,
             success=True,
-            printer_name="H2S",
+            printer_name="My Printer",
         )
         data = client.post("/api/prints", json=payload).json()
         assert data["name"] == "My Print"
         assert data["duration_hours"] == 2.0
-        assert data["printer_name"] == "H2S"
+        assert data["printer_name"] == "My Printer"
         assert data["success"] is True
 
     def test_create_without_usages(self, client):

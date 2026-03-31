@@ -10,7 +10,7 @@ Track 3D printer filament inventory, print history, and material costs. Integrat
 
 1. Open the app from the HA sidebar.
 2. Go to **Settings** and verify **HA Connected** shows green.
-3. Click **Add Printer** and enter your device slug (e.g. `h2s`).
+3. Click **Add Printer** and enter your device slug (e.g. `my_printer`).
 4. Use the auto-discovery search to find your Bambu Lab entity IDs.
 5. Add your AMS unit(s) and map each tray to a filament spool.
 6. Go to **Spools** and add your filament inventory.
@@ -25,7 +25,7 @@ Track 3D printer filament inventory, print history, and material costs. Integrat
 
 ## Printer Discovery
 
-When adding a printer, click the search icons to auto-discover your Bambu Lab entity IDs. Look for entities starting with your printer's device slug, e.g. `sensor.h2s_current_stage`.
+When adding a printer, click the search icons to auto-discover your Bambu Lab entity IDs. Look for entities starting with your printer's device slug, e.g. `sensor.my_printer_current_stage`.
 
 ## Data
 

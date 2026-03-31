@@ -240,7 +240,7 @@
       "unassign": "Entfernen",
       "noSpool": "Keine Spule",
       "haRemaining": "HA: {{pct}}% verbleibend",
-      "slugHint": "z.B. h2s, x1c",
+      "slugHint": "z.B. my_printer",
       "amsSlugHint": "Leer lassen wenn AMS denselben Slug wie Drucker hat",
       "monitorPrinter": "Diesen Drucker überwachen",
       "loadingAMS": "AMS-Daten werden geladen…",
