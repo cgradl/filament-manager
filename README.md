@@ -54,6 +54,7 @@ Once the app shows up in your list click on it and press install
 ---
 
 ## Configuration (dont use cloud yet)
+```
 After installation go to Settings page
 Click "+ Add Printer" 
 a)if you use english and standard sensor names:
@@ -68,7 +69,7 @@ b) if you have other language or non standard sensor names for printer and AMS
 Click on Custom Sensor entity IDs
 Fill all below fields with the right sensor name (e.g. sensor.myprinter_current_stage)
 press save
-
+```
 ---
 ## How It Works
 
