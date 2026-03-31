@@ -135,6 +135,27 @@ async def get_ams_trays(printer_id: int, db: Session = Depends(get_db)):
     if not p:
         raise HTTPException(404, "Printer not found")
 
+    # Cloud-source printers: use MQTT cache instead of HA entities
+    if p.bambu_source == "cloud" and p.bambu_serial:
+        from .. import bambu_cloud_client
+        detail = bambu_cloud_client.get_ams_detail_for_serial(p.bambu_serial)
+        result = []
+        for u in range(1, p.ams_unit_count + 1):
+            for t in range(1, 5):
+                slot_key = f"ams{u}_tray{t}"
+                td = detail.get(slot_key, {})
+                spool = db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+                result.append({
+                    "slot_key":     slot_key,
+                    "ams_id":       u,
+                    "tray":         t,
+                    "ha_material":  td.get("material"),
+                    "ha_color_hex": td.get("color"),
+                    "ha_remaining": str(td["remain"]) if "remain" in td else None,
+                    "spool":        SpoolOut.model_validate(spool).model_dump() if spool else None,
+                })
+        return result
+
     ams_config = ha_client.get_ams_config(
         p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug,
         ams_overrides=p.ams_overrides,
@@ -199,6 +220,28 @@ async def sync_ams_weights(printer_id: int, db: Session = Depends(get_db)):
     if not p:
         raise HTTPException(404, "Printer not found")
 
+    updated = []
+
+    # Cloud-source printers: use MQTT cache instead of HA entities
+    if p.bambu_source == "cloud" and p.bambu_serial:
+        from .. import bambu_cloud_client
+        snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(p.bambu_serial)
+        for slot_key, remaining_pct in snapshot.items():
+            spool = db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+            if not spool:
+                continue
+            new_weight = round(spool.initial_weight_g * remaining_pct / 100, 1)
+            spool.current_weight_g = min(spool.initial_weight_g, max(0.0, new_weight))
+            updated.append({
+                "slot_key": slot_key,
+                "spool_id": spool.id,
+                "spool_name": f"{spool.brand} {spool.material} {spool.color_name}",
+                "remaining_pct": remaining_pct,
+                "new_weight_g": spool.current_weight_g,
+            })
+        db.commit()
+        return {"updated": updated}
+
     ams_config = ha_client.get_ams_config(
         p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug,
         ams_overrides=p.ams_overrides,
@@ -206,7 +249,6 @@ async def sync_ams_weights(printer_id: int, db: Session = Depends(get_db)):
     all_entities = await ha_client.get_all_entities()
     entity_map = {e["entity_id"]: e for e in all_entities}
 
-    updated = []
     for unit in ams_config:
         for tray in unit["trays"]:
             slot_key = f"ams{unit['ams_id']}_tray{tray['slot']}"
@@ -257,6 +299,27 @@ async def sync_ams_tray_weight(printer_id: int, slot_key: str, db: Session = Dep
     spool = db.query(Spool).filter(Spool.ams_slot == slot_key).first()
     if not spool:
         raise HTTPException(404, "No spool assigned to this tray")
+
+    # Cloud-source printers: use MQTT cache instead of HA entities
+    if p.bambu_source == "cloud" and p.bambu_serial:
+        from .. import bambu_cloud_client
+        snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(p.bambu_serial)
+        remaining_pct_raw = snapshot.get(slot_key)
+        if remaining_pct_raw is None:
+            raise HTTPException(422, "No MQTT data for this tray — printer may not be connected")
+        remaining_pct = float(remaining_pct_raw)
+        if remaining_pct <= 0:
+            raise HTTPException(422, "MQTT reports 0 % remaining — skipped to avoid zeroing a non-Bambu spool")
+        new_weight = round(spool.initial_weight_g * remaining_pct / 100, 1)
+        spool.current_weight_g = min(spool.initial_weight_g, max(0.0, new_weight))
+        db.commit()
+        return {
+            "slot_key": slot_key,
+            "spool_id": spool.id,
+            "spool_name": f"{spool.brand} {spool.material} {spool.color_name}",
+            "remaining_pct": remaining_pct,
+            "new_weight_g": spool.current_weight_g,
+        }
 
     ams_config = ha_client.get_ams_config(
         p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug,

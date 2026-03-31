@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.3
+
+- Fix Bambu Cloud integration actually using MQTT data: cloud-source printers now read AMS tray state from the live MQTT cache instead of HA entities across all three paths (print-end consumption tracking, AMS tray display, spool weight sync)
+- AMS cache now stores full tray detail (remain %, material, color) from MQTT messages for display in the AMS assignment panel
+- `get_ams_detail_for_serial` added to `bambu_cloud_client` for rich tray display
+
 ## 0.8.2
 
 - Add per-printer custom AMS entity pattern/suffix overrides — users with non-English HA installations can now override the AMS tray entity pattern (default `ams_{u}_tray_{t}`) and the three attribute suffixes (`_type`, `_color`, `_remain`)

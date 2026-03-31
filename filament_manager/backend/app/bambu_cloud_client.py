@@ -206,16 +206,25 @@ def _process_device_message(serial: str, data: dict) -> None:
 
 
 def _parse_ams_into_cache(serial: str, ams_raw: dict) -> None:
-    snapshot: dict[str, float] = {}
+    snapshot: dict[str, dict] = {}
     for unit in ams_raw.get("ams", []):
-        ams_id = int(unit.get("id", 0)) + 1   # HA uses 1-based
+        ams_id = int(unit.get("id", 0)) + 1   # 1-based
         for tray in unit.get("tray", []):
             tray_id = int(tray.get("id", 0)) + 1  # 1-based
             remain = tray.get("remain")
             try:
-                snapshot[f"ams{ams_id}_tray{tray_id}"] = float(remain)
+                remain_f = float(remain)
             except (TypeError, ValueError):
-                pass
+                continue
+            # Bambu sends color as RRGGBBAA hex — take only the RGB part
+            color_raw = str(tray.get("tray_color") or tray.get("color") or "").strip()
+            color_hex = f"#{color_raw[:6]}" if len(color_raw) >= 6 else None
+            material = tray.get("tray_type") or tray.get("type") or None
+            snapshot[f"ams{ams_id}_tray{tray_id}"] = {
+                "remain":   remain_f,
+                "material": material,
+                "color":    color_hex,
+            }
     if snapshot:
         _ams_cache[serial] = snapshot
 
@@ -446,6 +455,11 @@ def get_printer_cloud_status(serial: str | None) -> dict:
 
 def get_ams_snapshot_for_serial(serial: str) -> dict[str, float]:
     """Return the last AMS remain% snapshot for a device serial."""
+    return {k: v["remain"] for k, v in _ams_cache.get(serial, {}).items()}
+
+
+def get_ams_detail_for_serial(serial: str) -> dict[str, dict]:
+    """Return full AMS tray detail (remain, material, color) for display."""
     return dict(_ams_cache.get(serial, {}))
 
 

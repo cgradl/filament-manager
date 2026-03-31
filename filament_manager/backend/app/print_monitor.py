@@ -134,12 +134,18 @@ async def _on_print_end(
         started = job.started_at.replace(tzinfo=timezone.utc) if job.started_at.tzinfo is None else job.started_at
         job.duration_seconds = int((now - started).total_seconds())
 
-    ams_config = ha_client.get_ams_config(printer.device_slug, printer.ams_unit_count,
-                                           ams_device_slug=printer.ams_device_slug,
-                                           ams_overrides=printer.ams_overrides)
-    if ams_config and job.ams_snapshot_start:
-        ams_now = await ha_client.get_ams_snapshot(ams_config)
-        await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
+    if getattr(printer, "bambu_source", "ha") == "cloud" and getattr(printer, "bambu_serial", None):
+        from . import bambu_cloud_client
+        ams_now = bambu_cloud_client.get_ams_snapshot_for_serial(printer.bambu_serial)
+        if ams_now and job.ams_snapshot_start:
+            await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
+    else:
+        ams_config = ha_client.get_ams_config(printer.device_slug, printer.ams_unit_count,
+                                               ams_device_slug=printer.ams_device_slug,
+                                               ams_overrides=printer.ams_overrides)
+        if ams_config and job.ams_snapshot_start:
+            ams_now = await ha_client.get_ams_snapshot(ams_config)
+            await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
 
     db.commit()
     _state[printer.id] = {"stage": "idle", "job_id": None}
