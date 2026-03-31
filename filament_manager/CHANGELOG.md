@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2
+
+- Fix Spoolman export: embed full filament object (with full vendor) in each spool, matching Spoolman's native GET response shape so import tools can read brand, material and color correctly
+- Add `initial_weight`, `first_used`, `last_used`, `lot_nr`, and `extra` fields to match Spoolman schema
+- Mark Spoolman export button as Experimental
+
 ## 0.6.1
 
 - Fix Spoolman export: filament price is now price/kg (not raw purchase price), avoiding incorrect values for partial spools

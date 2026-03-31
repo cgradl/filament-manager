@@ -266,7 +266,8 @@
       "importSuccessTitle": "Importación correcta",
       "importNote": "La importación es aditiva — los datos existentes nunca se eliminan. Las bobinas duplicadas se añaden como nuevas entradas. Las configuraciones de impresoras con el mismo slug de dispositivo se omiten.",
       "exportSpoolmanBtn": "Exportar para Spoolman",
-      "exportSpoolmanHint": "Descarga un JSON compatible con Spoolman con los tipos de filamento y el inventario de bobinas."
+      "exportSpoolmanHint": "Descarga un JSON compatible con Spoolman con los tipos de filamento y el inventario de bobinas.",
+      "experimental": "Experimental"
     }
   }
 }

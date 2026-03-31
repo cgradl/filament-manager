@@ -130,73 +130,109 @@ def export_data(db: Session = Depends(get_db)):
 @router.get("/export-spoolman")
 def export_spoolman(db: Session = Depends(get_db)):
     """
-    Export spool inventory as a Spoolman-compatible JSON file.
+    Export spool inventory in Spoolman's native GET-response shape.
 
-    The file contains two lists:
-      - filaments  — one entry per unique (brand, material, color, diameter)
-      - spools     — one entry per spool, referencing a filament by id
-
-    Users can import these into Spoolman via its REST API or compatible tools.
+    Each spool contains a fully-embedded filament object (which itself contains
+    a fully-embedded vendor object), mirroring what GET /api/v1/spool returns
+    so that standard Spoolman import tools can parse brand, material and color.
     """
+    now_iso = datetime.utcnow().isoformat()
     spools = db.query(Spool).order_by(Spool.id).all()
 
-    # Deduplicate filament types by (brand, material, color_hex, diameter_mm)
+    # ── pass 1: build deduplicated vendor + filament objects ──────────────────
+    vendor_name_to_id: dict[str, int] = {}
+    vendor_objs: dict[int, dict] = {}
+
     filament_key_to_id: dict[tuple, int] = {}
-    filaments: list[dict] = []
+    filament_objs: dict[int, dict] = {}
 
     for spool in spools:
-        color_hex_raw = (spool.color_hex or "#888888").lstrip("#").upper()
-        key = (spool.brand, spool.material or "PLA", color_hex_raw, spool.diameter_mm or 1.75)
+        # Vendor (brand)
+        brand = spool.brand or "Unknown"
+        if brand not in vendor_name_to_id:
+            vid = len(vendor_name_to_id) + 1
+            vendor_name_to_id[brand] = vid
+            vendor_objs[vid] = {
+                "id": vid,
+                "registered": now_iso,
+                "name": brand,
+                "comment": None,
+                "empty_spool_weight": spool.spool_weight_g or None,
+                "external_id": None,
+                "extra": {},
+            }
+        vid = vendor_name_to_id[brand]
+
+        # Filament type — deduplicate by (brand, material, color_hex, diameter)
+        color_hex = (spool.color_hex or "#888888").lstrip("#").upper()
+        mat = spool.material or "PLA"
+        dia = spool.diameter_mm or 1.75
+        key = (brand, mat, color_hex, dia)
         if key not in filament_key_to_id:
-            fid = len(filaments) + 1
+            fid = len(filament_key_to_id) + 1
             filament_key_to_id[key] = fid
-            density = MATERIAL_DENSITY.get(spool.material or "PLA", 1.24)
-            # price_per_kg: derive from purchase_price / initial_weight so Spoolman's
-            # price field (which represents cost per unit/kg) is meaningful even for
-            # partial spools (e.g. 250 g mini spools).
+            density = MATERIAL_DENSITY.get(mat, 1.24)
             price_per_kg: float | None = None
             if spool.purchase_price and spool.initial_weight_g:
                 price_per_kg = round(spool.purchase_price / (spool.initial_weight_g / 1000), 2)
-            filaments.append({
+            subtype_comment = " / ".join(filter(None, [spool.subtype, spool.subtype2])) or None
+            filament_objs[fid] = {
                 "id": fid,
-                "name": spool.color_name or spool.material or "Unknown",
-                "vendor": {"name": spool.brand},
-                "material": spool.material or "PLA",
-                "color_hex": color_hex_raw,
+                "registered": now_iso,
+                "name": spool.color_name or mat,
+                "vendor": vendor_objs[vid],
+                "material": mat,
+                "color_hex": color_hex,
                 "weight": spool.initial_weight_g,
                 "spool_weight": spool.spool_weight_g or None,
                 "price": price_per_kg,
                 "density": density,
-                "diameter": spool.diameter_mm or 1.75,
-                "comment": " / ".join(filter(None, [spool.subtype, spool.subtype2])) or None,
-            })
+                "diameter": dia,
+                "comment": subtype_comment,
+                "settings_extruder_temp": None,
+                "settings_bed_temp": None,
+                "article_number": None,
+                "external_id": None,
+                "extra": {},
+            }
 
+    # ── pass 2: build spool objects with embedded filament ────────────────────
     spoolman_spools: list[dict] = []
     for spool in spools:
-        color_hex_raw = (spool.color_hex or "#888888").lstrip("#").upper()
-        key = (spool.brand, spool.material or "PLA", color_hex_raw, spool.diameter_mm or 1.75)
+        color_hex = (spool.color_hex or "#888888").lstrip("#").upper()
+        mat = spool.material or "PLA"
+        key = (spool.brand or "Unknown", mat, color_hex, spool.diameter_mm or 1.75)
         fid = filament_key_to_id[key]
-        used_weight = round(max(0.0, (spool.initial_weight_g or 0) - (spool.current_weight_g or 0)), 2)
-        # purchase_location → spool comment (Spoolman's location field is for
-        # physical storage, not the shop the spool was bought from)
+
+        remaining = round(spool.current_weight_g or 0, 2)
+        used = round(max(0.0, (spool.initial_weight_g or 0) - (spool.current_weight_g or 0)), 2)
+
         comment_parts = list(filter(None, [
             spool.notes,
             f"Bought at: {spool.purchase_location}" if spool.purchase_location else None,
         ]))
+
         spoolman_spools.append({
             "id": spool.id,
-            "registered": _dt(spool.created_at) or datetime.utcnow().isoformat(),
-            "filament": {"id": fid},
-            "remaining_weight": round(spool.current_weight_g or 0, 2),
-            "used_weight": used_weight,
-            "archived": (spool.current_weight_g or 0) <= 0,
+            "registered": _dt(spool.created_at) or now_iso,
+            "first_used": None,
+            "last_used": None,
+            "filament": filament_objs[fid],
+            "initial_weight": spool.initial_weight_g,
+            "spool_weight": spool.spool_weight_g or None,
+            "remaining_weight": remaining,
+            "used_weight": used,
+            "archived": remaining <= 0,
+            "location": None,
+            "lot_nr": None,
             "comment": " | ".join(comment_parts) or None,
+            "extra": {},
         })
 
     bundle = {
         "spoolman_export": True,
-        "created": datetime.utcnow().isoformat(),
-        "filaments": filaments,
+        "created": now_iso,
+        "filaments": list(filament_objs.values()),
         "spools": spoolman_spools,
     }
 

@@ -266,7 +266,8 @@
       "importSuccessTitle": "Import erfolgreich",
       "importNote": "Der Import ist additiv — vorhandene Daten werden nie gelöscht. Doppelte Spulen werden als neue Einträge hinzugefügt. Druckerkonfigurationen mit demselben Geräte-Slug werden übersprungen.",
       "exportSpoolmanBtn": "Für Spoolman exportieren",
-      "exportSpoolmanHint": "Lädt ein Spoolman-kompatibles JSON mit Filamenttypen und Spulenbestand herunter."
+      "exportSpoolmanHint": "Lädt ein Spoolman-kompatibles JSON mit Filamenttypen und Spulenbestand herunter.",
+      "experimental": "Experimentell"
     }
   }
 }
