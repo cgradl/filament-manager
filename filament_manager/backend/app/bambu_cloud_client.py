@@ -68,6 +68,9 @@ _serial_to_printer_id: dict[str, int] = {}
 # Running asyncio event loop (stored at startup for thread-safe task scheduling)
 _loop: asyncio.AbstractEventLoop | None = None
 
+# Prevent concurrent re-auth attempts
+_reauth_in_progress: bool = False
+
 
 # ── JWT / auth helpers ────────────────────────────────────────────────────────
 
@@ -241,50 +244,57 @@ def _parse_ams_into_cache(serial: str, ams_raw: dict) -> None:
 
 async def _reauthenticate() -> None:
     """Re-login using saved encrypted password and restart all MQTT connections."""
-    creds = _load_credentials()
-    if not creds:
-        log.error("Bambu Cloud token refresh: no saved credentials")
-        _status["status"] = "error"
-        _status["error"] = "Token expired — please log in again"
-        return
-    email = creds.get("email", "")
+    global _reauth_in_progress, _pending
     try:
-        password = _decrypt_password(creds)
-    except Exception as exc:
-        log.error("Bambu Cloud token refresh: failed to decrypt password: %s", exc)
-        _status["status"] = "error"
-        _status["error"] = "Token expired — please log in again"
-        return
-    try:
-        loop = asyncio.get_event_loop()
-        resp = await loop.run_in_executor(None, lambda: _http_login(email, password))
-    except Exception as exc:
-        log.error("Bambu Cloud token refresh: re-login failed: %s", exc)
-        _status["status"] = "error"
-        _status["error"] = f"Token expired and re-login failed: {exc}"
-        return
+        creds = _load_credentials()
+        if not creds:
+            log.error("Bambu Cloud token refresh: no saved credentials")
+            _status["status"] = "error"
+            _status["error"] = "Session expired — please log in again"
+            return
+        email = creds.get("email", "")
+        try:
+            password = _decrypt_password(creds)
+        except Exception as exc:
+            log.error("Bambu Cloud token refresh: failed to decrypt password: %s", exc)
+            _status["status"] = "error"
+            _status["error"] = "Session expired — please log in again"
+            return
+        try:
+            loop = asyncio.get_event_loop()
+            resp = await loop.run_in_executor(None, lambda: _http_login(email, password))
+        except Exception as exc:
+            log.error("Bambu Cloud token refresh: re-login failed: %s", exc)
+            _status["status"] = "error"
+            _status["error"] = f"Session expired — re-login failed: {exc}"
+            return
 
-    login_type = resp.get("loginType", "")
-    if login_type == "verifyCode":
-        # 2FA required — can't auto-refresh, force user to log in manually
-        log.warning("Bambu Cloud token refresh: 2FA required, cannot auto-refresh")
-        _status["status"] = "error"
-        _status["error"] = "Session expired — please log in again (2FA required)"
-        return
+        login_type = resp.get("loginType", "")
+        if login_type == "verifyCode":
+            # 2FA required — trigger the email and put UI into pending_2fa state
+            log.warning("Bambu Cloud token refresh: 2FA required — sending code to %s", email)
+            _pending = {"email": email, "password": password}
+            _status["status"] = "pending_2fa"
+            _status["email"] = email
+            _status["error"] = "Session expired — enter the verification code sent to your email"
+            await loop.run_in_executor(None, lambda: _http_send_2fa_email(email))
+            return
 
-    new_token = resp.get("accessToken", "")
-    if not new_token:
-        log.error("Bambu Cloud token refresh: no token in response")
-        _status["status"] = "error"
-        _status["error"] = "Token expired — please log in again"
-        return
+        new_token = resp.get("accessToken", "")
+        if not new_token:
+            log.error("Bambu Cloud token refresh: no token in response")
+            _status["status"] = "error"
+            _status["error"] = "Session expired — please log in again"
+            return
 
-    _save_credentials(email, password, new_token)
-    _status["status"] = "connected"
-    _status["email"] = email
-    _status["error"] = None
-    log.info("Bambu Cloud token refreshed for %s — restarting MQTT", email)
-    await _connect_mqtt_for_cloud_printers(email, new_token)
+        _save_credentials(email, password, new_token)
+        _status["status"] = "connected"
+        _status["email"] = email
+        _status["error"] = None
+        log.info("Bambu Cloud token refreshed for %s — restarting MQTT", email)
+        await _connect_mqtt_for_cloud_printers(email, new_token)
+    finally:
+        _reauth_in_progress = False
 
 
 def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
@@ -316,19 +326,22 @@ def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
         client.tls_set_context(tls_ctx)
 
         def on_connect(c, userdata, flags, rc):
+            global _reauth_in_progress
             log.info("Bambu Cloud MQTT on_connect for %s: rc=%s flags=%s", serial, rc, flags)
             if rc == 0:
                 topic = f"device/{serial}/report"
                 c.subscribe(topic, qos=0)
                 log.info("Bambu Cloud MQTT subscribed to %s", topic)
-                # Request a full status push immediately
                 payload = json.dumps({"pushing": {"sequence_id": "0", "command": "pushall"}})
                 c.publish(f"device/{serial}/request", payload, qos=0)
                 log.info("Bambu Cloud MQTT pushall sent for %s", serial)
-            elif int(str(rc)) == 5 and _loop is not None:
-                # rc=5 = Not Authorised — token expired; trigger background re-auth
-                log.warning("Bambu Cloud MQTT auth rejected for %s (rc=5) — scheduling token refresh", serial)
-                asyncio.run_coroutine_threadsafe(_reauthenticate(), _loop)
+            elif int(str(rc)) == 5:
+                # rc=5 = Not Authorised — stop reconnecting, schedule one re-auth attempt
+                log.warning("Bambu Cloud MQTT auth rejected for %s (rc=5) — stopping client", serial)
+                threading.Thread(target=c.loop_stop, daemon=True).start()
+                if _loop is not None and not _reauth_in_progress:
+                    _reauth_in_progress = True
+                    asyncio.run_coroutine_threadsafe(_reauthenticate(), _loop)
             else:
                 log.error("Bambu Cloud MQTT connect failed for %s, rc=%s", serial, rc)
 

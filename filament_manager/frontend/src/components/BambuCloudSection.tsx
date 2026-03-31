@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle, AlertCircle, Wifi, WifiOff, LogOut, RefreshCw } from 'lucide-react'
@@ -21,7 +21,7 @@ export default function BambuCloudSection() {
   const { data: cloudStatus, refetch: refetchStatus } = useQuery({
     queryKey: ['bambu-cloud-status'],
     queryFn: api.getBambuCloudStatus,
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,
   })
 
   const { data: devices = [] } = useQuery<BambuCloudDevice[]>({
@@ -37,6 +37,13 @@ export default function BambuCloudSection() {
 
   const isConnected = cloudStatus?.status === 'connected'
   const isPending2fa = cloudStatus?.status === 'pending_2fa' || step === '2fa'
+
+  // When backend auto-triggers 2FA (expired token refresh), show the code form
+  useEffect(() => {
+    if (cloudStatus?.status === 'pending_2fa' && step === 'form') {
+      setStep('2fa')
+    }
+  }, [cloudStatus?.status])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -250,6 +257,14 @@ export default function BambuCloudSection() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Backend error banner (e.g. session expired awaiting 2FA) ── */}
+      {!isConnected && !isPending2fa && cloudStatus?.error && (
+        <div className="flex items-start gap-2 text-xs text-yellow-400 bg-yellow-900/20 border border-yellow-800 rounded px-3 py-2 mb-3">
+          <AlertCircle size={13} className="mt-0.5 shrink-0" />
+          <span>{cloudStatus.error}</span>
         </div>
       )}
 

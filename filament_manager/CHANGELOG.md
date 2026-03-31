@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.7
+
+- Fix infinite reconnect loop when Bambu Cloud session expires: on rc=5 (Not Authorised) the paho client loop is stopped immediately and re-auth is attempted exactly once
+- When re-auth requires 2FA, the backend automatically sends the verification email and transitions the UI to the code-entry form — no manual logout/login required
+- Show backend error message (e.g. "Session expired") in the UI when cloud status is error
+- Cloud status polled every 5 s (was 30 s) so the UI reacts promptly to reconnection events
+
 ## 0.8.6
 
 - Fix Bambu Cloud MQTT authentication failure after token expiry (rc=5): on connect rejection, automatically re-logs in using the saved encrypted password and restarts all MQTT connections without requiring manual re-login
