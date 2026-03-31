@@ -30,8 +30,15 @@ function PrinterForm({
   const [discovery, setDiscovery] = useState<DiscoverResult | null>(null)
   const [discovering, setDiscovering] = useState(false)
 
-  const slug = deviceName.toLowerCase().trim().replace(/[\s-]+/g, '_')
-  const amsSlug = amsDeviceName.toLowerCase().trim().replace(/[\s-]+/g, '_') || null
+  const haSlugify = (s: string) =>
+    s.toLowerCase().trim()
+      .replace(/[\s-]+/g, '_')   // spaces/hyphens → underscore
+      .replace(/[^\w]/g, '')     // strip anything not a-z, 0-9, _
+      .replace(/_+/g, '_')       // collapse consecutive underscores
+      .replace(/^_|_$/g, '')     // trim leading/trailing underscores
+
+  const slug = haSlugify(deviceName)
+  const amsSlug = haSlugify(amsDeviceName) || null
 
   const discover = async () => {
     if (!deviceName.trim()) return

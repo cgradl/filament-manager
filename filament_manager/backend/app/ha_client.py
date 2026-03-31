@@ -20,8 +20,13 @@ _PRINTER_SUFFIXES = {
 
 
 def slugify(name: str) -> str:
-    """'Bambu H2S' → 'bambu_h2s'"""
-    return name.lower().strip().replace(" ", "_").replace("-", "_")
+    """'Bambu H2S' → 'bambu_h2s'. Mirrors HA's internal slug logic."""
+    import re
+    s = name.lower().strip()
+    s = re.sub(r"[\s-]+", "_", s)   # spaces/hyphens → underscore
+    s = re.sub(r"[^\w]", "", s)     # strip anything not a-z, 0-9, _
+    s = re.sub(r"_+", "_", s)       # collapse consecutive underscores
+    return s.strip("_")
 
 
 def get_printer_entity_ids(device_slug: str) -> dict[str, str]:

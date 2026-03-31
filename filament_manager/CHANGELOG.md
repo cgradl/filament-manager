@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.7
+
+- Fix device name slugification to handle special characters (dots, parentheses, exclamation marks, etc.) so printer entity lookups work for any HA device name, not just simple ones
+- Same fix applied in backend `ha_client.slugify()` to stay in sync with frontend logic
+
 ## 0.5.6
 
 - Fix TypeScript build error: missing Locale type import in Dashboard.tsx
