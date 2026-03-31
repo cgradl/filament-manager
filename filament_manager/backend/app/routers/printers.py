@@ -105,7 +105,8 @@ async def discover_printer(device: str, ams_device: str | None = None):
         ams_result.append({"ams_id": unit["ams_id"], "trays": trays})
 
     # All HA entities that contain either the printer or AMS slug (for debugging)
-    search_slugs = {slug, ams_slug}
+    # Include the auto-computed ams_1 slug so discover shows AMS entities even without explicit ams_device
+    search_slugs = {slug, ams_slug, f"{slug}_ams_1"}
     fuzzy = [
         {"entity_id": e["entity_id"],
          "state": e.get("state"),

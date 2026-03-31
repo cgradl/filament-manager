@@ -262,9 +262,9 @@
       "sensor_bed_temp": "Temperatura de cama",
       "sensor_current_file": "Nombre de tarea",
       "amsEntityOverrides": "Sensores AMS",
-      "amsEntityOverridesHint": "Sobrescribe los patrones de entidad AMS si tu integración de HA usa nombres diferentes. Usa {u} para la unidad AMS y {t} para la bandeja.",
+      "amsEntityOverridesHint": "Dispositivo AMS por defecto: {slug}_ams_{u} (ej. my_printer_ams_1). Bandeja por defecto: tray_{t}. Sobrescribe aquí si tu integración usa nombres diferentes.",
       "amsTrayPattern": "Patrón de entidad de bandeja",
-      "amsTrayPatternHint": "Con dispositivo AMS: reemplaza \"tray_{t}\". Sin dispositivo AMS: reemplaza \"ams_{u}_tray_{t}\".",
+      "amsTrayPatternHint": "Reemplaza la parte de bandeja del nombre de entidad. Por defecto: tray_{t}. Usa {t} para el número de bandeja.",
       "amsSuffixType": "Sufijo de material",
       "amsSuffixColor": "Sufijo de color",
       "amsSuffixRemain": "Sufijo de porcentaje restante"

@@ -262,9 +262,9 @@
       "sensor_bed_temp": "Betttemperatur",
       "sensor_current_file": "Aufgabenname",
       "amsEntityOverrides": "AMS-Sensoren",
-      "amsEntityOverridesHint": "AMS-Entitätsmuster überschreiben, wenn die HA-Integration andere Namen verwendet. {u} = AMS-Einheit, {t} = Schacht.",
+      "amsEntityOverridesHint": "Standard-AMS-Gerät: {slug}_ams_{u} (z.B. my_printer_ams_1). Standard-Schacht: tray_{t}. Hier überschreiben, falls andere Namen verwendet werden.",
       "amsTrayPattern": "Schacht-Entitätsmuster",
-      "amsTrayPatternHint": "Mit AMS-Gerät: ersetzt \"tray_{t}\". Ohne AMS-Gerät: ersetzt \"ams_{u}_tray_{t}\".",
+      "amsTrayPatternHint": "Ersetzt den Schacht-Teil des Entitätsnamens. Standard: tray_{t}. {t} = Schachtnummer.",
       "amsSuffixType": "Material-Suffix",
       "amsSuffixColor": "Farbe-Suffix",
       "amsSuffixRemain": "Verbleibend-%-Suffix"

@@ -262,9 +262,9 @@
       "sensor_bed_temp": "Bed Temperature",
       "sensor_current_file": "Task Name",
       "amsEntityOverrides": "AMS Sensors",
-      "amsEntityOverridesHint": "Override the AMS entity patterns if your HA integration uses different naming. Use {u} for AMS unit number and {t} for tray number.",
+      "amsEntityOverridesHint": "Default AMS device: {slug}_ams_{u} (e.g. my_printer_ams_1). Default tray: tray_{t}. Override here if your integration uses different names.",
       "amsTrayPattern": "Tray Entity Pattern",
-      "amsTrayPatternHint": "With AMS device: replaces \"tray_{t}\". Without AMS device: replaces \"ams_{u}_tray_{t}\".",
+      "amsTrayPatternHint": "Replaces the tray part of the entity name. Default: tray_{t}. Use {t} for the tray number.",
       "amsSuffixType": "Material Suffix",
       "amsSuffixColor": "Color Suffix",
       "amsSuffixRemain": "Remaining % Suffix"

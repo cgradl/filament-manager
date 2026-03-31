@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.3
+
+- Fix AMS default entity pattern: the greghesp Bambu Lab integration exposes each AMS unit as a separate HA device `{slug}_ams_{u}` (e.g. `my_printer_ams_1`) with tray entities `sensor.my_printer_ams_1_tray_1` in attribute mode — this is now the default, no AMS device slug config needed
+- Remove the separate `_type`/`_color`/`_remain` suffix override fields (only applied to the old combined-entity pattern which the integration no longer uses)
+- Discover endpoint now also searches for `{slug}_ams_1` entities in the fuzzy match list
+- AMS tray pattern hint and entity override hint updated in all three locales
+
 ## 0.9.2
 
 - Print form now auto-loads AMS spool assignments on open when a printer is matched and no usages are set yet — no need to click "Load from AMS" manually on first edit

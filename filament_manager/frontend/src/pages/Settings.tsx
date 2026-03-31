@@ -264,42 +264,10 @@ function PrinterForm({
                       className="input text-xs"
                       value={amsTrayPattern}
                       onChange={e => setAmsTrayPattern(e.target.value)}
-                      placeholder={amsSlug ? 'tray_{t}' : 'ams_{u}_tray_{t}'}
+                      placeholder="tray_{t}"
                     />
                     <p className="text-[10px] text-gray-600 mt-0.5">{t('settings.printers.amsTrayPatternHint')}</p>
                   </div>
-
-                  {!amsSlug && (
-                    <>
-                      <div className="mt-2">
-                        <label className="label text-xs">{t('settings.printers.amsSuffixType')}</label>
-                        <input
-                          className="input text-xs"
-                          value={amsSuffixType}
-                          onChange={e => setAmsSuffixType(e.target.value)}
-                          placeholder="_type"
-                        />
-                      </div>
-                      <div className="mt-2">
-                        <label className="label text-xs">{t('settings.printers.amsSuffixColor')}</label>
-                        <input
-                          className="input text-xs"
-                          value={amsSuffixColor}
-                          onChange={e => setAmsSuffixColor(e.target.value)}
-                          placeholder="_color"
-                        />
-                      </div>
-                      <div className="mt-2">
-                        <label className="label text-xs">{t('settings.printers.amsSuffixRemain')}</label>
-                        <input
-                          className="input text-xs"
-                          value={amsSuffixRemain}
-                          onChange={e => setAmsSuffixRemain(e.target.value)}
-                          placeholder="_remain"
-                        />
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
             )}

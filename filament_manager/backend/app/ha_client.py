@@ -50,52 +50,37 @@ def get_ams_config(device_slug: str, ams_unit_count: int, trays_per_ams: int = 4
     """
     Build the AMS config structure (same format used by print_monitor).
 
-    When ams_device_slug is set the AMS is a separate HA device (e.g. "my_printer_ams"):
-      sensor.{ams_device_slug}_{tray_pattern}   (default tray_pattern = "tray_{t}")
-        state      = material name
-        attributes = { color, remain, ... }
-      remaining_source = "attribute"
+    The greghesp Bambu Lab integration exposes each AMS unit as a separate
+    HA device named "{printer_slug}_ams_{u}" (e.g. "my_printer_ams_1").
+    Each tray is a single entity whose state = material name and whose
+    attributes hold color and remain%. This is the default mode.
 
-    Otherwise AMS entities live under the printer device slug:
-      sensor.{device_slug}_{tray_pattern}{suffix_type/_color/_remain}
-      (defaults: tray_pattern = "ams_{u}_tray_{t}", suffixes = _type / _color / _remain)
-      remaining_source = "state"
+    When ams_device_slug is explicitly set, that slug is used instead of
+    the auto-computed "{device_slug}_ams_{u}".
 
-    ams_overrides keys: tray_pattern, suffix_type, suffix_color, suffix_remain
+    ams_overrides keys: tray_pattern (default "tray_{t}"),
+                        suffix_type / suffix_color / suffix_remain (unused in attribute mode)
     Use {u} and {t} as unit/tray placeholders inside tray_pattern.
     """
     ov = ams_overrides or {}
-    tray_pattern  = ov.get("tray_pattern")
-    suffix_type   = ov.get("suffix_type")   or "_type"
-    suffix_color  = ov.get("suffix_color")  or "_color"
-    suffix_remain = ov.get("suffix_remain") or "_remain"
+    tray_pattern = ov.get("tray_pattern") or "tray_{t}"
 
     units = []
     for u in range(1, ams_unit_count + 1):
+        # Effective AMS device slug for this unit
+        effective_ams_slug = ams_device_slug if ams_device_slug else f"{device_slug}_ams_{u}"
         trays = []
         for t in range(1, trays_per_ams + 1):
-            if ams_device_slug:
-                slot = (tray_pattern or "tray_{t}").format(u=u, t=t)
-                entity = f"sensor.{ams_device_slug}_{slot}"
-                trays.append({
-                    "slot": t,
-                    "entity_tray":      entity,
-                    "entity_material":  entity,
-                    "entity_color":     entity,
-                    "entity_remaining": entity,
-                    "remaining_source": "attribute",
-                })
-            else:
-                base   = (tray_pattern or "ams_{u}_tray_{t}").format(u=u, t=t)
-                prefix = f"sensor.{device_slug}_{base}"
-                trays.append({
-                    "slot": t,
-                    "entity_tray":      prefix,
-                    "entity_material":  f"{prefix}{suffix_type}",
-                    "entity_color":     f"{prefix}{suffix_color}",
-                    "entity_remaining": f"{prefix}{suffix_remain}",
-                    "remaining_source": "state",
-                })
+            slot = tray_pattern.format(u=u, t=t)
+            entity = f"sensor.{effective_ams_slug}_{slot}"
+            trays.append({
+                "slot": t,
+                "entity_tray":      entity,
+                "entity_material":  entity,
+                "entity_color":     entity,
+                "entity_remaining": entity,
+                "remaining_source": "attribute",
+            })
         units.append({"ams_id": u, "trays": trays})
     return units
 
