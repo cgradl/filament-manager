@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.6
+
+- Fix Bambu Cloud MQTT authentication failure after token expiry (rc=5): on connect rejection, automatically re-logs in using the saved encrypted password and restarts all MQTT connections without requiring manual re-login
+- If re-login itself requires 2FA the status is set to error with a clear message prompting manual re-login
+
 ## 0.8.5
 
 - Add `GET /api/bambu-cloud/debug` endpoint: shows MQTT client connection state, token validity/expiry, printer status cache, and AMS cache keys — useful for diagnosing MQTT issues
