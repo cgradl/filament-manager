@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0
+
+- Redesign Settings → Printers into a unified tabbed card: "Home Assistant" tab (HA connection status + Add Printer) and "Bambu Lab Cloud" tab (login, 2FA, device list), with the configured printer list always visible below both tabs
+- Data source selection (HA vs Cloud) moves from a separate Cloud section into each printer card — source toggle and serial selector appear inline when cloud is connected
+- Printer card shows a source badge (HA / Cloud), and the test/refresh button for live MQTT status is inline in the card when cloud source is selected
+- Source selection is atomic: switching to Cloud sets both printer monitoring and AMS to MQTT; switching to HA uses only HA entities — no mixing
+- HA and Cloud config no longer shown in separate top-level cards; layout is simplified to one Printers card
+
+## 0.8.11
+
+- Fix 2FA cancel breaking HA config: cancel now calls a dedicated `POST /api/bambu-cloud/cancel-2fa` endpoint that only clears the pending state and resets to disconnected — does not delete credentials or touch HA printer configs
+- Move AMS Device Name field from the main printer form into the collapsible AMS Entity Overrides section, so device name and tray pattern are configured together in one place
+
 ## 0.8.10
 
 - Fix 2FA cancel button doing nothing: it now calls logout on the backend to clear the pending_2fa state, so the login form is restored instead of the useEffect immediately flipping back to the code-entry form

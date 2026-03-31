@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle, AlertCircle, Wifi, WifiOff, LogOut, RefreshCw } from 'lucide-react'
+import { AlertCircle, Wifi, WifiOff, LogOut } from 'lucide-react'
 import { api } from '../api'
-import type { PrinterConfig, BambuCloudDevice, PrinterStatus } from '../types'
+import type { BambuCloudDevice } from '../types'
 
 export default function BambuCloudSection() {
   const { t } = useTranslation()
@@ -15,8 +15,6 @@ export default function BambuCloudSection() {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [testingId, setTestingId] = useState<number | null>(null)
-  const [liveStatus, setLiveStatus] = useState<Record<number, PrinterStatus | null>>({})
 
   const { data: cloudStatus, refetch: refetchStatus } = useQuery({
     queryKey: ['bambu-cloud-status'],
@@ -28,11 +26,6 @@ export default function BambuCloudSection() {
     queryKey: ['bambu-cloud-devices'],
     queryFn: api.getBambuCloudDevices,
     enabled: cloudStatus?.status === 'connected',
-  })
-
-  const { data: printers = [] } = useQuery<PrinterConfig[]>({
-    queryKey: ['printers'],
-    queryFn: api.getPrinters,
   })
 
   const isConnected = cloudStatus?.status === 'connected'
@@ -54,6 +47,10 @@ export default function BambuCloudSection() {
       if (res.requires_2fa) {
         setStep('2fa')
         refetchStatus()
+      } else {
+        refetchStatus()
+        qc.invalidateQueries({ queryKey: ['bambu-cloud-devices'] })
+        qc.invalidateQueries({ queryKey: ['printers'] })
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err))
@@ -89,34 +86,17 @@ export default function BambuCloudSection() {
       setPassword('')
       refetchStatus()
       qc.invalidateQueries({ queryKey: ['bambu-cloud-devices'] })
+      qc.invalidateQueries({ queryKey: ['printers'] })
     } finally {
       setBusy(false)
     }
   }
 
-  const handleSourceChange = async (printer: PrinterConfig, source: string, serial: string) => {
-    await api.updatePrinter(printer.id, {
-      ...printer,
-      bambu_source: source,
-      bambu_serial: source === 'cloud' ? serial : printer.bambu_serial,
-    })
-    qc.invalidateQueries({ queryKey: ['printers'] })
-  }
-
   return (
-    <div className="card">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-sm font-semibold text-gray-300">{t('settings.bambuCloud.title')}</h3>
-        <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-900/60 text-yellow-400 border border-yellow-700">
-          {t('settings.bambuCloud.experimental')}
-        </span>
-      </div>
-      <p className="text-xs text-gray-500 mb-4">{t('settings.bambuCloud.hint')}</p>
-
+    <div>
       {/* ── Connected state ── */}
       {isConnected && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-green-400">
               <Wifi size={15} />
@@ -132,12 +112,13 @@ export default function BambuCloudSection() {
             </button>
           </div>
 
-          {/* Device list */}
-          {devices.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-gray-400 mb-2">{t('settings.bambuCloud.devices')}</p>
+          <div>
+            <p className="text-xs font-medium text-gray-400 mb-2">{t('settings.bambuCloud.devices')}</p>
+            {devices.length === 0 ? (
+              <p className="text-xs text-gray-500">{t('settings.bambuCloud.noDevices')}</p>
+            ) : (
               <div className="space-y-1.5">
-                {devices.map(d => (
+                {(devices as BambuCloudDevice[]).map(d => (
                   <div key={d.serial} className="flex items-center gap-2 text-xs text-gray-300 bg-surface-2 rounded px-3 py-2">
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.online ? 'bg-green-400' : 'bg-gray-600'}`} />
                     <span className="font-medium">{d.name}</span>
@@ -146,121 +127,13 @@ export default function BambuCloudSection() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Per-printer source selector */}
-          {printers.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-gray-400 mb-2">{t('settings.bambuCloud.printerSource')}</p>
-              <div className="space-y-3">
-                {printers.map(p => {
-                  const isCloud = p.bambu_source === 'cloud'
-                  const status = liveStatus[p.id]
-                  const isTesting = testingId === p.id
-
-                  const LABELS: Record<string, string> = {
-                    print_stage: t('settings.bambuCloud.statusStage'),
-                    print_progress: t('settings.bambuCloud.statusProgress'),
-                    remaining_time: t('settings.bambuCloud.statusRemaining'),
-                    nozzle_temp: t('settings.bambuCloud.statusNozzle'),
-                    bed_temp: t('settings.bambuCloud.statusBed'),
-                    current_file: t('settings.bambuCloud.statusFile'),
-                  }
-                  const UNITS: Record<string, string> = {
-                    nozzle_temp: '°C', bed_temp: '°C', print_progress: '%', remaining_time: ' min',
-                  }
-
-                  return (
-                    <div key={p.id} className="space-y-1.5">
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="text-gray-300 flex-1 truncate">{p.name}</span>
-                        <select
-                          value={p.bambu_source || 'ha'}
-                          onChange={e => {
-                            const serial = p.bambu_serial || (devices[0]?.serial ?? '')
-                            handleSourceChange(p, e.target.value, serial)
-                          }}
-                          className="input py-1 text-xs w-36"
-                        >
-                          <option value="ha">{t('settings.bambuCloud.sourceHA')}</option>
-                          <option value="cloud">{t('settings.bambuCloud.sourceCloud')}</option>
-                        </select>
-                        {isCloud && (
-                          <>
-                            <select
-                              value={p.bambu_serial || ''}
-                              onChange={e => handleSourceChange(p, 'cloud', e.target.value)}
-                              className="input py-1 text-xs w-44"
-                            >
-                              <option value="">{t('settings.bambuCloud.serialPlaceholder')}</option>
-                              {devices.map(d => (
-                                <option key={d.serial} value={d.serial}>{d.name} ({d.serial})</option>
-                              ))}
-                            </select>
-                            <button
-                              className="btn-ghost p-1 shrink-0 flex items-center gap-1 text-xs"
-                              disabled={isTesting || !p.bambu_serial}
-                              title={t('settings.bambuCloud.testConnection')}
-                              onClick={async () => {
-                                setTestingId(p.id)
-                                try {
-                                  const s = await api.getPrinterStatus(p.id)
-                                  setLiveStatus(prev => ({ ...prev, [p.id]: s }))
-                                } catch {
-                                  setLiveStatus(prev => ({ ...prev, [p.id]: null }))
-                                } finally {
-                                  setTestingId(null)
-                                }
-                              }}
-                            >
-                              <RefreshCw size={11} className={isTesting ? 'animate-spin' : ''} />
-                              {t('settings.bambuCloud.testConnection')}
-                            </button>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Live status panel — shown after Test is clicked */}
-                      {isCloud && p.id in liveStatus && (
-                        <div className="ml-1 bg-surface-3/50 rounded-xl p-3">
-                          {status === null ? (
-                            <p className="text-xs text-gray-500">{t('settings.bambuCloud.noStatusData')}</p>
-                          ) : (
-                            <div className="space-y-1.5">
-                              <p className="text-xs font-medium text-gray-400 mb-2">
-                                {t('settings.bambuCloud.liveStatus')}
-                              </p>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
-                                {(Object.entries(status) as [string, string | null][]).map(([key, val]) => (
-                                  <div key={key} className="flex items-center gap-1.5 text-xs">
-                                    {val
-                                      ? <CheckCircle size={11} className="text-green-400 shrink-0" />
-                                      : <AlertCircle size={11} className="text-gray-600 shrink-0" />
-                                    }
-                                    <span className={val ? 'text-gray-300' : 'text-gray-600'}>
-                                      {LABELS[key] ?? key}
-                                      {val && (
-                                        <span className="text-white ml-1">{val}{UNITS[key] ?? ''}</span>
-                                      )}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
+          <p className="text-[11px] text-gray-600">{t('settings.bambuCloud.securityNote')}</p>
         </div>
       )}
 
-      {/* ── Backend error banner (e.g. session expired awaiting 2FA) ── */}
+      {/* ── Backend error/session-expired banner ── */}
       {!isConnected && !isPending2fa && cloudStatus?.error && (
         <div className="flex items-start gap-2 text-xs text-yellow-400 bg-yellow-900/20 border border-yellow-800 rounded px-3 py-2 mb-3">
           <AlertCircle size={13} className="mt-0.5 shrink-0" />
@@ -297,13 +170,17 @@ export default function BambuCloudSection() {
             <button type="submit" disabled={busy || code.length !== 6} className="btn-primary">
               {busy ? t('settings.bambuCloud.verifying') : t('settings.bambuCloud.verify')}
             </button>
-            <button type="button" onClick={async () => {
-              setStep('form')
-              setError(null)
-              setCode('')
-              await api.bambuCloudLogout()
-              refetchStatus()
-            }} className="btn-ghost">
+            <button
+              type="button"
+              onClick={async () => {
+                setStep('form')
+                setError(null)
+                setCode('')
+                await api.bambuCloudCancel2fa()
+                refetchStatus()
+              }}
+              className="btn-ghost"
+            >
               {t('common.cancel')}
             </button>
           </div>

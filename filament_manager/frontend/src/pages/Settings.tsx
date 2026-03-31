@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype } from '../types'
+import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype, BambuCloudDevice } from '../types'
 import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
 import Modal from '../components/Modal'
 import BambuCloudSection from '../components/BambuCloudSection'
@@ -137,22 +137,6 @@ function PrinterForm({
             )}
           </div>
 
-          <div>
-            <label className="label">{t('settings.printers.amsDeviceName')}</label>
-            <p className="text-xs text-gray-500 mb-1.5">{t('settings.printers.amsDeviceHint')}</p>
-            <input
-              className="input"
-              value={amsDeviceName}
-              onChange={e => { setAmsDeviceName(e.target.value); setDiscovery(null) }}
-              placeholder={t('settings.printers.leaveBlank')}
-            />
-            {amsSlug && amsSlug !== slug && (
-              <p className="text-xs text-gray-500 mt-1">
-                AMS prefix: <code className="bg-surface-3 px-1 rounded">sensor.{amsSlug}_ams_…</code>
-              </p>
-            )}
-          </div>
-
           {discovery && (
             <div className="bg-surface-3/50 rounded-xl p-3 space-y-3">
               <div>
@@ -257,6 +241,22 @@ function PrinterForm({
                 <div className="border-t border-surface-3 pt-2 mt-1">
                   <p className="text-xs font-medium text-gray-400 mb-2">{t('settings.printers.amsEntityOverrides')}</p>
                   <p className="text-xs text-gray-500 mb-2">{t('settings.printers.amsEntityOverridesHint')}</p>
+
+                  <div className="mb-2">
+                    <label className="label text-xs">{t('settings.printers.amsDeviceName')}</label>
+                    <p className="text-xs text-gray-500 mb-1">{t('settings.printers.amsDeviceHint')}</p>
+                    <input
+                      className="input text-xs"
+                      value={amsDeviceName}
+                      onChange={e => { setAmsDeviceName(e.target.value); setDiscovery(null) }}
+                      placeholder={t('settings.printers.leaveBlank')}
+                    />
+                    {amsSlug && amsSlug !== slug && (
+                      <p className="text-[10px] text-gray-600 mt-0.5">
+                        AMS prefix: <code className="bg-surface-3 px-1 rounded">sensor.{amsSlug}_…</code>
+                      </p>
+                    )}
+                  </div>
 
                   <div>
                     <label className="label text-xs">{t('settings.printers.amsTrayPattern')}</label>
@@ -496,13 +496,26 @@ function AMSTrayRow({
 
 // ── Printer Card ──────────────────────────────────────────────────────────────
 
-function PrinterCard({ printer, onEdit, onDelete }: {
+function PrinterCard({ printer, cloudDevices, isCloudConnected, onEdit, onDelete }: {
   printer: PrinterConfig
+  cloudDevices: BambuCloudDevice[]
+  isCloudConnected: boolean
   onEdit: () => void
   onDelete: () => void
 }) {
   const { t } = useTranslation()
+  const qc = useQueryClient()
   const [showAMS, setShowAMS] = useState(false)
+  const [testingCloud, setTestingCloud] = useState(false)
+  const [cloudLiveStatus, setCloudLiveStatus] = useState<Record<string, string | null> | null | undefined>(undefined)
+
+  const isCloud = printer.bambu_source === 'cloud'
+
+  const sourceMut = useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      api.updatePrinter(printer.id, { ...printer, ...data } as unknown),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['printers'] }),
+  })
 
   const { data: status, refetch, isFetching } = useQuery({
     queryKey: ['printer-status', printer.id],
@@ -524,26 +537,25 @@ function PrinterCard({ printer, onEdit, onDelete }: {
   }
 
   return (
-    <div className="card">
-      <div className="flex items-start justify-between mb-3">
+    <div className="bg-surface-2 border border-surface-3 rounded-xl p-4">
+      <div className="flex items-start justify-between mb-2">
         <div>
           <p className="font-semibold text-white">{printer.name}</p>
-          <p className="text-xs text-gray-500 font-mono">sensor.{printer.device_slug}_…</p>
-          {printer.ams_device_slug && (
-            <p className="text-xs text-gray-500 font-mono">AMS: sensor.{printer.ams_device_slug}_ams_…</p>
-          )}
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className={`text-xs px-2 py-0.5 rounded-full ${
               isPrinting ? 'bg-blue-900 text-blue-300' :
               stage === 'finish' ? 'bg-green-900 text-green-300' :
               'bg-surface-3 text-gray-400'
-            }`}>
-              {stage}
-            </span>
+            }`}>{stage}</span>
             <span className="text-xs text-gray-500">{printer.ams_unit_count} AMS</span>
+            <span className={`text-xs px-1.5 py-0.5 rounded ${
+              isCloud ? 'bg-green-900/40 text-green-400' : 'bg-surface-3 text-gray-500'
+            }`}>
+              {isCloud ? t('settings.bambuCloud.sourceCloud') : t('settings.bambuCloud.sourceHA')}
+            </span>
           </div>
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 shrink-0">
           <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh">
             <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
           </button>
@@ -552,21 +564,82 @@ function PrinterCard({ printer, onEdit, onDelete }: {
         </div>
       </div>
 
-      {status && (
-        <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-400">
+      {/* Source selector — only shown when cloud is connected */}
+      {isCloudConnected && (
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <div className="flex rounded overflow-hidden border border-surface-3 text-xs shrink-0">
+            <button
+              onClick={() => { sourceMut.mutate({ bambu_source: 'ha' }); setCloudLiveStatus(undefined) }}
+              className={`px-3 py-1 transition-colors ${!isCloud ? 'bg-blue-700 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+            >{t('settings.bambuCloud.sourceHA')}</button>
+            <button
+              onClick={() => sourceMut.mutate({ bambu_source: 'cloud' })}
+              className={`px-3 py-1 transition-colors ${isCloud ? 'bg-green-700 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+            >{t('settings.bambuCloud.sourceCloud')}</button>
+          </div>
+          {isCloud && (
+            <>
+              <select
+                value={printer.bambu_serial || ''}
+                onChange={e => sourceMut.mutate({ bambu_source: 'cloud', bambu_serial: e.target.value })}
+                className="input py-0.5 text-xs flex-1 min-w-0"
+              >
+                <option value="">{t('settings.bambuCloud.serialPlaceholder')}</option>
+                {cloudDevices.map(d => (
+                  <option key={d.serial} value={d.serial}>{d.name} ({d.serial})</option>
+                ))}
+              </select>
+              <button
+                className="btn-ghost p-1.5 shrink-0"
+                disabled={testingCloud || !printer.bambu_serial}
+                title={t('settings.bambuCloud.testConnection')}
+                onClick={async () => {
+                  setTestingCloud(true)
+                  try {
+                    const s = await api.getPrinterStatus(printer.id)
+                    setCloudLiveStatus(s as Record<string, string | null>)
+                  } catch {
+                    setCloudLiveStatus(null)
+                  } finally {
+                    setTestingCloud(false)
+                  }
+                }}
+              >
+                <RefreshCw size={11} className={testingCloud ? 'animate-spin' : ''} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Cloud live status panel — shown after test button clicked */}
+      {isCloud && cloudLiveStatus !== undefined && (
+        <div className="mb-3 bg-surface-3/50 rounded-xl p-2.5">
+          {cloudLiveStatus === null ? (
+            <p className="text-xs text-gray-500">{t('settings.bambuCloud.noStatusData')}</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-xs text-gray-400">
+              {Object.entries(cloudLiveStatus).filter(([k, v]) => v && k !== 'print_stage').map(([key, val]) => (
+                <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* HA status values (HA source only, from auto-poll) */}
+      {!isCloud && status && (
+        <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-400 mb-2">
           {Object.entries(status as unknown as Record<string, string | null>).map(([key, val]) => (
             val && key !== 'print_stage' ? (
-              <span key={key}>
-                {LABELS[key] ?? key}:{' '}
-                <span className="text-white">{val}{UNITS[key] ?? ''}</span>
-              </span>
+              <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
             ) : null
           ))}
         </div>
       )}
 
       <button
-        className="mt-3 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+        className="mt-1 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
         onClick={() => setShowAMS(v => !v)}
       >
         {showAMS ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -936,12 +1009,23 @@ function DataTransferSection() {
 export default function Settings() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const [printerTab, setPrinterTab] = useState<'ha' | 'cloud'>('ha')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<PrinterConfig | null>(null)
 
   const { data: printers = [] } = useQuery<PrinterConfig[]>({
     queryKey: ['printers'],
     queryFn: api.getPrinters,
+  })
+  const { data: cloudStatus } = useQuery({
+    queryKey: ['bambu-cloud-status'],
+    queryFn: api.getBambuCloudStatus,
+    refetchInterval: 5_000,
+  })
+  const { data: cloudDevices = [] } = useQuery<BambuCloudDevice[]>({
+    queryKey: ['bambu-cloud-devices'],
+    queryFn: api.getBambuCloudDevices,
+    enabled: cloudStatus?.status === 'connected',
   })
   const { data: haStatus } = useQuery({
     queryKey: ['ha-status'],
@@ -954,6 +1038,7 @@ export default function Settings() {
     staleTime: Infinity,
   })
 
+  const isCloudConnected = cloudStatus?.status === 'connected'
   const invalidate = () => qc.invalidateQueries({ queryKey: ['printers'] })
 
   const createMut = useMutation({ mutationFn: api.createPrinter, onSuccess: () => { invalidate(); setShowForm(false) } })
@@ -970,45 +1055,85 @@ export default function Settings() {
         {versionData && <span className="text-xs text-gray-500">v{versionData.version}</span>}
       </div>
 
-      {/* HA Connection */}
+      {/* Printers — unified tabbed card */}
       <div className="card">
-        <h3 className="text-sm font-semibold text-gray-300 mb-3">{t('settings.ha.title')}</h3>
-        <div className="flex items-center gap-2">
-          {haStatus?.ha_available
-            ? <><CheckCircle size={16} className="text-green-400" /><span className="text-sm text-green-400">{t('settings.ha.connected')}</span></>
-            : <><AlertCircle size={16} className="text-red-400" /><span className="text-sm text-red-400">{t('settings.ha.disconnected')}</span></>
-          }
-        </div>
-        <p className="text-xs text-gray-500 mt-2">{t('settings.ha.hint')}</p>
-      </div>
-
-      {/* Bambu Lab Cloud */}
-      <BambuCloudSection />
-
-      {/* Printers */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-300">{t('settings.printers.title')}</h3>
-          <button className="btn-primary flex items-center gap-1.5 text-xs" onClick={() => setShowForm(true)}>
-            <Plus size={13} /> {t('settings.printers.addPrinter')}
-          </button>
-        </div>
-        {printers.length === 0 && (
-          <p className="text-sm text-gray-500">{t('settings.printers.noPrintersHint')}</p>
-        )}
-        <div className="space-y-3">
-          {printers.map(p => (
-            <PrinterCard
-              key={p.id}
-              printer={p}
-              onEdit={() => setEditing(p)}
-              onDelete={() => {
-                if (confirm(t('settings.printers.confirmDelete', { name: p.name }))) {
-                  deleteMut.mutate(p.id)
-                }
-              }}
-            />
+        {/* Tab bar */}
+        <div className="flex items-center border-b border-surface-3 mb-4 gap-0 -mx-5 px-5">
+          {(['ha', 'cloud'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setPrinterTab(tab)}
+              className={`pb-2.5 pt-1 px-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 -mb-px ${
+                printerTab === tab
+                  ? 'border-blue-500 text-white'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              {tab === 'ha' ? t('settings.ha.title') : t('settings.bambuCloud.title')}
+              {tab === 'cloud' && isCloudConnected && (
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+              )}
+            </button>
           ))}
+          <div className="flex-1" />
+          {printerTab === 'ha' && (
+            <button
+              className="btn-primary flex items-center gap-1.5 text-xs mb-2"
+              onClick={() => setShowForm(true)}
+            >
+              <Plus size={13} /> {t('settings.printers.addPrinter')}
+            </button>
+          )}
+        </div>
+
+        {/* HA tab content */}
+        {printerTab === 'ha' && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-1">
+              {haStatus?.ha_available
+                ? <><CheckCircle size={14} className="text-green-400" /><span className="text-sm text-green-400">{t('settings.ha.connected')}</span></>
+                : <><AlertCircle size={14} className="text-red-400" /><span className="text-sm text-red-400">{t('settings.ha.disconnected')}</span></>
+              }
+            </div>
+            <p className="text-xs text-gray-500">{t('settings.ha.hint')}</p>
+          </div>
+        )}
+
+        {/* Cloud tab content */}
+        {printerTab === 'cloud' && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-300">{t('settings.bambuCloud.title')}</h3>
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-900/60 text-yellow-400 border border-yellow-700">
+                {t('settings.bambuCloud.experimental')}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">{t('settings.bambuCloud.hint')}</p>
+            <BambuCloudSection />
+          </div>
+        )}
+
+        {/* Printer list — always visible below the tabs */}
+        <div className="border-t border-surface-3 pt-4">
+          {printers.length === 0 ? (
+            <p className="text-sm text-gray-500">{t('settings.printers.noPrintersHint')}</p>
+          ) : (
+            <div className="space-y-3">
+              {printers.map(p => (
+                <PrinterCard
+                  key={p.id}
+                  printer={p}
+                  cloudDevices={cloudDevices as BambuCloudDevice[]}
+                  isCloudConnected={isCloudConnected}
+                  onEdit={() => setEditing(p)}
+                  onDelete={() => {
+                    if (confirm(t('settings.printers.confirmDelete', { name: p.name })))
+                      deleteMut.mutate(p.id)
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
