@@ -45,14 +45,31 @@ A Home Assistant app for tracking 3D printer filament inventory, monitoring prin
 ---
 
 ## Installation
-Go to Settings -> Apps -> Install App
-CLick on the 3 dots in top right corner -> Repositories
-Copy the url to this repo https://github.com/cgradl/filament-manager and paste it into the add box at the bottom. Press the button add and close after wards.
+Go to Settings -> Apps -> Install App ->
+Click on the 3 dots in top right corner -> Repositories ->
+Copy the url to this repo https://github.com/cgradl/filament-manager and paste it into the add box at the bottom -> Press the button "add" and close after wards.
 Once the app shows up in your list click on it and press install
 
 
 ---
 
+## Configuration (dont use cloud yet)
+After installation go to Settings page
+Click "+ Add Printer" 
+a)if you use english and standard sensor names:
+1st field put printer name as shown in HA under Settings → Devices & Services → Bambu Lab. (e.g. myprinter)
+2nd field put printer name as shown in HA under Settings → Devices & Services → Bambu Lab. (e.g. myprinter)
+press test
+all values should be filled
+press save
+b) if you have other language or non standard sensor names for printer and AMS
+1st field put printer name as shown in HA under Settings → Devices & Services → Bambu Lab. (e.g. myprinter)
+2nd field put printer name as shown in HA under Settings → Devices & Services → Bambu Lab. (e.g. myprinter)
+Click on Custom Sensor entity IDs
+Fill all below fields with the right sensor name (e.g. sensor.myprinter_current_stage)
+press save
+
+---
 ## How It Works
 
 ### Automatic Print Tracking
