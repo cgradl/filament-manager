@@ -203,7 +203,16 @@
       "serialPlaceholder": "Seleccionar dispositivo…",
       "securityNote": "Contraseña almacenada cifrada. Conexión directa a Bambu Lab — sin terceros.",
       "errorConnect": "Error de conexión: {{error}}",
-      "errorVerify": "Error de verificación: {{error}}"
+      "errorVerify": "Error de verificación: {{error}}",
+      "testConnection": "Probar",
+      "liveStatus": "Estado en vivo",
+      "noStatusData": "Sin datos aún — la impresora puede no estar conectada vía MQTT.",
+      "statusStage": "Fase",
+      "statusProgress": "Progreso",
+      "statusRemaining": "Restante",
+      "statusNozzle": "Boquilla",
+      "statusBed": "Cama",
+      "statusFile": "Archivo"
     },
     "ha": {
       "title": "Home Assistant",

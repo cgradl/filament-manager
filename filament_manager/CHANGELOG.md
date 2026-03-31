@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1
+
+- Bambu Cloud: add "Test" button per cloud-source printer in Settings → Bambu Lab Cloud
+- Clicking Test fetches live MQTT values (stage, progress, remaining time, nozzle/bed temp, current file) and shows them in a status panel — mirrors the HA entity discovery result
+- EN / DE / ES translations for new UI
+
 ## 0.8.0
 
 - Add per-printer custom sensor entity ID overrides — users with non-English HA installations (or renamed entities) can now specify the exact entity ID for each of the 6 printer sensors (print stage, progress, remaining time, nozzle/bed temp, current file)

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle, AlertCircle, Wifi, WifiOff, LogOut } from 'lucide-react'
+import { CheckCircle, AlertCircle, Wifi, WifiOff, LogOut, RefreshCw } from 'lucide-react'
 import { api } from '../api'
-import type { PrinterConfig, BambuCloudDevice } from '../types'
+import type { PrinterConfig, BambuCloudDevice, PrinterStatus } from '../types'
 
 export default function BambuCloudSection() {
   const { t } = useTranslation()
@@ -15,6 +15,8 @@ export default function BambuCloudSection() {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [testingId, setTestingId] = useState<number | null>(null)
+  const [liveStatus, setLiveStatus] = useState<Record<number, PrinterStatus | null>>({})
 
   const { data: cloudStatus, refetch: refetchStatus } = useQuery({
     queryKey: ['bambu-cloud-status'],
@@ -144,35 +146,107 @@ export default function BambuCloudSection() {
           {printers.length > 0 && (
             <div>
               <p className="text-xs font-medium text-gray-400 mb-2">{t('settings.bambuCloud.printerSource')}</p>
-              <div className="space-y-2">
-                {printers.map(p => (
-                  <div key={p.id} className="flex items-center gap-3 text-xs">
-                    <span className="text-gray-300 flex-1 truncate">{p.name}</span>
-                    <select
-                      value={p.bambu_source || 'ha'}
-                      onChange={e => {
-                        const serial = p.bambu_serial || (devices[0]?.serial ?? '')
-                        handleSourceChange(p, e.target.value, serial)
-                      }}
-                      className="input py-1 text-xs w-36"
-                    >
-                      <option value="ha">{t('settings.bambuCloud.sourceHA')}</option>
-                      <option value="cloud">{t('settings.bambuCloud.sourceCloud')}</option>
-                    </select>
-                    {p.bambu_source === 'cloud' && (
-                      <select
-                        value={p.bambu_serial || ''}
-                        onChange={e => handleSourceChange(p, 'cloud', e.target.value)}
-                        className="input py-1 text-xs w-44"
-                      >
-                        <option value="">{t('settings.bambuCloud.serialPlaceholder')}</option>
-                        {devices.map(d => (
-                          <option key={d.serial} value={d.serial}>{d.name} ({d.serial})</option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                ))}
+              <div className="space-y-3">
+                {printers.map(p => {
+                  const isCloud = p.bambu_source === 'cloud'
+                  const status = liveStatus[p.id]
+                  const isTesting = testingId === p.id
+
+                  const LABELS: Record<string, string> = {
+                    print_stage: t('settings.bambuCloud.statusStage'),
+                    print_progress: t('settings.bambuCloud.statusProgress'),
+                    remaining_time: t('settings.bambuCloud.statusRemaining'),
+                    nozzle_temp: t('settings.bambuCloud.statusNozzle'),
+                    bed_temp: t('settings.bambuCloud.statusBed'),
+                    current_file: t('settings.bambuCloud.statusFile'),
+                  }
+                  const UNITS: Record<string, string> = {
+                    nozzle_temp: '°C', bed_temp: '°C', print_progress: '%', remaining_time: ' min',
+                  }
+
+                  return (
+                    <div key={p.id} className="space-y-1.5">
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="text-gray-300 flex-1 truncate">{p.name}</span>
+                        <select
+                          value={p.bambu_source || 'ha'}
+                          onChange={e => {
+                            const serial = p.bambu_serial || (devices[0]?.serial ?? '')
+                            handleSourceChange(p, e.target.value, serial)
+                          }}
+                          className="input py-1 text-xs w-36"
+                        >
+                          <option value="ha">{t('settings.bambuCloud.sourceHA')}</option>
+                          <option value="cloud">{t('settings.bambuCloud.sourceCloud')}</option>
+                        </select>
+                        {isCloud && (
+                          <>
+                            <select
+                              value={p.bambu_serial || ''}
+                              onChange={e => handleSourceChange(p, 'cloud', e.target.value)}
+                              className="input py-1 text-xs w-44"
+                            >
+                              <option value="">{t('settings.bambuCloud.serialPlaceholder')}</option>
+                              {devices.map(d => (
+                                <option key={d.serial} value={d.serial}>{d.name} ({d.serial})</option>
+                              ))}
+                            </select>
+                            <button
+                              className="btn-ghost p-1 shrink-0 flex items-center gap-1 text-xs"
+                              disabled={isTesting || !p.bambu_serial}
+                              title={t('settings.bambuCloud.testConnection')}
+                              onClick={async () => {
+                                setTestingId(p.id)
+                                try {
+                                  const s = await api.getPrinterStatus(p.id)
+                                  setLiveStatus(prev => ({ ...prev, [p.id]: s }))
+                                } catch {
+                                  setLiveStatus(prev => ({ ...prev, [p.id]: null }))
+                                } finally {
+                                  setTestingId(null)
+                                }
+                              }}
+                            >
+                              <RefreshCw size={11} className={isTesting ? 'animate-spin' : ''} />
+                              {t('settings.bambuCloud.testConnection')}
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Live status panel — shown after Test is clicked */}
+                      {isCloud && p.id in liveStatus && (
+                        <div className="ml-1 bg-surface-3/50 rounded-xl p-3">
+                          {status === null ? (
+                            <p className="text-xs text-gray-500">{t('settings.bambuCloud.noStatusData')}</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <p className="text-xs font-medium text-gray-400 mb-2">
+                                {t('settings.bambuCloud.liveStatus')}
+                              </p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
+                                {(Object.entries(status) as [string, string | null][]).map(([key, val]) => (
+                                  <div key={key} className="flex items-center gap-1.5 text-xs">
+                                    {val
+                                      ? <CheckCircle size={11} className="text-green-400 shrink-0" />
+                                      : <AlertCircle size={11} className="text-gray-600 shrink-0" />
+                                    }
+                                    <span className={val ? 'text-gray-300' : 'text-gray-600'}>
+                                      {LABELS[key] ?? key}
+                                      {val && (
+                                        <span className="text-white ml-1">{val}{UNITS[key] ?? ''}</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}

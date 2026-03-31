@@ -203,7 +203,16 @@
       "serialPlaceholder": "Select device…",
       "securityNote": "Password stored encrypted. Connects directly to Bambu Lab — no third parties.",
       "errorConnect": "Connection failed: {{error}}",
-      "errorVerify": "Verification failed: {{error}}"
+      "errorVerify": "Verification failed: {{error}}",
+      "testConnection": "Test",
+      "liveStatus": "Live status",
+      "noStatusData": "No data yet — printer may not be connected via MQTT.",
+      "statusStage": "Stage",
+      "statusProgress": "Progress",
+      "statusRemaining": "Remaining",
+      "statusNozzle": "Nozzle",
+      "statusBed": "Bed",
+      "statusFile": "File"
     },
     "ha": {
       "title": "Home Assistant",
