@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.2
+
+- Print form now auto-loads AMS spool assignments on open when a printer is matched and no usages are set yet — no need to click "Load from AMS" manually on first edit
+- Switch "current file" sensor from `{slug}_gcode_file` to `{slug}_task_name` to match the Bambu Lab HA integration entity that shows the print task name
+
 ## 0.9.1
 
 - Fix TypeScript build errors: `bambuCloudCancel2fa` now uses `request<void>` (consistent with other API methods); `PrinterStatus` interface gains an index signature so it can be used as `Record<string, string | null>` in printer card rendering

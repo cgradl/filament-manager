@@ -17,7 +17,7 @@ const SENSOR_DEFAULTS: Record<SensorKey, string> = {
   remaining_time: 'remaining_time',
   nozzle_temp:    'nozzle_temperature',
   bed_temp:       'bed_temperature',
-  current_file:   'gcode_file',
+  current_file:   'task_name',
 }
 
 function PrinterForm({

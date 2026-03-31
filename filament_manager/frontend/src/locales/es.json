@@ -260,7 +260,7 @@
       "sensor_remaining_time": "Tiempo restante",
       "sensor_nozzle_temp": "Temperatura de boquilla",
       "sensor_bed_temp": "Temperatura de cama",
-      "sensor_current_file": "Archivo actual",
+      "sensor_current_file": "Nombre de tarea",
       "amsEntityOverrides": "Sensores AMS",
       "amsEntityOverridesHint": "Sobrescribe los patrones de entidad AMS si tu integración de HA usa nombres diferentes. Usa {u} para la unidad AMS y {t} para la bandeja.",
       "amsTrayPattern": "Patrón de entidad de bandeja",

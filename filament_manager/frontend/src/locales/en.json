@@ -260,7 +260,7 @@
       "sensor_remaining_time": "Remaining Time",
       "sensor_nozzle_temp": "Nozzle Temperature",
       "sensor_bed_temp": "Bed Temperature",
-      "sensor_current_file": "Current File",
+      "sensor_current_file": "Task Name",
       "amsEntityOverrides": "AMS Sensors",
       "amsEntityOverridesHint": "Override the AMS entity patterns if your HA integration uses different naming. Use {u} for AMS unit number and {t} for tray number.",
       "amsTrayPattern": "Tray Entity Pattern",
