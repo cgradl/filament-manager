@@ -151,6 +151,12 @@ def export_spoolman(db: Session = Depends(get_db)):
             fid = len(filaments) + 1
             filament_key_to_id[key] = fid
             density = MATERIAL_DENSITY.get(spool.material or "PLA", 1.24)
+            # price_per_kg: derive from purchase_price / initial_weight so Spoolman's
+            # price field (which represents cost per unit/kg) is meaningful even for
+            # partial spools (e.g. 250 g mini spools).
+            price_per_kg: float | None = None
+            if spool.purchase_price and spool.initial_weight_g:
+                price_per_kg = round(spool.purchase_price / (spool.initial_weight_g / 1000), 2)
             filaments.append({
                 "id": fid,
                 "name": spool.color_name or spool.material or "Unknown",
@@ -159,7 +165,7 @@ def export_spoolman(db: Session = Depends(get_db)):
                 "color_hex": color_hex_raw,
                 "weight": spool.initial_weight_g,
                 "spool_weight": spool.spool_weight_g or None,
-                "price": spool.purchase_price,
+                "price": price_per_kg,
                 "density": density,
                 "diameter": spool.diameter_mm or 1.75,
                 "comment": " / ".join(filter(None, [spool.subtype, spool.subtype2])) or None,
@@ -170,16 +176,21 @@ def export_spoolman(db: Session = Depends(get_db)):
         color_hex_raw = (spool.color_hex or "#888888").lstrip("#").upper()
         key = (spool.brand, spool.material or "PLA", color_hex_raw, spool.diameter_mm or 1.75)
         fid = filament_key_to_id[key]
-        used_weight = max(0.0, (spool.initial_weight_g or 0) - (spool.current_weight_g or 0))
+        used_weight = round(max(0.0, (spool.initial_weight_g or 0) - (spool.current_weight_g or 0)), 2)
+        # purchase_location → spool comment (Spoolman's location field is for
+        # physical storage, not the shop the spool was bought from)
+        comment_parts = list(filter(None, [
+            spool.notes,
+            f"Bought at: {spool.purchase_location}" if spool.purchase_location else None,
+        ]))
         spoolman_spools.append({
             "id": spool.id,
             "registered": _dt(spool.created_at) or datetime.utcnow().isoformat(),
             "filament": {"id": fid},
-            "remaining_weight": spool.current_weight_g,
+            "remaining_weight": round(spool.current_weight_g or 0, 2),
             "used_weight": used_weight,
             "archived": (spool.current_weight_g or 0) <= 0,
-            "location": spool.purchase_location or None,
-            "comment": spool.notes or None,
+            "comment": " | ".join(comment_parts) or None,
         })
 
     bundle = {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1
+
+- Fix Spoolman export: filament price is now price/kg (not raw purchase price), avoiding incorrect values for partial spools
+- Fix Spoolman export: floating point rounding on remaining_weight / used_weight
+- Fix Spoolman export: purchase_location moved to spool comment instead of location field (Spoolman's location = physical storage slot)
+
 ## 0.6.0
 
 - Add Spoolman-compatible export (Settings → Export for Spoolman)
