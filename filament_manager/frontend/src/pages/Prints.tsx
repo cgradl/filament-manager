@@ -62,20 +62,22 @@ function PrintForm({
     }
   }, [printers, initial?.printer_name])
 
+  const selectedPrinter = printers.find(p => p.id === printerId) ?? null
+
   // Auto-load AMS on first open when printer is known and no usages are set yet
   useEffect(() => {
-    if (!selectedPrinter) return
+    if (!printerId) return
     if (usages.length > 0) return  // already has data — don't overwrite
+    const printer = printers.find(p => p.id === printerId)
+    if (!printer) return
     setLoadingAMS(true)
-    api.getPrinterAMS(selectedPrinter.id).then(trays => {
+    api.getPrinterAMS(printer.id).then(trays => {
       const rows: UsageRow[] = trays
         .filter(t => t.spool !== null)
         .map(t => ({ spool_id: t.spool!.id, grams_used: 0, ams_slot: t.slot_key }))
       if (rows.length > 0) setUsages(rows)
     }).finally(() => setLoadingAMS(false))
-  }, [selectedPrinter?.id])
-
-  const selectedPrinter = printers.find(p => p.id === printerId) ?? null
+  }, [printerId])
 
   const loadFromAMS = async () => {
     if (!selectedPrinter) return

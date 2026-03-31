@@ -59,11 +59,14 @@ def get_ams_config(device_slug: str, ams_unit_count: int, trays_per_ams: int = 4
     the auto-computed "{device_slug}_ams_{u}".
 
     ams_overrides keys: tray_pattern (default "tray_{t}"),
-                        suffix_type / suffix_color / suffix_remain (unused in attribute mode)
+                        suffix_type, suffix_color, suffix_remain
     Use {u} and {t} as unit/tray placeholders inside tray_pattern.
     """
     ov = ams_overrides or {}
-    tray_pattern = ov.get("tray_pattern") or "tray_{t}"
+    tray_pattern  = ov.get("tray_pattern") or "tray_{t}"
+    suffix_type   = ov.get("suffix_type")   or "_type"
+    suffix_color  = ov.get("suffix_color")  or "_color"
+    suffix_remain = ov.get("suffix_remain") or "_remain"
 
     units = []
     for u in range(1, ams_unit_count + 1):
@@ -72,15 +75,28 @@ def get_ams_config(device_slug: str, ams_unit_count: int, trays_per_ams: int = 4
         trays = []
         for t in range(1, trays_per_ams + 1):
             slot = tray_pattern.format(u=u, t=t)
-            entity = f"sensor.{effective_ams_slug}_{slot}"
-            trays.append({
-                "slot": t,
-                "entity_tray":      entity,
-                "entity_material":  entity,
-                "entity_color":     entity,
-                "entity_remaining": entity,
-                "remaining_source": "attribute",
-            })
+            if ams_device_slug:
+                # Explicit override slug: attribute mode (single entity per tray)
+                entity = f"sensor.{effective_ams_slug}_{slot}"
+                trays.append({
+                    "slot": t,
+                    "entity_tray":      entity,
+                    "entity_material":  entity,
+                    "entity_color":     entity,
+                    "entity_remaining": entity,
+                    "remaining_source": "attribute",
+                })
+            else:
+                # Default: greghesp integration auto-slug {device_slug}_ams_{u}, attribute mode
+                entity = f"sensor.{effective_ams_slug}_{slot}"
+                trays.append({
+                    "slot": t,
+                    "entity_tray":      entity,
+                    "entity_material":  entity,
+                    "entity_color":     entity,
+                    "entity_remaining": entity,
+                    "remaining_source": "attribute",
+                })
         units.append({"ams_id": u, "trays": trays})
     return units
 

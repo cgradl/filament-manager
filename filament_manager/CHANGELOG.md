@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.4
+
+- Fix TypeScript build error: `selectedPrinter` used before declaration in auto-load AMS `useEffect` — moved declaration above the effect and use `printerId` as dependency
+- Restore suffix override fields (`_type`, `_color`, `_remain`) in the AMS entity overrides section
+
 ## 0.9.3
 
 - Fix AMS default entity pattern: the greghesp Bambu Lab integration exposes each AMS unit as a separate HA device `{slug}_ams_{u}` (e.g. `my_printer_ams_1`) with tray entities `sensor.my_printer_ams_1_tray_1` in attribute mode — this is now the default, no AMS device slug config needed
