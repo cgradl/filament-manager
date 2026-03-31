@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.10
+
+- Fix 2FA cancel button doing nothing: it now calls logout on the backend to clear the pending_2fa state, so the login form is restored instead of the useEffect immediately flipping back to the code-entry form
+
 ## 0.8.9
 
 - Fix spurious re-auth after successful login: when a new MQTT client is created (e.g. after login), the replaced old client's in-flight `on_connect` callback could fire with rc=5 and trigger another re-authentication cycle — now ignored by checking `_mqtt_clients[serial] is c`

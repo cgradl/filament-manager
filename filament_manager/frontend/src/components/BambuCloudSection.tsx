@@ -297,7 +297,13 @@ export default function BambuCloudSection() {
             <button type="submit" disabled={busy || code.length !== 6} className="btn-primary">
               {busy ? t('settings.bambuCloud.verifying') : t('settings.bambuCloud.verify')}
             </button>
-            <button type="button" onClick={() => { setStep('form'); setError(null) }} className="btn-ghost">
+            <button type="button" onClick={async () => {
+              setStep('form')
+              setError(null)
+              setCode('')
+              await api.bambuCloudLogout()
+              refetchStatus()
+            }} className="btn-ghost">
               {t('common.cancel')}
             </button>
           </div>
