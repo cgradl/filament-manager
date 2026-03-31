@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.8
+
+- Fix repeated 2FA prompt loop: `_reauth_in_progress` is now left `True` while waiting for 2FA code entry, so further rc=5 MQTT callbacks don't re-trigger re-auth
+- `_reauth_in_progress` is reset to `False` only on successful token refresh, hard error, or when the user completes 2FA verification or logs out
+- paho `disconnect()` is called before `loop_stop()` on rc=5 to reliably suppress the auto-reconnect
+
 ## 0.8.7
 
 - Fix infinite reconnect loop when Bambu Cloud session expires: on rc=5 (Not Authorised) the paho client loop is stopped immediately and re-auth is attempted exactly once
