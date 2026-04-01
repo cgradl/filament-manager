@@ -144,6 +144,11 @@ class PriceByLocation(BaseModel):
     count: int
 
 
+class PrinterHours(BaseModel):
+    printer: str
+    hours: float
+
+
 class DashboardStats(BaseModel):
     total_spools: int
     active_spools: int
@@ -163,6 +168,7 @@ class DashboardStats(BaseModel):
     total_prints: int
     material_breakdown: list[MaterialBreakdown] = []
     price_by_location: list[PriceByLocation] = []
+    printer_hours: list[PrinterHours] = []
     recent_prints: list[PrintJobOut] = []
     low_stock: list[SpoolOut] = []
 

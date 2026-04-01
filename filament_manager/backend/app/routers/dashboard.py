@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..models import Spool, PrintJob, PrintUsage
-from ..schemas import DashboardStats, MaterialBreakdown, PriceByLocation, PrintJobOut, SpoolOut
+from ..schemas import DashboardStats, MaterialBreakdown, PriceByLocation, PrinterHours, PrintJobOut, SpoolOut
 from .. import ha_client
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -65,6 +65,16 @@ def get_dashboard(db: Session = Depends(get_db)):
         key=lambda x: x.location,
     )
 
+    # Hours printed per printer (only jobs with a duration and printer name)
+    ph: dict[str, float] = defaultdict(float)
+    for j in jobs:
+        if j.printer_name and j.duration_seconds:
+            ph[j.printer_name] += j.duration_seconds / 3600
+    printer_hours = sorted(
+        [PrinterHours(printer=p, hours=round(h, 2)) for p, h in ph.items()],
+        key=lambda x: x.printer,
+    )
+
     return DashboardStats(
         total_spools=len(spools),
         active_spools=len(active_spools),
@@ -79,6 +89,7 @@ def get_dashboard(db: Session = Depends(get_db)):
         total_prints=len(jobs),
         material_breakdown=material_breakdown,
         price_by_location=price_by_location,
+        printer_hours=printer_hours,
         recent_prints=jobs[:5],
         low_stock=sorted(low_stock, key=lambda s: s.remaining_pct),
     )

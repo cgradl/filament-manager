@@ -197,6 +197,26 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str) 
         if getattr(printer, "bambu_source", "ha") != "cloud":
             return
 
+        # On first MQTT event after (re)start, recover open job from DB instead of
+        # creating a duplicate when the printer is already mid-print (the pushall
+        # response after MQTT reconnect always delivers the current gcode_state).
+        if printer_id not in _state:
+            open_job = (
+                db.query(PrintJob)
+                .filter(
+                    PrintJob.printer_name == printer.name,
+                    PrintJob.source == "auto",
+                    PrintJob.finished_at == None,  # noqa: E711
+                )
+                .order_by(PrintJob.started_at.desc())
+                .first()
+            )
+            if open_job:
+                log.info("Cloud: Recovered open PrintJob #%d for %s after restart", open_job.id, printer.name)
+                _state[printer_id] = {"stage": "printing", "job_id": open_job.id}
+                return  # already have an open job — do not create a duplicate
+            # No open job found — fall through to create a new one
+
         # Guard: don't open a duplicate job if already tracking one
         prev = _state.get(printer_id, {})
         if prev.get("stage") in _PRINTING_STAGES:

@@ -136,6 +136,11 @@ export interface PriceByLocation {
   count: number
 }
 
+export interface PrinterHours {
+  printer: string
+  hours: number
+}
+
 export interface DashboardStats {
   total_spools: number
   active_spools: number
@@ -150,6 +155,7 @@ export interface DashboardStats {
   total_prints: number
   material_breakdown: MaterialBreakdown[]
   price_by_location: PriceByLocation[]
+  printer_hours: PrinterHours[]
   recent_prints: PrintJob[]
   low_stock: Spool[]
 }

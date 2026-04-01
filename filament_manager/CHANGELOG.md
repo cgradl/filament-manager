@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.23
+
+- Fix duplicate print jobs created for cloud printers after app restart: when MQTT reconnects it sends a `pushall` command and the printer responds with its full current state including `gcode_state=RUNNING`; because `_state` (the in-memory tracking dict) is empty after a restart, the duplicate-job guard in `on_cloud_print_start` did not fire and a new PrintJob was created; fix mirrors the DB-recovery logic already used by HA-source printers — on the first MQTT event after restart, if an open PrintJob already exists in the DB it is recovered into `_state` and no new job is created
+
+## 0.9.22
+
+- Fix Cost and Filament chart tooltips: "Available" bar label was showing as literal key `common.available` (key did not exist in `dashboard.chart`); added `dashboard.chart.available` to all three locales
+- Fix Cost and Filament chart tooltip formatting: value was shown as `: €74.45` (colon with no name before it) because Recharts renders the separator even when the item name is empty; added `separator=""` to suppress the colon
+
+## 0.9.21
+
+- Dashboard: add "Hours / Printer" tab to the chart section — bar chart showing total print hours per printer (aggregated from print jobs that have both a printer name and a duration); uses the same dark tooltip style as the other chart tabs
+
 ## 0.9.20
 
 - Fix chart tooltip readability: label and item text now render in light grey/white instead of recharts default black, matching the dark tooltip background on all four dashboard charts (Materials, Cost, Filament, Avg Price/Location)

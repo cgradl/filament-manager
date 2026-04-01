@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { DashboardStats, PrintJob } from '../types'
+import type { DashboardStats, PrintJob, PrinterHours } from '../types'
 import { AlertTriangle, Printer } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { enUS, de, es, type Locale } from 'date-fns/locale'
@@ -67,7 +67,7 @@ const TT_STYLE = { background: '#1c1c1e', border: '1px solid #48484a', borderRad
 const TT_LABEL = { color: '#d1d5db' }
 const TT_ITEM  = { color: '#f5f5f7' }
 
-type ChartTab = 'materials' | 'cost' | 'weight' | 'location'
+type ChartTab = 'materials' | 'cost' | 'weight' | 'location' | 'printers'
 
 function ChartSection({ stats }: { stats: DashboardStats }) {
   const { t } = useTranslation()
@@ -78,6 +78,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
     { key: 'cost',      label: t('dashboard.tabs.cost') },
     { key: 'weight',    label: t('dashboard.tabs.weight') },
     { key: 'location',  label: t('dashboard.tabs.location') },
+    { key: 'printers',  label: t('dashboard.tabs.printers') },
   ]
 
   const pieData = stats.material_breakdown.map((m, i) => ({
@@ -90,19 +91,25 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
   const costData = [
     { name: t('dashboard.chart.purchased'), value: stats.total_filament_spent_eur },
     { name: t('dashboard.chart.printed'),   value: +(stats.total_filament_spent_eur - stats.total_available_eur).toFixed(2) },
-    { name: t('common.available'),          value: stats.total_available_eur },
+    { name: t('dashboard.chart.available'), value: stats.total_available_eur },
   ]
 
   const weightData = [
     { name: t('dashboard.chart.purchased'), value: stats.total_filament_kg },
     { name: t('dashboard.chart.printed'),   value: +(stats.total_filament_kg - stats.total_available_kg).toFixed(3) },
-    { name: t('common.available'),          value: stats.total_available_kg },
+    { name: t('dashboard.chart.available'), value: stats.total_available_kg },
   ]
 
   const locationData = stats.price_by_location.map((l, i) => ({
     name: l.location,
     avg: l.avg_price,
     count: l.count,
+    color: PIE_COLORS[i % PIE_COLORS.length],
+  }))
+
+  const printerData = stats.printer_hours.map((p: PrinterHours, i: number) => ({
+    name: p.printer,
+    hours: p.hours,
     color: PIE_COLORS[i % PIE_COLORS.length],
   }))
 
@@ -161,7 +168,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
               <BarChart data={costData} barSize={48}>
                 <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TT_STYLE} labelStyle={TT_LABEL} itemStyle={TT_ITEM} formatter={(v: number) => [`€${v.toFixed(2)}`, '']} />
+                <Tooltip contentStyle={TT_STYLE} labelStyle={TT_LABEL} itemStyle={TT_ITEM} separator="" formatter={(v: number) => [`€${v.toFixed(2)}`, '']} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   <Cell fill="#3b82f6" />
                   <Cell fill="#ef4444" />
@@ -178,7 +185,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
               <BarChart data={weightData} barSize={48}>
                 <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TT_STYLE} labelStyle={TT_LABEL} itemStyle={TT_ITEM} formatter={(v: number) => [`${v.toFixed(3)} kg`, '']} />
+                <Tooltip contentStyle={TT_STYLE} labelStyle={TT_LABEL} itemStyle={TT_ITEM} separator="" formatter={(v: number) => [`${v.toFixed(3)} kg`, '']} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   <Cell fill="#3b82f6" />
                   <Cell fill="#ef4444" />
@@ -206,6 +213,26 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                 />
                 <Bar dataKey="avg" radius={[4, 4, 0, 0]}>
                   {locationData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+      )}
+
+      {tab === 'printers' && (
+        printerData.length === 0
+          ? <p className="text-sm text-gray-500">{t('dashboard.noPrinterData')}</p>
+          : <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={printerData} barSize={48}>
+                <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} unit="h" />
+                <Tooltip
+                  contentStyle={TT_STYLE}
+                  labelStyle={TT_LABEL}
+                  itemStyle={TT_ITEM}
+                  formatter={(v: number) => [`${v.toFixed(1)} ${t('dashboard.chart.hours')}`, '']}
+                />
+                <Bar dataKey="hours" radius={[4, 4, 0, 0]}>
+                  {printerData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

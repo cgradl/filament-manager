@@ -50,18 +50,22 @@
     "noPurchaseData": "Noch keine Kaufdaten vorhanden.",
     "noFilamentData": "Noch keine Filamentdaten vorhanden.",
     "noLocationData": "Noch keine Spulen mit Kaufort und Preis eingetragen.",
+    "noPrinterData": "Noch keine Druckjobs mit Drucker und Dauer erfasst.",
     "tabs": {
       "materials": "Materialien",
       "cost": "Kosten (€)",
       "weight": "Filament (kg)",
-      "location": "Ø Preis / Ort"
+      "location": "Ø Preis / Ort",
+      "printers": "Stunden / Drucker"
     },
     "chart": {
       "purchased": "Gekauft",
       "printed": "Gedruckt",
+      "available": "Verfügbar",
       "spools": "Spulen",
       "spool": "Spule",
-      "avgPrice": "Ø Preis"
+      "avgPrice": "Ø Preis",
+      "hours": "Stunden"
     }
   },
   "spools": {

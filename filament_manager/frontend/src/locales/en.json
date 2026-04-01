@@ -50,18 +50,22 @@
     "noPurchaseData": "No purchase data yet.",
     "noFilamentData": "No filament data yet.",
     "noLocationData": "No spools with both a purchase location and price set yet.",
+    "noPrinterData": "No print jobs with printer and duration recorded yet.",
     "tabs": {
       "materials": "Materials",
       "cost": "Cost (€)",
       "weight": "Filament (kg)",
-      "location": "Avg Price / Location"
+      "location": "Avg Price / Location",
+      "printers": "Hours / Printer"
     },
     "chart": {
       "purchased": "Purchased",
       "printed": "Printed",
+      "available": "Available",
       "spools": "spools",
       "spool": "spool",
-      "avgPrice": "Avg price"
+      "avgPrice": "Avg price",
+      "hours": "hours"
     }
   },
   "spools": {

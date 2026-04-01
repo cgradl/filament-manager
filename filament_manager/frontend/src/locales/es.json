@@ -50,18 +50,22 @@
     "noPurchaseData": "Sin datos de compra aún.",
     "noFilamentData": "Sin datos de filamento aún.",
     "noLocationData": "No hay bobinas con ubicación de compra y precio establecidos aún.",
+    "noPrinterData": "No hay trabajos de impresión con impresora y duración registrados aún.",
     "tabs": {
       "materials": "Materiales",
       "cost": "Coste (€)",
       "weight": "Filamento (kg)",
-      "location": "Precio medio / Lugar"
+      "location": "Precio medio / Lugar",
+      "printers": "Horas / Impresora"
     },
     "chart": {
       "purchased": "Comprado",
       "printed": "Impreso",
+      "available": "Disponible",
       "spools": "bobinas",
       "spool": "bobina",
-      "avgPrice": "Precio medio"
+      "avgPrice": "Precio medio",
+      "hours": "horas"
     }
   },
   "spools": {
