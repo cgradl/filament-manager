@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.13
+
+- Fix authentication loop: when automatic token re-auth requires 2FA (Bambu has no silent refresh), stop spamming the user's inbox — instead set status to error with a clear message directing the user to log in manually from the Experiments tab; 2FA is only triggered when the user explicitly initiates login
+
 ## 0.9.12
 
 - Fix: Experiments tab showed empty data — MQTT was only started for printers with `bambu_source=cloud`, but the source toggle was disabled; now MQTT starts for any active printer with a `bambu_serial` set, regardless of source setting

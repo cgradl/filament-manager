@@ -297,14 +297,20 @@ async def _reauthenticate() -> None:
 
     login_type = resp.get("loginType", "")
     if login_type == "verifyCode":
-        # 2FA required — send the email and put UI into pending_2fa state.
-        # Leave _reauth_in_progress = True so further rc=5 callbacks don't re-trigger.
-        log.warning("Bambu Cloud token refresh: 2FA required — sending code to %s", email)
-        _pending = {"email": email, "password": password}
-        _status["status"] = "pending_2fa"
+        # 2FA required during automatic re-auth — do NOT auto-send the email or
+        # enter the 2FA flow.  Automatically spamming the user's inbox on every
+        # container restart (when the token has expired) is not acceptable.
+        # Instead, surface a clear error and let the user log in manually from
+        # the Experiments tab.
+        log.warning(
+            "Bambu Cloud token refresh: 2FA required for %s — "
+            "manual re-login needed (Experiments tab)",
+            email,
+        )
+        _status["status"] = "error"
         _status["email"] = email
-        _status["error"] = "Session expired — enter the verification code sent to your email"
-        await loop.run_in_executor(None, lambda: _http_send_2fa_email(email))
+        _status["error"] = "Session expired — please log in again in the Experiments tab"
+        _reauth_in_progress = False
         return
 
     new_token = resp.get("accessToken", "")
@@ -435,6 +441,8 @@ async def startup() -> None:
         _status["email"] = email
         _status["error"] = None
         await _connect_mqtt_for_cloud_printers(email, token)
+        # If MQTT got rc=5 during connect the on_connect handler already called
+        # _reauthenticate() which may have changed _status — leave it as-is.
     else:
         # Token expired — attempt silent re-auth using saved password before starting MQTT.
         # This avoids the rc=5 → 2FA loop on every container restart with a stale token.
