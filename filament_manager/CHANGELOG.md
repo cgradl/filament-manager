@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.29
+
+- Remove Hours / Printer tab from dashboard chart section
+
 ## 0.9.28
 
 - Fix Hours/Printer chart missing bars: every active printer now always appears in the chart; previously a printer was omitted entirely if its HA entity / MQTT cache returned no data and it had no recorded jobs — it now shows 0 h in that case
