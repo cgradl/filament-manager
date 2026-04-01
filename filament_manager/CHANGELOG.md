@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.17
+
+- Fix: AMS tray assignment panel was showing cloud MQTT data for HA-source printers — the `bambu_serial` field is now set just to enable Experiments tab live view, so all three AMS endpoints (get trays, sync all, sync single) now require `bambu_source=cloud` before reading from the MQTT cache; HA-source printers always read from HA entities
+
 ## 0.9.16
 
 - PrintJob now stores Bambu Cloud MQTT enrichment fields: `task_id`, `project_id`, `total_layer_num`, `layer_num` (final layer at end), `nozzle_diameter`, `nozzle_type`, `print_type` (cloud/local/sdcard), `error_code` — populated automatically for cloud-source printers; null for HA/manual jobs

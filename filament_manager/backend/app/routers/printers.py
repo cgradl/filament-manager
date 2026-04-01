@@ -137,7 +137,7 @@ async def get_ams_trays(printer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Printer not found")
 
     # Cloud-source printers: use MQTT cache instead of HA entities
-    if p.bambu_serial:
+    if p.bambu_source == "cloud" and p.bambu_serial:
         from .. import bambu_cloud_client
         detail = bambu_cloud_client.get_ams_detail_for_serial(p.bambu_serial)
         result = []
@@ -224,7 +224,7 @@ async def sync_ams_weights(printer_id: int, db: Session = Depends(get_db)):
     updated = []
 
     # Cloud-source printers: use MQTT cache instead of HA entities
-    if p.bambu_serial:
+    if p.bambu_source == "cloud" and p.bambu_serial:
         from .. import bambu_cloud_client
         snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(p.bambu_serial)
         for slot_key, remaining_pct in snapshot.items():
@@ -302,7 +302,7 @@ async def sync_ams_tray_weight(printer_id: int, slot_key: str, db: Session = Dep
         raise HTTPException(404, "No spool assigned to this tray")
 
     # Cloud-source printers: use MQTT cache instead of HA entities
-    if p.bambu_serial:
+    if p.bambu_source == "cloud" and p.bambu_serial:
         from .. import bambu_cloud_client
         snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(p.bambu_serial)
         remaining_pct_raw = snapshot.get(slot_key)
