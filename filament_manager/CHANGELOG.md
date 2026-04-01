@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.7
+
+- Fix Bambu Cloud authentication loop (three root causes):
+  1. `_is_token_valid` returned `False` when the JWT has no `exp` claim — Bambu tokens sometimes omit it, so every container restart triggered `_reauthenticate()` → 2FA prompt; now assumes valid when `exp` is absent
+  2. `_connect_mqtt_for_cloud_printers` did not await the executor tasks — new MQTT clients were not yet registered when the function returned, creating a race window
+  3. `_reauth_in_progress` was cleared before new clients were registered in both `_reauthenticate` and `verify_2fa` — a stale rc=5 callback could restart the loop in that window; flag is now cleared after `_connect_mqtt_for_cloud_printers` completes
+
 ## 0.9.6
 
 - Fix Bambu Cloud status panel showing no values: MQTT partial updates (e.g. AMS-only messages) were overwriting the full status cache with null values — status fields are now merged, preserving previously received data (stage, temps, progress) across incremental updates

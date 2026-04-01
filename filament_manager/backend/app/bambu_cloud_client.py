@@ -96,12 +96,24 @@ def _jwt_payload(token: str) -> dict:
 
 
 def _is_token_valid(token: str) -> bool:
-    """Return True if the JWT exp claim is in the future."""
+    """Return True if the token is usable.
+
+    If the JWT has an 'exp' claim and it is in the past → expired (False).
+    If no 'exp' claim (Bambu tokens sometimes omit it) → assume valid (True).
+    If the token is empty or unparseable → invalid (False).
+    """
     import time
+    if not token:
+        return False
     payload = _jwt_payload(token)
+    if not payload:
+        # Could not decode — treat as invalid
+        return False
     exp = payload.get("exp")
     if exp is None:
-        return False
+        # No expiry claim present — assume the token is still valid and let
+        # the MQTT broker reject it (rc=5) if it actually isn't.
+        return True
     return float(exp) > time.time()
 
 
@@ -307,9 +319,11 @@ async def _reauthenticate() -> None:
     _status["status"] = "connected"
     _status["email"] = email
     _status["error"] = None
-    _reauth_in_progress = False
     log.info("Bambu Cloud token refreshed for %s — restarting MQTT", email)
     await _connect_mqtt_for_cloud_printers(email, new_token)
+    # Clear flag AFTER new clients are registered so the rc=5 handler on any
+    # lingering old client cannot restart re-auth before the new client is in place.
+    _reauth_in_progress = False
 
 
 def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
@@ -515,9 +529,10 @@ async def verify_2fa(code: str) -> None:
     _status["email"] = email
     _status["error"] = None
     _pending.clear()
-    _reauth_in_progress = False
 
     await _connect_mqtt_for_cloud_printers(email, token)
+    # Clear flag AFTER new clients are registered (same ordering as _reauthenticate)
+    _reauth_in_progress = False
     log.info("Bambu Cloud: login complete for %s", email)
 
 
@@ -657,7 +672,14 @@ async def reconnect() -> None:
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 async def _connect_mqtt_for_cloud_printers(email: str, token: str) -> None:
-    """Query DB for all cloud-source printers and start MQTT for each."""
+    """Query DB for all cloud-source printers and start MQTT for each.
+
+    Awaits all executor tasks so that every _start_mqtt_for_serial call
+    completes (client created + stored in _mqtt_clients) before returning.
+    This ensures _reauth_in_progress is only cleared after the new clients
+    are registered, closing the race window where a stale rc=5 callback
+    could restart the re-auth cycle.
+    """
     from .database import SessionLocal
     from .models import PrinterConfig
 
@@ -670,12 +692,16 @@ async def _connect_mqtt_for_cloud_printers(email: str, token: str) -> None:
             .filter(PrinterConfig.is_active == True)    # noqa: E712
             .all()
         )
+        loop = asyncio.get_event_loop()
+        tasks = []
         for p in printers:
             _serial_to_printer_id[p.bambu_serial] = p.id
             serial = p.bambu_serial
-            asyncio.get_event_loop().run_in_executor(
+            tasks.append(loop.run_in_executor(
                 None,
                 lambda s=serial: _start_mqtt_for_serial(s, email, token),
-            )
+            ))
+        if tasks:
+            await asyncio.gather(*tasks)
     finally:
         db.close()
