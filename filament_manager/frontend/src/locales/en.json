@@ -180,6 +180,19 @@
   },
   "settings": {
     "title": "Settings",
+    "tabs": {
+      "printers": "Printers",
+      "data": "Data",
+      "transfer": "Export / Import",
+      "experiments": "Experiments"
+    },
+    "dataTabs": {
+      "brandWeights": "Spool Weights",
+      "brands": "Brands",
+      "materials": "Materials",
+      "subtypes": "Subtypes",
+      "locations": "Locations"
+    },
     "bambuCloud": {
       "title": "Bambu Lab Cloud",
       "experimental": "Experimental",

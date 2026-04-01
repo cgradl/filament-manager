@@ -1007,10 +1007,14 @@ function DataTransferSection() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+type MainTab = 'printers' | 'data' | 'transfer' | 'experiments'
+type DataSubTab = 'brandWeights' | 'brands' | 'materials' | 'subtypes' | 'locations'
+
 export default function Settings() {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [printerTab, setPrinterTab] = useState<'ha' | 'cloud'>('ha')
+  const [mainTab, setMainTab] = useState<MainTab>('printers')
+  const [dataTab, setDataTab] = useState<DataSubTab>('brandWeights')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<PrinterConfig | null>(null)
 
@@ -1049,73 +1053,66 @@ export default function Settings() {
   })
   const deleteMut = useMutation({ mutationFn: api.deletePrinter, onSuccess: invalidate })
 
+  const MAIN_TABS: { id: MainTab; label: string; dot?: boolean }[] = [
+    { id: 'printers',    label: t('settings.tabs.printers') },
+    { id: 'data',        label: t('settings.tabs.data') },
+    { id: 'transfer',    label: t('settings.tabs.transfer') },
+    { id: 'experiments', label: t('settings.tabs.experiments'), dot: isCloudConnected },
+  ]
+
+  const DATA_SUBTABS: { id: DataSubTab; label: string }[] = [
+    { id: 'brandWeights', label: t('settings.dataTabs.brandWeights') },
+    { id: 'brands',       label: t('settings.dataTabs.brands') },
+    { id: 'materials',    label: t('settings.dataTabs.materials') },
+    { id: 'subtypes',     label: t('settings.dataTabs.subtypes') },
+    { id: 'locations',    label: t('settings.dataTabs.locations') },
+  ]
+
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-4 max-w-2xl">
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-bold">{t('settings.title')}</h2>
         {versionData && <span className="text-xs text-gray-500">v{versionData.version}</span>}
       </div>
 
-      {/* Printers — unified tabbed card */}
-      <div className="card">
-        {/* Tab bar */}
-        <div className="flex items-center border-b border-surface-3 mb-4 gap-0 -mx-5 px-5">
-          {(['ha', 'cloud'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setPrinterTab(tab)}
-              className={`pb-2.5 pt-1 px-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 -mb-px ${
-                printerTab === tab
-                  ? 'border-blue-500 text-white'
-                  : 'border-transparent text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              {tab === 'ha' ? t('settings.ha.title') : t('settings.bambuCloud.title')}
-              {tab === 'cloud' && isCloudConnected && (
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
-              )}
-            </button>
-          ))}
-          <div className="flex-1" />
-          {printerTab === 'ha' && (
-            <button
-              className="btn-primary flex items-center gap-1.5 text-xs mb-2"
-              onClick={() => setShowForm(true)}
-            >
-              <Plus size={13} /> {t('settings.printers.addPrinter')}
-            </button>
-          )}
-        </div>
+      {/* Main tab bar */}
+      <div className="flex border-b border-surface-3 gap-0">
+        {MAIN_TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setMainTab(tab.id)}
+            className={`pb-2.5 pt-1 px-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 -mb-px ${
+              mainTab === tab.id
+                ? 'border-blue-500 text-white'
+                : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            {tab.label}
+            {tab.dot && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />}
+          </button>
+        ))}
+      </div>
 
-        {/* HA tab content */}
-        {printerTab === 'ha' && (
-          <div className="mb-4">
-            <div className="flex items-center gap-2 mb-1">
+      {/* ── Tab: Printers ── */}
+      {mainTab === 'printers' && (
+        <div className="card">
+          {/* HA status */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
               {haStatus?.ha_available
                 ? <><CheckCircle size={14} className="text-green-400" /><span className="text-sm text-green-400">{t('settings.ha.connected')}</span></>
                 : <><AlertCircle size={14} className="text-red-400" /><span className="text-sm text-red-400">{t('settings.ha.disconnected')}</span></>
               }
             </div>
-            <p className="text-xs text-gray-500">{t('settings.ha.hint')}</p>
+            <button
+              className="btn-primary flex items-center gap-1.5 text-xs"
+              onClick={() => setShowForm(true)}
+            >
+              <Plus size={13} /> {t('settings.printers.addPrinter')}
+            </button>
           </div>
-        )}
 
-        {/* Cloud tab content */}
-        {printerTab === 'cloud' && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-300">{t('settings.bambuCloud.title')}</h3>
-              <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-900/60 text-yellow-400 border border-yellow-700">
-                {t('settings.bambuCloud.experimental')}
-              </span>
-            </div>
-            <p className="text-xs text-gray-500 mb-4">{t('settings.bambuCloud.hint')}</p>
-            <BambuCloudSection />
-          </div>
-        )}
-
-        {/* Printer list — always visible below the tabs */}
-        <div className="border-t border-surface-3 pt-4">
+          {/* Printer list */}
           {printers.length === 0 ? (
             <p className="text-sm text-gray-500">{t('settings.printers.noPrintersHint')}</p>
           ) : (
@@ -1136,61 +1133,96 @@ export default function Settings() {
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Brand Spool Weights */}
-      <BrandWeightsSection />
+      {/* ── Tab: Data ── */}
+      {mainTab === 'data' && (
+        <div className="card">
+          {/* Data sub-tab bar */}
+          <div className="flex border-b border-surface-3 mb-4 gap-0 -mx-5 px-5 overflow-x-auto">
+            {DATA_SUBTABS.map(st => (
+              <button
+                key={st.id}
+                onClick={() => setDataTab(st.id)}
+                className={`pb-2 pt-0.5 px-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
+                  dataTab === st.id
+                    ? 'border-blue-500 text-white'
+                    : 'border-transparent text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {st.label}
+              </button>
+            ))}
+          </div>
 
-      {/* Brands */}
-      <NameListSection
-        title={t('settings.brands.title')}
-        queryKey="filament-brands"
-        fetchFn={api.getFilamentBrands}
-        createFn={api.createFilamentBrand}
-        updateFn={api.updateFilamentBrand}
-        deleteFn={api.deleteFilamentBrand}
-        placeholder={t('settings.brands.placeholder')}
-        noEntries={t('settings.brands.noEntries')}
-      />
+          {dataTab === 'brandWeights' && <BrandWeightsSection />}
+          {dataTab === 'brands' && (
+            <NameListSection
+              title={t('settings.brands.title')}
+              queryKey="filament-brands"
+              fetchFn={api.getFilamentBrands}
+              createFn={api.createFilamentBrand}
+              updateFn={api.updateFilamentBrand}
+              deleteFn={api.deleteFilamentBrand}
+              placeholder={t('settings.brands.placeholder')}
+              noEntries={t('settings.brands.noEntries')}
+            />
+          )}
+          {dataTab === 'materials' && (
+            <NameListSection
+              title={t('settings.materials.title')}
+              queryKey="filament-materials"
+              fetchFn={api.getFilamentMaterials}
+              createFn={api.createFilamentMaterial}
+              updateFn={api.updateFilamentMaterial}
+              deleteFn={api.deleteFilamentMaterial}
+              placeholder={t('settings.materials.placeholder')}
+              noEntries={t('settings.materials.noEntries')}
+            />
+          )}
+          {dataTab === 'subtypes' && (
+            <NameListSection
+              title={t('settings.subtypes.title')}
+              queryKey="filament-subtypes"
+              fetchFn={api.getFilamentSubtypes}
+              createFn={api.createFilamentSubtype}
+              updateFn={api.updateFilamentSubtype}
+              deleteFn={api.deleteFilamentSubtype}
+              placeholder={t('settings.subtypes.placeholder')}
+              noEntries={t('settings.subtypes.noEntries')}
+            />
+          )}
+          {dataTab === 'locations' && (
+            <NameListSection
+              title={t('settings.purchaseLocations.title')}
+              queryKey="purchase-locations"
+              fetchFn={api.getPurchaseLocations}
+              createFn={api.createPurchaseLocation}
+              updateFn={api.updatePurchaseLocation}
+              deleteFn={api.deletePurchaseLocation}
+              placeholder={t('settings.purchaseLocations.placeholder')}
+              noEntries={t('settings.purchaseLocations.noEntries')}
+            />
+          )}
+        </div>
+      )}
 
-      {/* Materials */}
-      <NameListSection
-        title={t('settings.materials.title')}
-        queryKey="filament-materials"
-        fetchFn={api.getFilamentMaterials}
-        createFn={api.createFilamentMaterial}
-        updateFn={api.updateFilamentMaterial}
-        deleteFn={api.deleteFilamentMaterial}
-        placeholder={t('settings.materials.placeholder')}
-        noEntries={t('settings.materials.noEntries')}
-      />
+      {/* ── Tab: Export / Import ── */}
+      {mainTab === 'transfer' && <DataTransferSection />}
 
-      {/* Subtypes */}
-      <NameListSection
-        title={t('settings.subtypes.title')}
-        queryKey="filament-subtypes"
-        fetchFn={api.getFilamentSubtypes}
-        createFn={api.createFilamentSubtype}
-        updateFn={api.updateFilamentSubtype}
-        deleteFn={api.deleteFilamentSubtype}
-        placeholder={t('settings.subtypes.placeholder')}
-        noEntries={t('settings.subtypes.noEntries')}
-      />
-
-      {/* Purchase Locations */}
-      <NameListSection
-        title={t('settings.purchaseLocations.title')}
-        queryKey="purchase-locations"
-        fetchFn={api.getPurchaseLocations}
-        createFn={api.createPurchaseLocation}
-        updateFn={api.updatePurchaseLocation}
-        deleteFn={api.deletePurchaseLocation}
-        placeholder={t('settings.purchaseLocations.placeholder')}
-        noEntries={t('settings.purchaseLocations.noEntries')}
-      />
-
-      {/* Data Transfer */}
-      <DataTransferSection />
+      {/* ── Tab: Experiments ── */}
+      {mainTab === 'experiments' && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-300">{t('settings.bambuCloud.title')}</h3>
+            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-900/60 text-yellow-400 border border-yellow-700">
+              {t('settings.bambuCloud.experimental')}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">{t('settings.bambuCloud.hint')}</p>
+          <BambuCloudSection />
+        </div>
+      )}
 
       {(showForm || editing) && (
         <Modal>

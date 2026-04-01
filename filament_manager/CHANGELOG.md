@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.8
+
+- Redesign Settings page into four top-level tabs: **Printers**, **Data**, **Export / Import**, **Experiments**
+- Printers tab: HA connection status + Add Printer button + printer card list (cloud source selector still inline on each card)
+- Data tab: five sub-tabs — Spool Weights, Brands, Materials, Subtypes, Locations
+- Export / Import tab: existing data transfer section
+- Experiments tab: Bambu Lab Cloud integration (moved from Printers tab); green dot on tab when cloud is connected
+- EN / DE / ES translations for all new tab labels
+
 ## 0.9.7
 
 - Fix Bambu Cloud authentication loop (three root causes):
