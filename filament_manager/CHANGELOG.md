@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.15
+
+- Fix MQTT rc=5: Bambu tokens returned after 2FA are opaque (not standard JWTs), so uid could not be extracted from the token payload — MQTT username fell back to the email address which Bambu Cloud rejects
+- After every successful login (begin_login, verify_2fa) and silent re-auth, uid is now fetched from `GET /v1/user-service/my/profile` and saved alongside the credentials
+- `_mqtt_username()` reads the saved uid from credentials first; falls back to JWT decode only when no saved uid is present
+- `_is_token_valid()` now treats non-decodable tokens as valid (opaque post-2FA tokens are valid — let the broker reject with rc=5 if actually expired rather than triggering re-auth on every restart)
+
 ## 0.9.14
 
 - Add diagnostic logging to MQTT startup: logs the computed MQTT username, extracted uid, and JWT payload field names so rc=5 auth failures can be diagnosed

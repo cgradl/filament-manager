@@ -100,31 +100,38 @@ def _is_token_valid(token: str) -> bool:
 
     If the JWT has an 'exp' claim and it is in the past → expired (False).
     If no 'exp' claim (Bambu tokens sometimes omit it) → assume valid (True).
-    If the token is empty or unparseable → invalid (False).
+    If the token is non-empty but not a decodable JWT (Bambu post-2FA tokens
+    are opaque strings) → assume valid (True) and let the MQTT broker reject
+    it with rc=5 if it has actually expired.
+    If the token is empty → invalid (False).
     """
     import time
     if not token:
         return False
     payload = _jwt_payload(token)
     if not payload:
-        # Could not decode — treat as invalid
-        return False
+        # Token present but not a standard JWT (e.g. Bambu post-2FA opaque token)
+        # — assume it is still valid.
+        return True
     exp = payload.get("exp")
     if exp is None:
-        # No expiry claim present — assume the token is still valid and let
-        # the MQTT broker reject it (rc=5) if it actually isn't.
+        # No expiry claim — assume valid.
         return True
     return float(exp) > time.time()
 
 
 def _mqtt_username(email: str, token: str) -> str:
+    # Prefer the uid saved in credentials (token may not be a standard JWT)
+    creds = _load_credentials()
+    if creds and creds.get("uid"):
+        return f"u_{creds['uid']}"
     uid = _jwt_uid(token)
     return f"u_{uid}" if uid else email
 
 
 # ── Credential helpers ────────────────────────────────────────────────────────
 
-def _save_credentials(email: str, password: str, token: str) -> None:
+def _save_credentials(email: str, password: str, token: str, uid: str = "") -> None:
     key = Fernet.generate_key()
     f = Fernet(key)
     data = {
@@ -132,6 +139,7 @@ def _save_credentials(email: str, password: str, token: str) -> None:
         "password_enc": f.encrypt(password.encode()).decode(),
         "fernet_key": key.decode(),
         "token": token,
+        "uid": uid,
         "saved_at": datetime.now(timezone.utc).isoformat(),
     }
     with open(CRED_FILE, "w") as fp:
@@ -192,6 +200,30 @@ def _http_get_devices(token: str) -> list[dict]:
     resp.raise_for_status()
     data = resp.json()
     return data.get("devices", [])
+
+
+def _http_get_uid(token: str) -> str:
+    """Fetch the user's uid from the Bambu profile endpoint.
+
+    The token returned after 2FA verification is not always a standard JWT,
+    so uid cannot be reliably extracted from the token payload.  The profile
+    endpoint is the authoritative source for the uid used as the MQTT username.
+    """
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = requests.get(
+            "https://api.bambulab.com/v1/user-service/my/profile",
+            headers=headers,
+            timeout=20,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        uid = str(data.get("uid") or data.get("uidStr") or "")
+        log.info("Bambu Cloud profile uid: %r (response keys: %s)", uid, list(data.keys()))
+        return uid
+    except Exception as exc:
+        log.warning("Bambu Cloud: failed to fetch profile uid: %s", exc)
+        return ""
 
 
 # ── MQTT helpers ──────────────────────────────────────────────────────────────
@@ -321,7 +353,8 @@ async def _reauthenticate() -> None:
         _reauth_in_progress = False
         return
 
-    _save_credentials(email, password, new_token)
+    uid = await loop.run_in_executor(None, lambda: _http_get_uid(new_token))
+    _save_credentials(email, password, new_token, uid)
     _status["status"] = "connected"
     _status["email"] = email
     _status["error"] = None
@@ -342,12 +375,13 @@ def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
             pass
 
     try:
-        username = _mqtt_username(email, token)
-        uid = _jwt_uid(token)
-        payload = _jwt_payload(token)
+        creds = _load_credentials()
+        saved_uid = (creds or {}).get("uid", "")
+        jwt_uid = _jwt_uid(token)
+        username = f"u_{saved_uid}" if saved_uid else (f"u_{jwt_uid}" if jwt_uid else email)
         log.info(
-            "Bambu Cloud MQTT starting for %s — username=%r uid=%r payload_keys=%s",
-            serial, username, uid, list(payload.keys()),
+            "Bambu Cloud MQTT starting for %s — username=%r saved_uid=%r jwt_uid=%r",
+            serial, username, saved_uid, jwt_uid,
         )
         # paho-mqtt 2.x requires callback_api_version; 1.x doesn't have it
         try:
@@ -505,7 +539,9 @@ async def begin_login(email: str, password: str) -> dict:
     if not token:
         raise HTTPException(400, "Login failed: no access token returned")
 
-    _save_credentials(email, password, token)
+    loop = asyncio.get_event_loop()
+    uid = await loop.run_in_executor(None, lambda: _http_get_uid(token))
+    _save_credentials(email, password, token, uid)
     _status["status"] = "connected"
     _status["email"] = email
     _status["error"] = None
@@ -538,7 +574,9 @@ async def verify_2fa(code: str) -> None:
         raise HTTPException(400, f"Login failed: {err}")
 
     global _reauth_in_progress
-    _save_credentials(email, password, token)
+    loop = asyncio.get_event_loop()
+    uid = await loop.run_in_executor(None, lambda: _http_get_uid(token))
+    _save_credentials(email, password, token, uid)
     _status["status"] = "connected"
     _status["email"] = email
     _status["error"] = None
