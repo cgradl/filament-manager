@@ -84,6 +84,16 @@ class PrintJob(Base):
     ams_snapshot_start = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Bambu Cloud / MQTT enrichment fields
+    task_id = Column(String, nullable=True)        # Bambu task ID (cloud job reference)
+    project_id = Column(String, nullable=True)     # Bambu project/profile ID
+    total_layer_num = Column(Integer, nullable=True)
+    layer_num = Column(Integer, nullable=True)     # final layer reached (at print end)
+    nozzle_diameter = Column(String, nullable=True)  # "0.4", "0.6", etc.
+    nozzle_type = Column(String, nullable=True)    # "stainless_steel", "hardened_steel", etc.
+    print_type = Column(String, nullable=True)     # "cloud", "local", "sdcard"
+    error_code = Column(String, nullable=True)     # mc_print_error_code on failure
+
     usages = relationship(
         "PrintUsage", back_populates="print_job", cascade="all, delete-orphan"
     )

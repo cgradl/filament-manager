@@ -119,6 +119,16 @@ class PrintJobOut(PrintJobBase):
     usages: list[PrintUsageOut] = []
     created_at: datetime
 
+    # Bambu Cloud / MQTT enrichment fields (None for manual/HA-tracked jobs)
+    task_id: str | None = None
+    project_id: str | None = None
+    total_layer_num: int | None = None
+    layer_num: int | None = None
+    nozzle_diameter: str | None = None
+    nozzle_type: str | None = None
+    print_type: str | None = None
+    error_code: str | None = None
+
 
 # ── Dashboard ────────────────────────────────────────────────────────────────
 

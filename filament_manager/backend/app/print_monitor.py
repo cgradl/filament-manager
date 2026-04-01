@@ -115,7 +115,8 @@ async def _on_print_start(printer: PrinterConfig, entities: dict, db: Session) -
 
 
 async def _on_print_end(
-    printer: PrinterConfig, db: Session, job_id: int | None, success: bool
+    printer: PrinterConfig, db: Session, job_id: int | None, success: bool,
+    extra_fields: dict | None = None,
 ) -> None:
     log.info("Print ended on %s (success=%s)", printer.name, success)
     if job_id is None:
@@ -133,6 +134,11 @@ async def _on_print_end(
     if job.started_at:
         started = job.started_at.replace(tzinfo=timezone.utc) if job.started_at.tzinfo is None else job.started_at
         job.duration_seconds = int((now - started).total_seconds())
+
+    if extra_fields:
+        for k, v in extra_fields.items():
+            if hasattr(job, k) and v is not None:
+                setattr(job, k, v)
 
     if getattr(printer, "bambu_source", "ha") == "cloud" and getattr(printer, "bambu_serial", None):
         from . import bambu_cloud_client
@@ -178,12 +184,17 @@ async def _record_ams_usage(
 async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str) -> None:
     """
     Called by bambu_cloud_client when MQTT gcode_state transitions to RUNNING.
-    Creates a PrintJob using AMS data from the cloud MQTT cache.
+    Only acts for printers configured with bambu_source=cloud — HA-source printers
+    are tracked by the HA poller; MQTT is connected for Experiments tab only.
     """
     db: Session = SessionLocal()
     try:
         printer = db.get(PrinterConfig, printer_id)
         if not printer:
+            return
+
+        # Only drive print tracking via MQTT for cloud-source printers
+        if getattr(printer, "bambu_source", "ha") != "cloud":
             return
 
         # Guard: don't open a duplicate job if already tracking one
@@ -199,10 +210,11 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str) 
         if not display_name:
             display_name = f"Print {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
-        # Get AMS snapshot from cloud MQTT cache
         from . import bambu_cloud_client
         ams_snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(serial)
+        status = bambu_cloud_client.get_printer_cloud_status(serial)
 
+        nozzle_d = status.get("nozzle_diameter")
         job = PrintJob(
             name=display_name,
             model_name=subtask_name or None,
@@ -211,6 +223,12 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str) 
             printer_name=printer.name,
             success=True,
             ams_snapshot_start=ams_snapshot,
+            task_id=str(status["task_id"]) if status.get("task_id") is not None else None,
+            project_id=str(status["project_id"]) if status.get("project_id") is not None else None,
+            total_layer_num=status.get("total_layer_num"),
+            nozzle_diameter=str(nozzle_d) if nozzle_d is not None else None,
+            nozzle_type=status.get("nozzle_type"),
+            print_type=status.get("print_type"),
         )
         db.add(job)
         db.commit()
@@ -224,7 +242,7 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str) 
 async def on_cloud_print_end(printer_id: int, success: bool, gcode_state: str) -> None:
     """
     Called by bambu_cloud_client when MQTT gcode_state transitions to FINISH,
-    FAILED, or IDLE (with an open job). Delegates to _on_print_end.
+    FAILED, or IDLE (with an open job). Only acts for cloud-source printers.
     """
     # Only close an open job — ignore IDLE events when nothing was printing
     prev = _state.get(printer_id, {})
@@ -236,7 +254,21 @@ async def on_cloud_print_end(printer_id: int, success: bool, gcode_state: str) -
         printer = db.get(PrinterConfig, printer_id)
         if not printer:
             return
+
+        # Only drive print tracking via MQTT for cloud-source printers
+        if getattr(printer, "bambu_source", "ha") != "cloud":
+            return
+
+        from . import bambu_cloud_client
+        serial = getattr(printer, "bambu_serial", None)
+        status = bambu_cloud_client.get_printer_cloud_status(serial) if serial else {}
+        extra = {
+            "layer_num":       status.get("layer_num"),
+            "total_layer_num": status.get("total_layer_num"),
+            "error_code":      str(status["mc_print_error_code"]) if not success and status.get("mc_print_error_code") is not None else None,
+        }
+
         job_id = prev.get("job_id")
-        await _on_print_end(printer, db, job_id, success=success)
+        await _on_print_end(printer, db, job_id, success=success, extra_fields=extra)
     finally:
         db.close()

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.16
+
+- PrintJob now stores Bambu Cloud MQTT enrichment fields: `task_id`, `project_id`, `total_layer_num`, `layer_num` (final layer at end), `nozzle_diameter`, `nozzle_type`, `print_type` (cloud/local/sdcard), `error_code` — populated automatically for cloud-source printers; null for HA/manual jobs
+- AMS tray MQTT cache now includes `remain_flag` (0/null = reliable reading, 1 = rough estimate); exposed in `GET /api/bambu-cloud/printer/{serial}/ams`
+- Fix: Bambu Cloud MQTT callbacks (`on_cloud_print_start`, `on_cloud_print_end`) now skip printers with `bambu_source=ha` — MQTT is connected for the Experiments tab but must not interfere with HA-based print tracking or overwrite HA AMS snapshots
+
 ## 0.9.15
 
 - Fix MQTT rc=5: Bambu tokens returned after 2FA are opaque (not standard JWTs), so uid could not be extracted from the token payload — MQTT username fell back to the email address which Bambu Cloud rejects

@@ -242,7 +242,9 @@ def _process_device_message(serial: str, data: dict) -> None:
     # does not wipe out temperature/stage data from the previous full status push.
     current = _printer_status_cache.get(serial, {})
     for field in ("gcode_state", "subtask_name", "mc_percent", "mc_remaining_time",
-                  "nozzle_temper", "bed_temper"):
+                  "nozzle_temper", "bed_temper", "task_id", "project_id",
+                  "total_layer_num", "layer_num", "nozzle_diameter", "nozzle_type",
+                  "print_type", "mc_print_error_code"):
         val = print_data.get(field)
         if val is not None:
             current[field] = val
@@ -289,10 +291,12 @@ def _parse_ams_into_cache(serial: str, ams_raw: dict) -> None:
             color_raw = str(tray.get("tray_color") or tray.get("color") or "").strip()
             color_hex = f"#{color_raw[:6]}" if len(color_raw) >= 6 else None
             material = tray.get("tray_type") or tray.get("type") or None
+            remain_flag = tray.get("remain_flag")
             snapshot[f"ams{ams_id}_tray{tray_id}"] = {
-                "remain":   remain_f,
-                "material": material,
-                "color":    color_hex,
+                "remain":      remain_f,
+                "material":    material,
+                "color":       color_hex,
+                "remain_flag": remain_flag,  # None / 0 = reliable, 1 = rough estimate
             }
     if snapshot:
         _ams_cache[serial] = snapshot

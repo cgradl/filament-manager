@@ -35,6 +35,19 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added print_jobs.model_name")
 
+        # print_jobs: Bambu Cloud enrichment fields
+        for _col in ("task_id", "project_id", "nozzle_diameter", "nozzle_type",
+                     "print_type", "error_code"):
+            if _col not in job_cols:
+                conn.execute(text(f"ALTER TABLE print_jobs ADD COLUMN {_col} TEXT"))
+                conn.commit()
+                log.info("Migration: added print_jobs.%s", _col)
+        for _col in ("total_layer_num", "layer_num"):
+            if _col not in job_cols:
+                conn.execute(text(f"ALTER TABLE print_jobs ADD COLUMN {_col} INTEGER"))
+                conn.commit()
+                log.info("Migration: added print_jobs.%s", _col)
+
         # spools: add purchase_location if missing
         spool_cols = [c["name"] for c in insp.get_columns("spools")]
         if "purchase_location" not in spool_cols:

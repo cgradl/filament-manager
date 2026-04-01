@@ -85,6 +85,7 @@ def get_ams_by_serial(serial: str) -> list[dict]:
             "ha_material":  td.get("material"),
             "ha_color_hex": td.get("color"),
             "ha_remaining": str(td["remain"]) if "remain" in td else None,
+            "remain_flag":  td.get("remain_flag"),  # 0/None = reliable, 1 = rough estimate
         }
         for slot_key, td in sorted(detail.items())
     ]
