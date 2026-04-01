@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.6
+
+- Fix Bambu Cloud status panel showing no values: MQTT partial updates (e.g. AMS-only messages) were overwriting the full status cache with null values — status fields are now merged, preserving previously received data (stage, temps, progress) across incremental updates
+- Status panel now shows all non-empty fields including print stage; shows "no data" message instead of empty panel when cache has nothing yet
+
 ## 0.9.5
 
 - Fix Bambu Cloud token persistence: on container restart, check JWT `exp` claim before connecting — if still valid, use saved token directly without any re-auth; only trigger re-auth when the token is actually expired

@@ -187,23 +187,25 @@ def _http_get_devices(token: str) -> list[dict]:
 def _process_device_message(serial: str, data: dict) -> None:
     """Parse MQTT payload, update caches, schedule print_monitor calls."""
     print_data = data.get("print", {})
-    gcode_state = print_data.get("gcode_state", "")
-    subtask_name = print_data.get("subtask_name", "")
 
     # Update AMS cache from top-level or nested ams object
     for ams_source in (data.get("ams", {}), print_data.get("ams", {})):
         if ams_source:
             _parse_ams_into_cache(serial, ams_source)
 
-    # Update general status cache
-    _printer_status_cache[serial] = {
-        "gcode_state": gcode_state,
-        "mc_percent": print_data.get("mc_percent"),
-        "mc_remaining_time": print_data.get("mc_remaining_time"),
-        "nozzle_temper": print_data.get("nozzle_temper"),
-        "bed_temper": print_data.get("bed_temper"),
-        "subtask_name": subtask_name,
-    }
+    # Merge status fields — Bambu sends incremental updates; only update fields
+    # that are actually present in this message so that a partial AMS-only update
+    # does not wipe out temperature/stage data from the previous full status push.
+    current = _printer_status_cache.get(serial, {})
+    for field in ("gcode_state", "subtask_name", "mc_percent", "mc_remaining_time",
+                  "nozzle_temper", "bed_temper"):
+        val = print_data.get(field)
+        if val is not None:
+            current[field] = val
+    _printer_status_cache[serial] = current
+
+    gcode_state = current.get("gcode_state", "")
+    subtask_name = current.get("subtask_name", "")
 
     if not gcode_state or _loop is None:
         return

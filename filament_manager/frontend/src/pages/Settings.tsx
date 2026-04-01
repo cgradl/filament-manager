@@ -613,13 +613,18 @@ function PrinterCard({ printer, cloudDevices, isCloudConnected, onEdit, onDelete
         <div className="mb-3 bg-surface-3/50 rounded-xl p-2.5">
           {cloudLiveStatus === null ? (
             <p className="text-xs text-gray-500">{t('settings.bambuCloud.noStatusData')}</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-xs text-gray-400">
-              {Object.entries(cloudLiveStatus).filter(([k, v]) => v && k !== 'print_stage').map(([key, val]) => (
-                <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
-              ))}
-            </div>
-          )}
+          ) : (() => {
+            const entries = Object.entries(cloudLiveStatus).filter(([, v]) => v != null && v !== '')
+            return entries.length === 0
+              ? <p className="text-xs text-gray-500">{t('settings.bambuCloud.noStatusData')}</p>
+              : (
+                <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-xs text-gray-400">
+                  {entries.map(([key, val]) => (
+                    <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
+                  ))}
+                </div>
+              )
+          })()}
         </div>
       )}
 
