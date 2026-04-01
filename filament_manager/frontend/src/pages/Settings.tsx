@@ -511,12 +511,13 @@ function PrinterCard({ printer, onEdit, onDelete }: {
   onDelete: () => void
 }) {
   const { t } = useTranslation()
+  const isCloud = printer.bambu_source === 'cloud'
 
   const { data: status, refetch, isFetching } = useQuery({
     queryKey: ['printer-status', printer.id],
     queryFn: () => api.getPrinterStatus(printer.id),
     refetchInterval: 30_000,
-    enabled: printer.is_active && printer.bambu_source !== 'cloud',
+    enabled: printer.is_active && !isCloud,
   })
 
   const stage = (status as Record<string, string | null> | undefined)?.print_stage?.toLowerCase() ?? 'unknown'
@@ -536,7 +537,7 @@ function PrinterCard({ printer, onEdit, onDelete }: {
         <div>
           <p className="font-semibold text-white">{printer.name}</p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            {printer.bambu_source !== 'cloud' && (
+            {!isCloud && (
               <span className={`text-xs px-2 py-0.5 rounded-full ${
                 isPrinting ? 'bg-blue-900 text-blue-300' :
                 stage === 'finish' ? 'bg-green-900 text-green-300' :
@@ -544,15 +545,10 @@ function PrinterCard({ printer, onEdit, onDelete }: {
               }`}>{stage}</span>
             )}
             <span className="text-xs text-gray-500">{printer.ams_unit_count} AMS</span>
-            {printer.bambu_source === 'cloud' && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-green-900/40 text-green-400">
-                {t('settings.bambuCloud.sourceCloud')}
-              </span>
-            )}
           </div>
         </div>
         <div className="flex gap-1 shrink-0">
-          {printer.bambu_source !== 'cloud' && (
+          {!isCloud && (
             <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh">
               <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
             </button>
@@ -562,8 +558,22 @@ function PrinterCard({ printer, onEdit, onDelete }: {
         </div>
       </div>
 
+      {/* Data source selector — Cloud button disabled (configure in Experiments tab) */}
+      <div className="flex rounded overflow-hidden border border-surface-3 text-xs mb-3 w-fit">
+        <span className={`px-3 py-1 ${!isCloud ? 'bg-blue-700 text-white' : 'text-gray-500'}`}>
+          {t('settings.bambuCloud.sourceHA')}
+        </span>
+        <span
+          className="px-3 py-1 text-gray-600 cursor-not-allowed"
+          title={t('settings.bambuCloud.configureInExperiments')}
+        >
+          {t('settings.bambuCloud.sourceCloud')}
+          {isCloud && <span className="ml-1 text-green-500">✓</span>}
+        </span>
+      </div>
+
       {/* HA status values — only for HA-source printers */}
-      {printer.bambu_source !== 'cloud' && status && (
+      {!isCloud && status && (
         <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
           {Object.entries(status as unknown as Record<string, string | null>).map(([key, val]) => (
             val && key !== 'print_stage' ? (
@@ -942,17 +952,16 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
   const { t } = useTranslation()
 
   const { data: status, refetch, isFetching } = useQuery({
-    queryKey: ['printer-status', printer.id],
+    queryKey: ['cloud-status', printer.id],
     queryFn: () => api.getPrinterStatus(printer.id),
     refetchInterval: 10_000,
-    enabled: printer.is_active && printer.bambu_source === 'cloud',
+    enabled: printer.is_active,
   })
 
   const { data: trays } = useQuery<AMSTray[]>({
-    queryKey: ['printer-ams', printer.id],
+    queryKey: ['cloud-ams', printer.id],
     queryFn: () => api.getPrinterAMS(printer.id),
     refetchInterval: 10_000,
-    enabled: printer.bambu_source === 'cloud',
   })
 
   const LABELS: Record<string, string> = {
@@ -1072,7 +1081,7 @@ export default function Settings() {
     { id: 'locations',    label: t('settings.dataTabs.locations') },
   ]
 
-  const cloudPrinters = printers.filter(p => p.bambu_source === 'cloud' && p.bambu_serial)
+  const cloudPrinters = printers.filter(p => p.bambu_serial)
 
   return (
     <div className="space-y-4 max-w-2xl">

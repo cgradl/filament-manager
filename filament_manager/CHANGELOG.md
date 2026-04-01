@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.10
+
+- Fix: Printers tab — cloud source button restored as disabled (greyed out, not removed); shows a checkmark when cloud is currently active; tooltip directs to Experiments tab to configure
+- Fix: Experiments tab — cloud live data now shows for all printers that have a Bambu serial assigned (not only those already set to cloud source); uses dedicated query keys so it does not conflict with the HA polling queries
+
 ## 0.9.9
 
 - Data tab: "Add" form moved to the top of each list (above existing entries) with Enter key support

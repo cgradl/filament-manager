@@ -225,7 +225,8 @@
       "statusRemaining": "Remaining",
       "statusNozzle": "Nozzle",
       "statusBed": "Bed",
-      "statusFile": "File"
+      "statusFile": "File",
+      "configureInExperiments": "Configure cloud source in the Experiments tab"
     },
     "ha": {
       "title": "Home Assistant",

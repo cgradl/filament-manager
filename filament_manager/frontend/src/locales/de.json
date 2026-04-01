@@ -225,7 +225,8 @@
       "statusRemaining": "Verbleibend",
       "statusNozzle": "Düse",
       "statusBed": "Bett",
-      "statusFile": "Datei"
+      "statusFile": "Datei",
+      "configureInExperiments": "Cloud-Quelle im Tab Experimente konfigurieren"
     },
     "ha": {
       "title": "Home Assistant",

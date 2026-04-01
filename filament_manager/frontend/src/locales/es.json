@@ -225,7 +225,8 @@
       "statusRemaining": "Restante",
       "statusNozzle": "Boquilla",
       "statusBed": "Cama",
-      "statusFile": "Archivo"
+      "statusFile": "Archivo",
+      "configureInExperiments": "Configura la fuente cloud en la pestaña Experimentos"
     },
     "ha": {
       "title": "Home Assistant",
