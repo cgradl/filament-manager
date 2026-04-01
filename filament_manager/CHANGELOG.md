@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.14
+
+- Add diagnostic logging to MQTT startup: logs the computed MQTT username, extracted uid, and JWT payload field names so rc=5 auth failures can be diagnosed
+
 ## 0.9.13
 
 - Fix authentication loop: when automatic token re-auth requires 2FA (Bambu has no silent refresh), stop spamming the user's inbox — instead set status to error with a clear message directing the user to log in manually from the Experiments tab; 2FA is only triggered when the user explicitly initiates login

@@ -343,6 +343,12 @@ def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
 
     try:
         username = _mqtt_username(email, token)
+        uid = _jwt_uid(token)
+        payload = _jwt_payload(token)
+        log.info(
+            "Bambu Cloud MQTT starting for %s — username=%r uid=%r payload_keys=%s",
+            serial, username, uid, list(payload.keys()),
+        )
         # paho-mqtt 2.x requires callback_api_version; 1.x doesn't have it
         try:
             client = mqtt.Client(
