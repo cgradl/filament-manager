@@ -145,7 +145,11 @@ async def get_ams_trays(printer_id: int, db: Session = Depends(get_db)):
             for t in range(1, 5):
                 slot_key = f"ams{u}_tray{t}"
                 td = detail.get(slot_key, {})
-                spool = db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+                full_key = f"{p.name}:{slot_key}"
+                spool = (
+                    db.query(Spool).filter(Spool.ams_slot == full_key).first()
+                    or db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+                )
                 result.append({
                     "slot_key":     slot_key,
                     "ams_id":       u,
@@ -195,7 +199,11 @@ async def get_ams_trays(printer_id: int, db: Session = Depends(get_db)):
                 if len(s) == 6:
                     ha_color_hex = f"#{s}"
 
-            spool = db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+            full_key = f"{p.name}:{slot_key}"
+            spool = (
+                db.query(Spool).filter(Spool.ams_slot == full_key).first()
+                or db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+            )
 
             result.append({
                 "slot_key":     slot_key,
@@ -228,7 +236,11 @@ async def sync_ams_weights(printer_id: int, db: Session = Depends(get_db)):
         from .. import bambu_cloud_client
         snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(p.bambu_serial)
         for slot_key, remaining_pct in snapshot.items():
-            spool = db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+            full_key = f"{p.name}:{slot_key}"
+            spool = (
+                db.query(Spool).filter(Spool.ams_slot == full_key).first()
+                or db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+            )
             if not spool:
                 continue
             new_weight = round(spool.initial_weight_g * remaining_pct / 100, 1)
@@ -269,7 +281,11 @@ async def sync_ams_weights(printer_id: int, db: Session = Depends(get_db)):
             except (TypeError, ValueError):
                 continue
 
-            spool = db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+            full_key = f"{p.name}:{slot_key}"
+            spool = (
+                db.query(Spool).filter(Spool.ams_slot == full_key).first()
+                or db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+            )
             if not spool:
                 continue
 
@@ -297,7 +313,11 @@ async def sync_ams_tray_weight(printer_id: int, slot_key: str, db: Session = Dep
     if not p:
         raise HTTPException(404, "Printer not found")
 
-    spool = db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+    full_key = f"{p.name}:{slot_key}"
+    spool = (
+        db.query(Spool).filter(Spool.ams_slot == full_key).first()
+        or db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+    )
     if not spool:
         raise HTTPException(404, "No spool assigned to this tray")
 
@@ -385,14 +405,17 @@ def assign_ams_tray(
     if not p:
         raise HTTPException(404, "Printer not found")
 
-    # Clear any spool currently in this slot
-    db.query(Spool).filter(Spool.ams_slot == slot_key).update({"ams_slot": None})
+    # Clear any spool currently in this slot (handle both prefixed and legacy bare format)
+    full_key = f"{p.name}:{slot_key}"
+    db.query(Spool).filter(
+        (Spool.ams_slot == full_key) | (Spool.ams_slot == slot_key)
+    ).update({"ams_slot": None})
 
     if spool_id is not None:
         spool = db.get(Spool, spool_id)
         if not spool:
             raise HTTPException(404, "Spool not found")
-        spool.ams_slot = slot_key
+        spool.ams_slot = full_key  # store as "PrinterName:ams1_tray2"
 
     db.commit()
     return {"ok": True}

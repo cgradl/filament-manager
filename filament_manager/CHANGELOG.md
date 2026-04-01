@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.24
+
+- AMS slot display: spool list now shows the printer name as a prefix on the AMS slot (e.g. `MyPrinter:ams1_tray2`) so slots are unambiguous when multiple printers are configured
+- Assignment endpoint now stores `{printer_name}:{slot_key}` instead of the bare slot key; all read paths (AMS panel, sync, print consumption tracking) use the prefixed key with a fallback to the bare key for spools assigned before this version
+
 ## 0.9.23
 
 - Fix duplicate print jobs created for cloud printers after app restart: when MQTT reconnects it sends a `pushall` command and the printer responds with its full current state including `gcode_state=RUNNING`; because `_state` (the in-memory tracking dict) is empty after a restart, the duplicate-job guard in `on_cloud_print_start` did not fire and a new PrintJob was created; fix mirrors the DB-recovery logic already used by HA-source printers — on the first MQTT event after restart, if an open PrintJob already exists in the DB it is recovered into `_state` and no new job is created

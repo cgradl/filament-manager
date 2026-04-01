@@ -168,7 +168,13 @@ async def _record_ams_usage(
         delta_pct = pct_start - pct_end
         if delta_pct <= 0.5:
             continue
-        spool = db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
+        # Look up by prefixed key first ("PrinterName:ams1_tray2"), fall back to bare key
+        # for spools assigned before the prefix was introduced.
+        full_slot = f"{job.printer_name}:{slot_key}" if job.printer_name else slot_key
+        spool = (
+            db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
+            or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
+        )
         if not spool:
             continue
         grams_used = round(spool.initial_weight_g * delta_pct / 100, 1)
