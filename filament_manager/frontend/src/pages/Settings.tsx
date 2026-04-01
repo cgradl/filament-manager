@@ -310,11 +310,13 @@ function CloudPrinterFormContent({
   onSave,
   onCancel,
   cloudStatus,
+  existingPrinters,
 }: {
   initial?: PrinterConfig
   onSave: (data: Record<string, unknown>) => void
   onCancel: () => void
   cloudStatus: BambuCloudStatus | undefined
+  existingPrinters: PrinterConfig[]
 }) {
   const { t } = useTranslation()
   const [selectedSerial, setSelectedSerial] = useState(initial?.bambu_serial ?? '')
@@ -324,11 +326,21 @@ function CloudPrinterFormContent({
 
   const isConnected = cloudStatus?.status === 'connected'
 
+  // Serials already configured as cloud printers (excluding the one being edited)
+  const configuredSerials = new Set(
+    existingPrinters
+      .filter(p => p.bambu_source === 'cloud' && p.bambu_serial && p.id !== initial?.id)
+      .map(p => p.bambu_serial!)
+  )
+
   const { data: devices = [] } = useQuery<BambuCloudDevice[]>({
     queryKey: ['bambu-cloud-devices'],
     queryFn: api.getBambuCloudDevices,
     enabled: isConnected,
   })
+
+  // Devices not yet configured as a cloud printer
+  const availableDevices = (devices as BambuCloudDevice[]).filter(d => !configuredSerials.has(d.serial))
 
   const { data: liveStatus } = useQuery({
     queryKey: ['cloud-status', selectedSerial],
@@ -383,31 +395,32 @@ function CloudPrinterFormContent({
           </div>
         ) : (
           <>
-            {/* Device picker — shown for new printers; locked for edit */}
+            {/* Device picker — dropdown for new printers; locked serial for edit */}
             {!initial ? (
               <div>
                 <label className="label">{t('settings.bambuCloud.selectDevice')}</label>
-                {devices.length === 0 ? (
+                {availableDevices.length === 0 && devices.length > 0 ? (
+                  <p className="text-xs text-gray-500">All cloud printers are already configured.</p>
+                ) : availableDevices.length === 0 ? (
                   <p className="text-xs text-gray-500">{t('settings.bambuCloud.noDevices')}</p>
                 ) : (
-                  <div className="space-y-1.5">
-                    {(devices as BambuCloudDevice[]).map(d => (
-                      <button
-                        key={d.serial}
-                        onClick={() => handleSelectDevice(d.serial, d.name)}
-                        className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs border transition-colors text-left ${
-                          selectedSerial === d.serial
-                            ? 'border-blue-500 bg-blue-900/20 text-white'
-                            : 'border-surface-3 bg-surface-3/40 text-gray-300 hover:border-gray-500'
-                        }`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.online ? 'bg-green-400' : 'bg-gray-600'}`} />
-                        <span className="font-medium">{d.name}</span>
-                        <span className="text-gray-500">{d.model}</span>
-                        <span className="ml-auto text-gray-600 font-mono text-[10px]">{d.serial}</span>
-                      </button>
+                  <select
+                    className="input w-full"
+                    value={selectedSerial}
+                    onChange={e => {
+                      const serial = e.target.value
+                      const device = availableDevices.find(d => d.serial === serial)
+                      if (device) handleSelectDevice(serial, device.name)
+                      else setSelectedSerial('')
+                    }}
+                  >
+                    <option value="">{t('settings.bambuCloud.selectDevice')}…</option>
+                    {availableDevices.map(d => (
+                      <option key={d.serial} value={d.serial}>
+                        {d.name}  {d.model}  ({d.serial})
+                      </option>
                     ))}
-                  </div>
+                  </select>
                 )}
               </div>
             ) : (
@@ -518,11 +531,13 @@ function PrinterFormModal({
   onSave,
   onCancel,
   cloudStatus,
+  existingPrinters,
 }: {
   initial?: PrinterConfig
   onSave: (data: Record<string, unknown>) => void
   onCancel: () => void
   cloudStatus: BambuCloudStatus | undefined
+  existingPrinters: PrinterConfig[]
 }) {
   const { t } = useTranslation()
   const [addTab, setAddTab] = useState<'ha' | 'cloud'>('ha')
@@ -548,7 +563,7 @@ function PrinterFormModal({
             <button onClick={onCancel} className="btn-ghost p-1"><X size={16} /></button>
           </div>
           {initial.bambu_source === 'cloud'
-            ? <CloudPrinterFormContent initial={initial} onSave={onSave} onCancel={onCancel} cloudStatus={cloudStatus} />
+            ? <CloudPrinterFormContent initial={initial} onSave={onSave} onCancel={onCancel} cloudStatus={cloudStatus} existingPrinters={existingPrinters} />
             : <HAprinterFormContent initial={initial} onSave={onSave} onCancel={onCancel} />
           }
         </div>
@@ -582,7 +597,7 @@ function PrinterFormModal({
 
         {addTab === 'ha'
           ? <HAprinterFormContent onSave={onSave} onCancel={onCancel} />
-          : <CloudPrinterFormContent onSave={onSave} onCancel={onCancel} cloudStatus={cloudStatus} />
+          : <CloudPrinterFormContent onSave={onSave} onCancel={onCancel} cloudStatus={cloudStatus} existingPrinters={existingPrinters} />
         }
       </div>
     </div>
@@ -821,7 +836,14 @@ function PrinterCard({ printer, onEdit, onDelete }: {
         <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
           {Object.entries(status as unknown as Record<string, string | null>).map(([key, val]) => (
             val && key !== 'print_stage' ? (
-              <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
+              key === 'current_file' ? (
+                <span key={key} className="col-span-3 flex gap-1 min-w-0">
+                  <span className="shrink-0">{LABELS[key]}:</span>
+                  <span className="text-white truncate" title={val}>{val}</span>
+                </span>
+              ) : (
+                <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
+              )
             ) : null
           ))}
         </div>
@@ -1232,7 +1254,14 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
       {statusEntries.length > 0 ? (
         <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
           {statusEntries.map(([key, val]) => (
-            <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
+            key === 'current_file' ? (
+              <span key={key} className="col-span-3 flex gap-1 min-w-0">
+                <span className="shrink-0">{LABELS[key]}:</span>
+                <span className="text-white truncate" title={val ?? ''}>{val}</span>
+              </span>
+            ) : (
+              <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
+            )
           ))}
         </div>
       ) : (
@@ -1389,12 +1418,12 @@ export default function Settings() {
           ) : (
             <>
               {printers.length > 1 && (
-                <div className="flex border-b border-surface-3 mb-4 gap-0 -mx-5 px-5 overflow-x-auto">
+                <div className="flex border-b border-surface-3 mb-4 gap-0 -mx-5 px-5 overflow-x-auto shrink-0">
                   {printers.map(p => (
                     <button
                       key={p.id}
                       onClick={() => setActivePrinterId(p.id)}
-                      className={`pb-2 pt-0.5 px-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
+                      className={`pb-2.5 pt-2 px-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                         activePrinter?.id === p.id
                           ? 'border-blue-500 text-white'
                           : 'border-transparent text-gray-400 hover:text-gray-200'
@@ -1528,6 +1557,7 @@ export default function Settings() {
           <PrinterFormModal
             initial={editing ?? undefined}
             cloudStatus={cloudStatus}
+            existingPrinters={printers}
             onSave={data => {
               if (editing) updateMut.mutate({ id: editing.id, data })
               else createMut.mutate(data)

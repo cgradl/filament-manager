@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.19
+
+- Cloud printer form: device picker is now a dropdown (select) instead of a button list; already-configured cloud printer serials are excluded from the dropdown so the same printer cannot be added twice
+- File name (current_file) in printer status grids now truncates with ellipsis and shows the full name as a tooltip, spanning the full width of the status row
+- Printer sub-tabs in the Printers tab: added correct vertical padding so the tab bar no longer causes a scrollbar
+
 ## 0.9.18
 
 - Redesign printer configuration: Add Printer modal now has two tabs — "Home Assistant" (existing HA config form) and "Bambu Lab Cloud" (pick device from cloud, shows live status + AMS preview with tabs per unit)
