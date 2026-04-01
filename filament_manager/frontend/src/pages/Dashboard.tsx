@@ -63,7 +63,9 @@ function PrintRow({ job }: { job: PrintJob }) {
   )
 }
 
-const TT_STYLE = { background: '#2c2c2e', border: '1px solid #3a3a3c', borderRadius: 8 }
+const TT_STYLE = { background: '#1c1c1e', border: '1px solid #48484a', borderRadius: 8, color: '#f5f5f7' }
+const TT_LABEL = { color: '#d1d5db' }
+const TT_ITEM  = { color: '#f5f5f7' }
 
 type ChartTab = 'materials' | 'cost' | 'weight' | 'location'
 
@@ -141,6 +143,8 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                 </Pie>
                 <Tooltip
                   contentStyle={TT_STYLE}
+                  labelStyle={TT_LABEL}
+                  itemStyle={TT_ITEM}
                   formatter={(value: number, name: string, props) => [
                     `${value} ${value === 1 ? t('dashboard.chart.spool') : t('dashboard.chart.spools')} · ${props.payload.kg.toFixed(2)} kg`, name,
                   ]}
@@ -157,7 +161,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
               <BarChart data={costData} barSize={48}>
                 <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TT_STYLE} formatter={(v: number) => [`€${v.toFixed(2)}`, '']} />
+                <Tooltip contentStyle={TT_STYLE} labelStyle={TT_LABEL} itemStyle={TT_ITEM} formatter={(v: number) => [`€${v.toFixed(2)}`, '']} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   <Cell fill="#3b82f6" />
                   <Cell fill="#ef4444" />
@@ -174,7 +178,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
               <BarChart data={weightData} barSize={48}>
                 <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TT_STYLE} formatter={(v: number) => [`${v.toFixed(3)} kg`, '']} />
+                <Tooltip contentStyle={TT_STYLE} labelStyle={TT_LABEL} itemStyle={TT_ITEM} formatter={(v: number) => [`${v.toFixed(3)} kg`, '']} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   <Cell fill="#3b82f6" />
                   <Cell fill="#ef4444" />
@@ -193,6 +197,8 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} unit="€" />
                 <Tooltip
                   contentStyle={TT_STYLE}
+                  labelStyle={TT_LABEL}
+                  itemStyle={TT_ITEM}
                   formatter={(v: number, _: string, props) => [
                     `€${v.toFixed(2)} avg (${props.payload.count} ${props.payload.count !== 1 ? t('dashboard.chart.spools') : t('dashboard.chart.spool')})`,
                     t('dashboard.chart.avgPrice'),

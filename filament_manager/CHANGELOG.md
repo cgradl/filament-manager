@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.20
+
+- Fix chart tooltip readability: label and item text now render in light grey/white instead of recharts default black, matching the dark tooltip background on all four dashboard charts (Materials, Cost, Filament, Avg Price/Location)
+
 ## 0.9.19
 
 - Cloud printer form: device picker is now a dropdown (select) instead of a button list; already-configured cloud printer serials are excluded from the dropdown so the same printer cannot be added twice
