@@ -55,6 +55,12 @@ def get_devices() -> list[dict]:
     return bambu_cloud_client.get_devices()
 
 
+@router.post("/cancel-2fa", status_code=204)
+async def cancel_2fa() -> None:
+    """Cancel a pending 2FA flow without logging out or deleting credentials."""
+    bambu_cloud_client.cancel_pending_2fa()
+
+
 @router.get("/debug")
 def get_debug() -> dict:
     """Diagnostic snapshot: MQTT client state, cache contents, token validity."""

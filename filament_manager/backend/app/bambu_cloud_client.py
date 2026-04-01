@@ -95,6 +95,16 @@ def _jwt_payload(token: str) -> dict:
         return {}
 
 
+def _is_token_valid(token: str) -> bool:
+    """Return True if the JWT exp claim is in the future."""
+    import time
+    payload = _jwt_payload(token)
+    exp = payload.get("exp")
+    if exp is None:
+        return False
+    return float(exp) > time.time()
+
+
 def _mqtt_username(email: str, token: str) -> str:
     uid = _jwt_uid(token)
     return f"u_{uid}" if uid else email
@@ -390,7 +400,7 @@ def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
 
 async def startup() -> None:
     """Called from main.py lifespan. Reconnects if saved credentials exist."""
-    global _loop
+    global _loop, _reauth_in_progress
     _loop = asyncio.get_event_loop()
 
     creds = _load_credentials()
@@ -403,12 +413,18 @@ async def startup() -> None:
     if not email or not token:
         return
 
-    log.info("Bambu Cloud: reconnecting as %s", email)
-    _status["status"] = "connected"
-    _status["email"] = email
-    _status["error"] = None
-
-    await _connect_mqtt_for_cloud_printers(email, token)
+    if _is_token_valid(token):
+        log.info("Bambu Cloud: token still valid, reconnecting as %s", email)
+        _status["status"] = "connected"
+        _status["email"] = email
+        _status["error"] = None
+        await _connect_mqtt_for_cloud_printers(email, token)
+    else:
+        # Token expired — attempt silent re-auth using saved password before starting MQTT.
+        # This avoids the rc=5 → 2FA loop on every container restart with a stale token.
+        log.info("Bambu Cloud: saved token expired for %s — attempting re-auth", email)
+        _reauth_in_progress = True
+        await _reauthenticate()
 
 
 async def shutdown() -> None:
@@ -572,6 +588,16 @@ def register_printer(printer_id: int, serial: str) -> None:
     _serial_to_printer_id[serial] = printer_id
 
 
+def cancel_pending_2fa() -> None:
+    """Cancel a pending 2FA flow; reset to disconnected without deleting credentials."""
+    global _reauth_in_progress
+    _pending.clear()
+    _reauth_in_progress = False
+    _status["status"] = "disconnected"
+    _status["error"] = None
+    log.info("Bambu Cloud: 2FA cancelled")
+
+
 def get_debug_info() -> dict:
     """Return diagnostic snapshot of MQTT connection state and caches."""
     creds = _load_credentials()
@@ -610,6 +636,7 @@ def get_debug_info() -> dict:
 
 async def reconnect() -> None:
     """Force re-read credentials and restart all MQTT connections."""
+    global _reauth_in_progress
     creds = _load_credentials()
     if not creds:
         raise Exception("No saved credentials")
@@ -617,7 +644,12 @@ async def reconnect() -> None:
     token = creds.get("token", "")
     if not email or not token:
         raise Exception("Credentials incomplete")
-    await _connect_mqtt_for_cloud_printers(email, token)
+    if _is_token_valid(token):
+        await _connect_mqtt_for_cloud_printers(email, token)
+    else:
+        log.info("Bambu Cloud reconnect: token expired, re-authenticating")
+        _reauth_in_progress = True
+        await _reauthenticate()
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────

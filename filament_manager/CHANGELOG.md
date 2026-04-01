@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.5
+
+- Fix Bambu Cloud token persistence: on container restart, check JWT `exp` claim before connecting — if still valid, use saved token directly without any re-auth; only trigger re-auth when the token is actually expired
+- Removes the rc=5 → 2FA loop caused by attempting MQTT with a stale token on every restart
+- `reconnect` endpoint now also checks token validity before attempting MQTT
+
 ## 0.9.4
 
 - Fix TypeScript build error: `selectedPrinter` used before declaration in auto-load AMS `useEffect` — moved declaration above the effect and use `printerId` as dependency
