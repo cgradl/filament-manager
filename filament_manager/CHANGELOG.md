@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.26
+
+- Dashboard Hours/Printer chart: HA-source printers now read total hours from `sensor.{device_slug}_total_usage` (the Bambu Lab HA integration's lifetime usage counter) instead of aggregating from tracked print jobs; cloud-source printers and any printer whose HA entity is unavailable still fall back to the job-based aggregation
+
 ## 0.9.25
 
 - Fix cloud AMS tray material name: MQTT payloads contain `tray_sub_brands` ("Bambu PLA Silk+") in addition to `tray_type` ("PLA"); now prefer `tray_sub_brands` over `tray_type`, matching the detail level shown by the HA integration

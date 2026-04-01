@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
-from ..models import Spool, PrintJob, PrintUsage
+from ..models import Spool, PrintJob, PrintUsage, PrinterConfig
 from ..schemas import DashboardStats, MaterialBreakdown, PriceByLocation, PrinterHours, PrintJobOut, SpoolOut
 from .. import ha_client
 
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 @router.get("", response_model=DashboardStats)
-def get_dashboard(db: Session = Depends(get_db)):
+async def get_dashboard(db: Session = Depends(get_db)):
     spools = db.query(Spool).all()
     active_spools = [s for s in spools if s.current_weight_g > 0]
     empty_spools  = [s for s in spools if s.current_weight_g <= 0]
@@ -65,13 +65,32 @@ def get_dashboard(db: Session = Depends(get_db)):
         key=lambda x: x.location,
     )
 
-    # Hours printed per printer (only jobs with a duration and printer name)
-    ph: dict[str, float] = defaultdict(float)
+    # Hours printed per printer
+    # HA-source: read sensor.{device_slug}_total_usage directly from HA (lifetime counter)
+    # Cloud-source or HA entity unavailable: aggregate duration_seconds from print jobs
+    ph: dict[str, float] = {}
+    job_hours: dict[str, float] = defaultdict(float)
     for j in jobs:
         if j.printer_name and j.duration_seconds:
-            ph[j.printer_name] += j.duration_seconds / 3600
+            job_hours[j.printer_name] += j.duration_seconds / 3600
+
+    printers = db.query(PrinterConfig).filter(PrinterConfig.is_active == True).all()  # noqa: E712
+    for p in printers:
+        if getattr(p, "bambu_source", "ha") != "cloud":
+            entity_id = f"sensor.{p.device_slug}_total_usage"
+            val = await ha_client.get_entity_value(entity_id)
+            if val is not None:
+                try:
+                    ph[p.name] = round(float(val), 2)
+                    continue
+                except (ValueError, TypeError):
+                    pass
+        # Cloud-source or HA entity unavailable — fall back to job aggregation
+        if p.name in job_hours:
+            ph[p.name] = round(job_hours[p.name], 2)
+
     printer_hours = sorted(
-        [PrinterHours(printer=p, hours=round(h, 2)) for p, h in ph.items()],
+        [PrinterHours(printer=name, hours=h) for name, h in ph.items()],
         key=lambda x: x.printer,
     )
 
