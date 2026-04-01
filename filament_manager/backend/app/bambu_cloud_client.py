@@ -601,7 +601,7 @@ def get_ams_detail_for_serial(serial: str) -> dict[str, dict]:
 
 
 def register_printer(printer_id: int, serial: str) -> None:
-    """Called when a printer config is saved with bambu_source='cloud'."""
+    """Called when a printer config with a bambu_serial is saved."""
     _serial_to_printer_id[serial] = printer_id
 
 
@@ -672,7 +672,13 @@ async def reconnect() -> None:
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 async def _connect_mqtt_for_cloud_printers(email: str, token: str) -> None:
-    """Query DB for all cloud-source printers and start MQTT for each.
+    """Query DB for all printers with a Bambu serial and start MQTT for each.
+
+    MQTT is started for every active printer that has a bambu_serial set,
+    regardless of bambu_source.  The bambu_source flag controls which data
+    is used for print tracking; the MQTT connection is needed for the
+    Experiments tab to show live cloud data even when the printer is still
+    configured to use HA entities for tracking.
 
     Awaits all executor tasks so that every _start_mqtt_for_serial call
     completes (client created + stored in _mqtt_clients) before returning.
@@ -687,7 +693,6 @@ async def _connect_mqtt_for_cloud_printers(email: str, token: str) -> None:
     try:
         printers = (
             db.query(PrinterConfig)
-            .filter(PrinterConfig.bambu_source == "cloud")
             .filter(PrinterConfig.bambu_serial != None)  # noqa: E711
             .filter(PrinterConfig.is_active == True)    # noqa: E712
             .all()

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.12
+
+- Fix: Experiments tab showed empty data — MQTT was only started for printers with `bambu_source=cloud`, but the source toggle was disabled; now MQTT starts for any active printer with a `bambu_serial` set, regardless of source setting
+- Fix: `register_printer` (called on printer save) now registers the serial whenever a serial is present, not only when source is cloud
+
 ## 0.9.11
 
 - Fix: Experiments tab printer/AMS values now always read from Bambu Cloud MQTT cache (by serial), not from HA entities — previous version used the same status endpoint as the Printers tab which branched on bambu_source and returned HA data when source was not set to cloud
