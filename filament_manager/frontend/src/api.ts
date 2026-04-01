@@ -141,6 +141,10 @@ export const api = {
     request<void>('bambu-cloud/cancel-2fa', { method: 'POST' }),
   getBambuCloudDevices: () =>
     request<import('./types').BambuCloudDevice[]>('bambu-cloud/devices'),
+  getBambuCloudPrinterStatus: (serial: string) =>
+    request<Record<string, string | null>>(`bambu-cloud/printer/${serial}/status`),
+  getBambuCloudPrinterAMS: (serial: string) =>
+    request<{ slot_key: string; ha_material: string | null; ha_color_hex: string | null; ha_remaining: string | null }[]>(`bambu-cloud/printer/${serial}/ams`),
 
   // Data transfer
   exportData: () => fetch(`${BASE}/data/export`).then(r => r.blob()),

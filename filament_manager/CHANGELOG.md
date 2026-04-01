@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.11
+
+- Fix: Experiments tab printer/AMS values now always read from Bambu Cloud MQTT cache (by serial), not from HA entities — previous version used the same status endpoint as the Printers tab which branched on bambu_source and returned HA data when source was not set to cloud
+- Add `GET /api/bambu-cloud/printer/{serial}/status` and `GET /api/bambu-cloud/printer/{serial}/ams` endpoints that read directly from the MQTT cache regardless of printer config
+
 ## 0.9.10
 
 - Fix: Printers tab — cloud source button restored as disabled (greyed out, not removed); shows a checkmark when cloud is currently active; tooltip directs to Experiments tab to configure

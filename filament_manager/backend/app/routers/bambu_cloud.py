@@ -61,6 +61,35 @@ async def cancel_2fa() -> None:
     bambu_cloud_client.cancel_pending_2fa()
 
 
+@router.get("/printer/{serial}/status")
+def get_printer_status_by_serial(serial: str) -> dict:
+    """Return last MQTT status for a device serial (always from cloud cache)."""
+    raw = bambu_cloud_client.get_printer_cloud_status(serial)
+    return {
+        "print_stage":    raw.get("gcode_state"),
+        "print_progress": str(raw["mc_percent"]) if raw.get("mc_percent") is not None else None,
+        "remaining_time": str(raw["mc_remaining_time"]) if raw.get("mc_remaining_time") is not None else None,
+        "nozzle_temp":    str(raw["nozzle_temper"]) if raw.get("nozzle_temper") is not None else None,
+        "bed_temp":       str(raw["bed_temper"]) if raw.get("bed_temper") is not None else None,
+        "current_file":   raw.get("subtask_name"),
+    }
+
+
+@router.get("/printer/{serial}/ams")
+def get_ams_by_serial(serial: str) -> list[dict]:
+    """Return AMS tray detail for a device serial (always from cloud MQTT cache)."""
+    detail = bambu_cloud_client.get_ams_detail_for_serial(serial)
+    return [
+        {
+            "slot_key":     slot_key,
+            "ha_material":  td.get("material"),
+            "ha_color_hex": td.get("color"),
+            "ha_remaining": str(td["remain"]) if "remain" in td else None,
+        }
+        for slot_key, td in sorted(detail.items())
+    ]
+
+
 @router.get("/debug")
 def get_debug() -> dict:
     """Diagnostic snapshot: MQTT client state, cache contents, token validity."""

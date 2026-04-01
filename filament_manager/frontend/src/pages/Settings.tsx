@@ -952,16 +952,17 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
   const { t } = useTranslation()
 
   const { data: status, refetch, isFetching } = useQuery({
-    queryKey: ['cloud-status', printer.id],
-    queryFn: () => api.getPrinterStatus(printer.id),
+    queryKey: ['cloud-status', printer.bambu_serial],
+    queryFn: () => api.getBambuCloudPrinterStatus(printer.bambu_serial!),
     refetchInterval: 10_000,
-    enabled: printer.is_active,
+    enabled: !!printer.bambu_serial,
   })
 
-  const { data: trays } = useQuery<AMSTray[]>({
-    queryKey: ['cloud-ams', printer.id],
-    queryFn: () => api.getPrinterAMS(printer.id),
+  const { data: trays } = useQuery({
+    queryKey: ['cloud-ams', printer.bambu_serial],
+    queryFn: () => api.getBambuCloudPrinterAMS(printer.bambu_serial!),
     refetchInterval: 10_000,
+    enabled: !!printer.bambu_serial,
   })
 
   const LABELS: Record<string, string> = {
