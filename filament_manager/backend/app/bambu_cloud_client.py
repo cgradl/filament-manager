@@ -286,11 +286,15 @@ def _parse_ams_into_cache(serial: str, ams_raw: dict) -> None:
             try:
                 remain_f = float(remain)
             except (TypeError, ValueError):
-                continue
+                remain_f = None  # empty/unknown tray — still include it so the slot shows up
             # Bambu sends color as RRGGBBAA hex — take only the RGB part
             color_raw = str(tray.get("tray_color") or tray.get("color") or "").strip()
             color_hex = f"#{color_raw[:6]}" if len(color_raw) >= 6 else None
-            material = tray.get("tray_type") or tray.get("type") or None
+            # tray_sub_brands = detailed name ("Bambu PLA Silk+"); tray_type = base type ("PLA")
+            # If neither field is set the slot is empty — use "Empty" to match HA integration label
+            sub_brand = tray.get("tray_sub_brands") or ""
+            base_type = tray.get("tray_type") or tray.get("type") or ""
+            material = sub_brand or base_type or "Empty"
             remain_flag = tray.get("remain_flag")
             snapshot[f"ams{ams_id}_tray{tray_id}"] = {
                 "remain":      remain_f,

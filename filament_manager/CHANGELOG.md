@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.25
+
+- Fix cloud AMS tray material name: MQTT payloads contain `tray_sub_brands` ("Bambu PLA Silk+") in addition to `tray_type` ("PLA"); now prefer `tray_sub_brands` over `tray_type`, matching the detail level shown by the HA integration
+- Fix cloud AMS empty tray display: slots with no filament loaded had an absent/unparseable `remain` field which caused the slot to be skipped entirely; empty trays are now included in the cache with `remain=null` and material label "Empty", matching the HA integration
+
 ## 0.9.24
 
 - AMS slot display: spool list now shows the printer name as a prefix on the AMS slot (e.g. `MyPrinter:ams1_tray2`) so slots are unambiguous when multiple printers are configured
