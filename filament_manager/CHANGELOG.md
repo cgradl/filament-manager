@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.28
+
+- Fix Hours/Printer chart missing bars: every active printer now always appears in the chart; previously a printer was omitted entirely if its HA entity / MQTT cache returned no data and it had no recorded jobs — it now shows 0 h in that case
+
 ## 0.9.27
 
 - Dashboard Hours/Printer chart: cloud-source printers now read `mc_print_tick_cnt` from the MQTT status cache (lifetime print seconds, same source as the HA integration's `total_usage` entity) and convert to hours; falls back to job aggregation if the value is not yet in the cache

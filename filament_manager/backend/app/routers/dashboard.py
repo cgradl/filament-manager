@@ -76,14 +76,15 @@ async def get_dashboard(db: Session = Depends(get_db)):
 
     printers = db.query(PrinterConfig).filter(PrinterConfig.is_active == True).all()  # noqa: E712
     for p in printers:
+        hours: float | None = None
+
         if getattr(p, "bambu_source", "ha") == "cloud" and getattr(p, "bambu_serial", None):
             from .. import bambu_cloud_client
             status = bambu_cloud_client.get_printer_cloud_status(p.bambu_serial)
             tick_cnt = status.get("mc_print_tick_cnt")
             if tick_cnt is not None:
                 try:
-                    ph[p.name] = round(float(tick_cnt) / 3600, 2)
-                    continue
+                    hours = round(float(tick_cnt) / 3600, 2)
                 except (ValueError, TypeError):
                     pass
         else:
@@ -91,13 +92,15 @@ async def get_dashboard(db: Session = Depends(get_db)):
             val = await ha_client.get_entity_value(entity_id)
             if val is not None:
                 try:
-                    ph[p.name] = round(float(val), 2)
-                    continue
+                    hours = round(float(val), 2)
                 except (ValueError, TypeError):
                     pass
-        # Entity/cache unavailable — fall back to job aggregation
-        if p.name in job_hours:
-            ph[p.name] = round(job_hours[p.name], 2)
+
+        # Fall back to job aggregation (or 0) so every printer always gets a bar
+        if hours is None:
+            hours = round(job_hours.get(p.name, 0.0), 2)
+
+        ph[p.name] = hours
 
     printer_hours = sorted(
         [PrinterHours(printer=name, hours=h) for name, h in ph.items()],
