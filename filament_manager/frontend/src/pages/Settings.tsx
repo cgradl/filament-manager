@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype, BambuCloudDevice } from '../types'
+import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype } from '../types'
 import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
 import Modal from '../components/Modal'
 import BambuCloudSection from '../components/BambuCloudSection'
@@ -338,6 +338,7 @@ function PrinterForm({
 function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const [activeUnit, setActiveUnit] = useState(1)
 
   const { data: trays, isLoading, refetch } = useQuery<AMSTray[]>({
     queryKey: ['printer-ams', printer.id],
@@ -379,36 +380,48 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
   if (!trays?.length) return <p className="text-xs text-gray-500 py-2">{t('settings.printers.noAMSData')}</p>
 
   const units = Array.from(new Set(trays.map(t => t.ams_id))).sort()
+  const visibleUnit = units.includes(activeUnit) ? activeUnit : units[0]
 
   return (
-    <div className="mt-3 space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-gray-400">{t('settings.printers.amsAssignment')}</p>
-        <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh display">
+    <div className="mt-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-medium text-gray-400">{t('settings.printers.amsAssignment')}</p>
+          {/* AMS unit tabs — only shown when there are multiple units */}
+          {units.length > 1 && (
+            <div className="flex rounded overflow-hidden border border-surface-3 text-xs">
+              {units.map(u => (
+                <button
+                  key={u}
+                  onClick={() => setActiveUnit(u)}
+                  className={`px-2.5 py-0.5 transition-colors ${
+                    visibleUnit === u ? 'bg-blue-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  AMS {u}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh">
           <RefreshCw size={11} />
         </button>
       </div>
 
-      {units.map(amsId => (
-        <div key={amsId}>
-          {units.length > 1 && (
-            <p className="text-xs text-gray-500 mb-1.5">{t('settings.printers.amsUnit', { n: amsId })}</p>
-          )}
-          <div className="space-y-1.5">
-            {trays.filter(t => t.ams_id === amsId).map(tray => (
-              <AMSTrayRow
-                key={tray.slot_key}
-                tray={tray}
-                spools={spools}
-                onAssign={(spoolId) => assignMut.mutate({ slot: tray.slot_key, spoolId })}
-                saving={assignMut.isPending}
-                onSyncWeight={() => syncSlotMut.mutate(tray.slot_key)}
-                syncingWeight={syncingSlot === tray.slot_key}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+      <div className="space-y-1.5">
+        {trays.filter(t => t.ams_id === visibleUnit).map(tray => (
+          <AMSTrayRow
+            key={tray.slot_key}
+            tray={tray}
+            spools={spools}
+            onAssign={(spoolId) => assignMut.mutate({ slot: tray.slot_key, spoolId })}
+            saving={assignMut.isPending}
+            onSyncWeight={() => syncSlotMut.mutate(tray.slot_key)}
+            syncingWeight={syncingSlot === tray.slot_key}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -492,41 +505,26 @@ function AMSTrayRow({
 
 // ── Printer Card ──────────────────────────────────────────────────────────────
 
-function PrinterCard({ printer, cloudDevices, isCloudConnected, onEdit, onDelete }: {
+function PrinterCard({ printer, onEdit, onDelete }: {
   printer: PrinterConfig
-  cloudDevices: BambuCloudDevice[]
-  isCloudConnected: boolean
   onEdit: () => void
   onDelete: () => void
 }) {
   const { t } = useTranslation()
-  const qc = useQueryClient()
-  const [showAMS, setShowAMS] = useState(false)
-  const [testingCloud, setTestingCloud] = useState(false)
-  const [cloudLiveStatus, setCloudLiveStatus] = useState<Record<string, string | null> | null | undefined>(undefined)
-
-  const isCloud = printer.bambu_source === 'cloud'
-
-  const sourceMut = useMutation({
-    mutationFn: (data: Record<string, unknown>) =>
-      api.updatePrinter(printer.id, { ...printer, ...data } as unknown),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['printers'] }),
-  })
 
   const { data: status, refetch, isFetching } = useQuery({
     queryKey: ['printer-status', printer.id],
     queryFn: () => api.getPrinterStatus(printer.id),
     refetchInterval: 30_000,
-    enabled: printer.is_active,
+    enabled: printer.is_active && printer.bambu_source !== 'cloud',
   })
 
   const stage = (status as Record<string, string | null> | undefined)?.print_stage?.toLowerCase() ?? 'unknown'
   const isPrinting = ['printing', 'auto_bed_leveling', 'heatbed_preheating'].includes(stage)
 
   const LABELS: Record<string, string> = {
-    print_stage: 'Stage', print_progress: 'Progress',
-    remaining_time: 'Remaining', nozzle_temp: 'Nozzle',
-    bed_temp: 'Bed', current_file: 'File',
+    print_progress: 'Progress', remaining_time: 'Remaining',
+    nozzle_temp: 'Nozzle', bed_temp: 'Bed', current_file: 'File',
   }
   const UNITS: Record<string, string> = {
     nozzle_temp: '°C', bed_temp: '°C', print_progress: '%', remaining_time: ' min',
@@ -538,99 +536,35 @@ function PrinterCard({ printer, cloudDevices, isCloudConnected, onEdit, onDelete
         <div>
           <p className="font-semibold text-white">{printer.name}</p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
-              isPrinting ? 'bg-blue-900 text-blue-300' :
-              stage === 'finish' ? 'bg-green-900 text-green-300' :
-              'bg-surface-3 text-gray-400'
-            }`}>{stage}</span>
+            {printer.bambu_source !== 'cloud' && (
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                isPrinting ? 'bg-blue-900 text-blue-300' :
+                stage === 'finish' ? 'bg-green-900 text-green-300' :
+                'bg-surface-3 text-gray-400'
+              }`}>{stage}</span>
+            )}
             <span className="text-xs text-gray-500">{printer.ams_unit_count} AMS</span>
-            <span className={`text-xs px-1.5 py-0.5 rounded ${
-              isCloud ? 'bg-green-900/40 text-green-400' : 'bg-surface-3 text-gray-500'
-            }`}>
-              {isCloud ? t('settings.bambuCloud.sourceCloud') : t('settings.bambuCloud.sourceHA')}
-            </span>
+            {printer.bambu_source === 'cloud' && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-green-900/40 text-green-400">
+                {t('settings.bambuCloud.sourceCloud')}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex gap-1 shrink-0">
-          <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh">
-            <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
-          </button>
+          {printer.bambu_source !== 'cloud' && (
+            <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh">
+              <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
+            </button>
+          )}
           <button className="btn-ghost p-1" onClick={onEdit}><Pencil size={12} /></button>
           <button className="btn-ghost p-1 text-red-400" onClick={onDelete}><Trash2 size={12} /></button>
         </div>
       </div>
 
-      {/* Source selector — only shown when cloud is connected */}
-      {isCloudConnected && (
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <div className="flex rounded overflow-hidden border border-surface-3 text-xs shrink-0">
-            <button
-              onClick={() => { sourceMut.mutate({ bambu_source: 'ha' }); setCloudLiveStatus(undefined) }}
-              className={`px-3 py-1 transition-colors ${!isCloud ? 'bg-blue-700 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-            >{t('settings.bambuCloud.sourceHA')}</button>
-            <button
-              onClick={() => sourceMut.mutate({ bambu_source: 'cloud' })}
-              className={`px-3 py-1 transition-colors ${isCloud ? 'bg-green-700 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-            >{t('settings.bambuCloud.sourceCloud')}</button>
-          </div>
-          {isCloud && (
-            <>
-              <select
-                value={printer.bambu_serial || ''}
-                onChange={e => sourceMut.mutate({ bambu_source: 'cloud', bambu_serial: e.target.value })}
-                className="input py-0.5 text-xs flex-1 min-w-0"
-              >
-                <option value="">{t('settings.bambuCloud.serialPlaceholder')}</option>
-                {cloudDevices.map(d => (
-                  <option key={d.serial} value={d.serial}>{d.name} ({d.serial})</option>
-                ))}
-              </select>
-              <button
-                className="btn-ghost p-1.5 shrink-0"
-                disabled={testingCloud || !printer.bambu_serial}
-                title={t('settings.bambuCloud.testConnection')}
-                onClick={async () => {
-                  setTestingCloud(true)
-                  try {
-                    const s = await api.getPrinterStatus(printer.id)
-                    setCloudLiveStatus(s as Record<string, string | null>)
-                  } catch {
-                    setCloudLiveStatus(null)
-                  } finally {
-                    setTestingCloud(false)
-                  }
-                }}
-              >
-                <RefreshCw size={11} className={testingCloud ? 'animate-spin' : ''} />
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Cloud live status panel — shown after test button clicked */}
-      {isCloud && cloudLiveStatus !== undefined && (
-        <div className="mb-3 bg-surface-3/50 rounded-xl p-2.5">
-          {cloudLiveStatus === null ? (
-            <p className="text-xs text-gray-500">{t('settings.bambuCloud.noStatusData')}</p>
-          ) : (() => {
-            const entries = Object.entries(cloudLiveStatus).filter(([, v]) => v != null && v !== '')
-            return entries.length === 0
-              ? <p className="text-xs text-gray-500">{t('settings.bambuCloud.noStatusData')}</p>
-              : (
-                <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-xs text-gray-400">
-                  {entries.map(([key, val]) => (
-                    <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
-                  ))}
-                </div>
-              )
-          })()}
-        </div>
-      )}
-
-      {/* HA status values (HA source only, from auto-poll) */}
-      {!isCloud && status && (
-        <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-400 mb-2">
+      {/* HA status values — only for HA-source printers */}
+      {printer.bambu_source !== 'cloud' && status && (
+        <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
           {Object.entries(status as unknown as Record<string, string | null>).map(([key, val]) => (
             val && key !== 'print_stage' ? (
               <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
@@ -639,15 +573,8 @@ function PrinterCard({ printer, cloudDevices, isCloudConnected, onEdit, onDelete
         </div>
       )}
 
-      <button
-        className="mt-1 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-        onClick={() => setShowAMS(v => !v)}
-      >
-        {showAMS ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-        {t('settings.printers.amsAssignment')}
-      </button>
-
-      {showAMS && <AMSTrayPanel printer={printer} />}
+      {/* AMS tray assignment — always visible */}
+      <AMSTrayPanel printer={printer} />
     </div>
   )
 }
@@ -687,12 +614,36 @@ function BrandWeightsSection() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-300">{t('settings.brandWeights.title')}</h3>
-      </div>
+      <h3 className="text-sm font-semibold text-gray-300 mb-1">{t('settings.brandWeights.title')}</h3>
       <p className="text-xs text-gray-500 mb-3">{t('settings.brandWeights.hint')}</p>
 
       <div className="card space-y-2">
+        {/* Add form at the top */}
+        <div className="flex items-center gap-2 pb-2 border-b border-surface-3">
+          <input
+            className="input flex-1 text-sm py-1"
+            value={newBrand}
+            onChange={e => setNewBrand(e.target.value)}
+            placeholder={t('settings.brandWeights.brandPlaceholder')}
+            onKeyDown={e => e.key === 'Enter' && newBrand.trim() && newWeight && createMut.mutate()}
+          />
+          <input
+            className="input w-24 text-sm py-1 text-right"
+            type="number" min="0" step="1"
+            value={newWeight}
+            onChange={e => setNewWeight(e.target.value)}
+            placeholder="250"
+          />
+          <span className="text-xs text-gray-500 shrink-0">g</span>
+          <button
+            className="btn-primary text-xs px-2 py-1 flex items-center gap-1 shrink-0"
+            onClick={() => createMut.mutate()}
+            disabled={!newBrand.trim() || !newWeight || createMut.isPending}
+          >
+            <Plus size={12} /> {t('common.add')}
+          </button>
+        </div>
+
         {entries.length === 0 && (
           <p className="text-xs text-gray-500 py-1">{t('settings.brandWeights.noEntries')}</p>
         )}
@@ -706,6 +657,7 @@ function BrandWeightsSection() {
                   value={editBrand}
                   onChange={ev => setEditBrand(ev.target.value)}
                   placeholder={t('settings.brandWeights.brand')}
+                  autoFocus
                 />
                 <input
                   className="input w-24 text-sm py-1 text-right"
@@ -728,38 +680,11 @@ function BrandWeightsSection() {
                 <span className="flex-1 text-sm text-white">{e.brand}</span>
                 <span className="text-sm text-gray-300 tabular-nums">{e.spool_weight_g.toFixed(0)} g</span>
                 <button className="btn-ghost p-1" onClick={() => startEdit(e)}><Pencil size={12} /></button>
-                <button
-                  className="btn-ghost p-1 text-red-400"
-                  onClick={() => deleteMut.mutate(e.id)}
-                ><Trash2 size={12} /></button>
+                <button className="btn-ghost p-1 text-red-400" onClick={() => deleteMut.mutate(e.id)}><Trash2 size={12} /></button>
               </>
             )}
           </div>
         ))}
-
-        <div className="flex items-center gap-2 pt-2 border-t border-surface-3">
-          <input
-            className="input flex-1 text-sm py-1"
-            value={newBrand}
-            onChange={e => setNewBrand(e.target.value)}
-            placeholder={t('settings.brandWeights.brandPlaceholder')}
-          />
-          <input
-            className="input w-24 text-sm py-1 text-right"
-            type="number" min="0" step="1"
-            value={newWeight}
-            onChange={e => setNewWeight(e.target.value)}
-            placeholder="250"
-          />
-          <span className="text-xs text-gray-500 shrink-0">g</span>
-          <button
-            className="btn-primary text-xs px-2 py-1 flex items-center gap-1 shrink-0"
-            onClick={() => createMut.mutate()}
-            disabled={!newBrand.trim() || !newWeight || createMut.isPending}
-          >
-            <Plus size={12} /> {t('common.add')}
-          </button>
-        </div>
       </div>
     </div>
   )
@@ -817,6 +742,24 @@ function NameListSection({
       {hint && <p className="text-xs text-gray-500 mb-3">{hint}</p>}
 
       <div className="card space-y-2">
+        {/* Add form at the top */}
+        <div className="flex items-center gap-2 pb-2 border-b border-surface-3">
+          <input
+            className="input flex-1 text-sm py-1"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            placeholder={placeholder}
+            onKeyDown={e => e.key === 'Enter' && newName.trim() && createMut.mutate()}
+          />
+          <button
+            className="btn-primary text-xs px-2 py-1 flex items-center gap-1 shrink-0"
+            onClick={() => createMut.mutate()}
+            disabled={!newName.trim() || createMut.isPending}
+          >
+            <Plus size={12} /> {t('common.add')}
+          </button>
+        </div>
+
         {entries.length === 0 && (
           <p className="text-xs text-gray-500 py-1">{noEntries}</p>
         )}
@@ -848,23 +791,6 @@ function NameListSection({
             )}
           </div>
         ))}
-
-        <div className="flex items-center gap-2 pt-2 border-t border-surface-3">
-          <input
-            className="input flex-1 text-sm py-1"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            placeholder={placeholder}
-            onKeyDown={e => e.key === 'Enter' && newName.trim() && createMut.mutate()}
-          />
-          <button
-            className="btn-primary text-xs px-2 py-1 flex items-center gap-1 shrink-0"
-            onClick={() => createMut.mutate()}
-            disabled={!newName.trim() || createMut.isPending}
-          >
-            <Plus size={12} /> {t('common.add')}
-          </button>
-        </div>
       </div>
     </div>
   )
@@ -1010,11 +936,91 @@ function DataTransferSection() {
 type MainTab = 'printers' | 'data' | 'transfer' | 'experiments'
 type DataSubTab = 'brandWeights' | 'brands' | 'materials' | 'subtypes' | 'locations'
 
+// ── Cloud printer live status (used in Experiments tab) ───────────────────────
+
+function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
+  const { t } = useTranslation()
+
+  const { data: status, refetch, isFetching } = useQuery({
+    queryKey: ['printer-status', printer.id],
+    queryFn: () => api.getPrinterStatus(printer.id),
+    refetchInterval: 10_000,
+    enabled: printer.is_active && printer.bambu_source === 'cloud',
+  })
+
+  const { data: trays } = useQuery<AMSTray[]>({
+    queryKey: ['printer-ams', printer.id],
+    queryFn: () => api.getPrinterAMS(printer.id),
+    refetchInterval: 10_000,
+    enabled: printer.bambu_source === 'cloud',
+  })
+
+  const LABELS: Record<string, string> = {
+    print_stage: 'Stage', print_progress: 'Progress',
+    remaining_time: 'Remaining', nozzle_temp: 'Nozzle',
+    bed_temp: 'Bed', current_file: 'File',
+  }
+  const UNITS: Record<string, string> = {
+    nozzle_temp: '°C', bed_temp: '°C', print_progress: '%', remaining_time: ' min',
+  }
+
+  const statusEntries = status
+    ? Object.entries(status as Record<string, string | null>).filter(([, v]) => v != null && v !== '')
+    : []
+
+  return (
+    <div className="bg-surface-2 border border-surface-3 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="font-semibold text-white">{printer.name}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{printer.bambu_serial ?? t('settings.bambuCloud.serialPlaceholder')}</p>
+        </div>
+        <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh">
+          <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
+        </button>
+      </div>
+
+      {/* Printer sensor values */}
+      {statusEntries.length > 0 ? (
+        <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
+          {statusEntries.map(([key, val]) => (
+            <span key={key}>{LABELS[key] ?? key}: <span className="text-white">{val}{UNITS[key] ?? ''}</span></span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500 mb-3">{t('settings.bambuCloud.noStatusData')}</p>
+      )}
+
+      {/* AMS tray values from MQTT */}
+      {trays && trays.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-gray-400 mb-1.5">{t('settings.printers.amsAssignment')}</p>
+          <div className="space-y-1">
+            {trays.map(tray => (
+              <div key={tray.slot_key} className="flex items-center gap-2 bg-surface-3/40 rounded-lg px-3 py-1.5 text-xs">
+                <span className="font-mono text-gray-400 w-12 shrink-0">{tray.slot_key}</span>
+                {tray.ha_color_hex ? (
+                  <span className="w-3 h-3 rounded-full border border-white/20 shrink-0" style={{ background: tray.ha_color_hex }} />
+                ) : (
+                  <span className="w-3 h-3 rounded-full bg-surface-3 border border-white/10 shrink-0" />
+                )}
+                <span className="text-gray-300 flex-1">{tray.ha_material ?? '—'}</span>
+                <span className="text-gray-400">{tray.ha_remaining != null ? `${tray.ha_remaining}%` : '—'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Settings() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [mainTab, setMainTab] = useState<MainTab>('printers')
   const [dataTab, setDataTab] = useState<DataSubTab>('brandWeights')
+  const [activePrinterId, setActivePrinterId] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<PrinterConfig | null>(null)
 
@@ -1026,11 +1032,6 @@ export default function Settings() {
     queryKey: ['bambu-cloud-status'],
     queryFn: api.getBambuCloudStatus,
     refetchInterval: 5_000,
-  })
-  const { data: cloudDevices = [] } = useQuery<BambuCloudDevice[]>({
-    queryKey: ['bambu-cloud-devices'],
-    queryFn: api.getBambuCloudDevices,
-    enabled: cloudStatus?.status === 'connected',
   })
   const { data: haStatus } = useQuery({
     queryKey: ['ha-status'],
@@ -1053,6 +1054,9 @@ export default function Settings() {
   })
   const deleteMut = useMutation({ mutationFn: api.deletePrinter, onSuccess: invalidate })
 
+  // The currently visible printer in the Printers tab
+  const activePrinter = printers.find(p => p.id === activePrinterId) ?? printers[0] ?? null
+
   const MAIN_TABS: { id: MainTab; label: string; dot?: boolean }[] = [
     { id: 'printers',    label: t('settings.tabs.printers') },
     { id: 'data',        label: t('settings.tabs.data') },
@@ -1067,6 +1071,8 @@ export default function Settings() {
     { id: 'subtypes',     label: t('settings.dataTabs.subtypes') },
     { id: 'locations',    label: t('settings.dataTabs.locations') },
   ]
+
+  const cloudPrinters = printers.filter(p => p.bambu_source === 'cloud' && p.bambu_serial)
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -1096,7 +1102,7 @@ export default function Settings() {
       {/* ── Tab: Printers ── */}
       {mainTab === 'printers' && (
         <div className="card">
-          {/* HA status */}
+          {/* HA status + Add button */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               {haStatus?.ha_available
@@ -1104,33 +1110,45 @@ export default function Settings() {
                 : <><AlertCircle size={14} className="text-red-400" /><span className="text-sm text-red-400">{t('settings.ha.disconnected')}</span></>
               }
             </div>
-            <button
-              className="btn-primary flex items-center gap-1.5 text-xs"
-              onClick={() => setShowForm(true)}
-            >
+            <button className="btn-primary flex items-center gap-1.5 text-xs" onClick={() => setShowForm(true)}>
               <Plus size={13} /> {t('settings.printers.addPrinter')}
             </button>
           </div>
 
-          {/* Printer list */}
           {printers.length === 0 ? (
             <p className="text-sm text-gray-500">{t('settings.printers.noPrintersHint')}</p>
           ) : (
-            <div className="space-y-3">
-              {printers.map(p => (
+            <>
+              {/* Printer tabs — only shown when more than one printer */}
+              {printers.length > 1 && (
+                <div className="flex border-b border-surface-3 mb-4 gap-0 -mx-5 px-5 overflow-x-auto">
+                  {printers.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => setActivePrinterId(p.id)}
+                      className={`pb-2 pt-0.5 px-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
+                        activePrinter?.id === p.id
+                          ? 'border-blue-500 text-white'
+                          : 'border-transparent text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {activePrinter && (
                 <PrinterCard
-                  key={p.id}
-                  printer={p}
-                  cloudDevices={cloudDevices as BambuCloudDevice[]}
-                  isCloudConnected={isCloudConnected}
-                  onEdit={() => setEditing(p)}
+                  printer={activePrinter}
+                  onEdit={() => setEditing(activePrinter)}
                   onDelete={() => {
-                    if (confirm(t('settings.printers.confirmDelete', { name: p.name })))
-                      deleteMut.mutate(p.id)
+                    if (confirm(t('settings.printers.confirmDelete', { name: activePrinter.name })))
+                      deleteMut.mutate(activePrinter.id)
                   }}
                 />
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -1138,13 +1156,13 @@ export default function Settings() {
       {/* ── Tab: Data ── */}
       {mainTab === 'data' && (
         <div className="card">
-          {/* Data sub-tab bar */}
-          <div className="flex border-b border-surface-3 mb-4 gap-0 -mx-5 px-5 overflow-x-auto">
+          {/* Data sub-tab bar — extra top padding so headers are not clipped */}
+          <div className="flex border-b border-surface-3 mb-5 gap-0 -mx-5 px-5 overflow-x-auto pt-1">
             {DATA_SUBTABS.map(st => (
               <button
                 key={st.id}
                 onClick={() => setDataTab(st.id)}
-                className={`pb-2 pt-0.5 px-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
+                className={`pb-2.5 pt-1 px-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
                   dataTab === st.id
                     ? 'border-blue-500 text-white'
                     : 'border-transparent text-gray-400 hover:text-gray-200'
@@ -1212,15 +1230,30 @@ export default function Settings() {
 
       {/* ── Tab: Experiments ── */}
       {mainTab === 'experiments' && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-300">{t('settings.bambuCloud.title')}</h3>
-            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-900/60 text-yellow-400 border border-yellow-700">
-              {t('settings.bambuCloud.experimental')}
-            </span>
+        <div className="space-y-4">
+          {/* Bambu Cloud auth/connection */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-300">{t('settings.bambuCloud.title')}</h3>
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-900/60 text-yellow-400 border border-yellow-700">
+                {t('settings.bambuCloud.experimental')}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">{t('settings.bambuCloud.hint')}</p>
+            <BambuCloudSection />
           </div>
-          <p className="text-xs text-gray-500 mb-4">{t('settings.bambuCloud.hint')}</p>
-          <BambuCloudSection />
+
+          {/* Live data per cloud-source printer */}
+          {isCloudConnected && cloudPrinters.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                {t('settings.bambuCloud.liveStatus')}
+              </p>
+              {cloudPrinters.map(p => (
+                <CloudPrinterStatus key={p.id} printer={p} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

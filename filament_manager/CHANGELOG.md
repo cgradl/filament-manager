@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.9
+
+- Data tab: "Add" form moved to the top of each list (above existing entries) with Enter key support
+- Data tab sub-tabs: added top padding so tab headers are not clipped
+- Printers tab: AMS Tray Assignment is always visible — no expand/collapse toggle; multiple AMS units shown as tabs within the tray panel
+- Printers tab: when more than one printer is configured, printers shown as sub-tabs (one printer visible at a time)
+- Printers tab: cloud source selector removed (configure cloud in Experiments tab)
+- Experiments tab: shows live printer sensor values and AMS tray data (material, color, remaining %) per cloud-source printer, auto-refreshed every 10 s
+
 ## 0.9.8
 
 - Redesign Settings page into four top-level tabs: **Printers**, **Data**, **Export / Import**, **Experiments**
