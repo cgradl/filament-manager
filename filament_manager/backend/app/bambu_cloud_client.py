@@ -244,7 +244,8 @@ def _process_device_message(serial: str, data: dict) -> None:
     for field in ("gcode_state", "subtask_name", "mc_percent", "mc_remaining_time",
                   "nozzle_temper", "bed_temper", "task_id", "project_id",
                   "total_layer_num", "layer_num", "nozzle_diameter", "nozzle_type",
-                  "print_type", "mc_print_error_code"):
+                  "print_type", "mc_print_error_code",
+                  "mc_print_tick_cnt"):  # lifetime print seconds — same source as HA total_usage
         val = print_data.get(field)
         if val is not None:
             current[field] = val

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.27
+
+- Dashboard Hours/Printer chart: cloud-source printers now read `mc_print_tick_cnt` from the MQTT status cache (lifetime print seconds, same source as the HA integration's `total_usage` entity) and convert to hours; falls back to job aggregation if the value is not yet in the cache
+
 ## 0.9.26
 
 - Dashboard Hours/Printer chart: HA-source printers now read total hours from `sensor.{device_slug}_total_usage` (the Bambu Lab HA integration's lifetime usage counter) instead of aggregating from tracked print jobs; cloud-source printers and any printer whose HA entity is unavailable still fall back to the job-based aggregation
