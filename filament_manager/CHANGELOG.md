@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.18
+
+- Redesign printer configuration: Add Printer modal now has two tabs — "Home Assistant" (existing HA config form) and "Bambu Lab Cloud" (pick device from cloud, shows live status + AMS preview with tabs per unit)
+- Source type is locked at creation — editing a printer shows only its own config form (no switching allowed)
+- Printer card: remove HA/Cloud toggle buttons, show a small "HA" or "Cloud" badge next to the printer name; status values shown for both HA and cloud printers
+- Experiments tab AMS display: slot keys shown in full (`ams1_tray1` etc.) without truncation; AMS units shown in tabs when printer has multiple units
+- Fix: AMS tray panel and sync endpoints now require `bambu_source=cloud` (not just `bambu_serial` being set) before reading from MQTT cache — prevents cloud MQTT data from overriding HA entity values for HA-source printers
+
 ## 0.9.17
 
 - Fix: AMS tray assignment panel was showing cloud MQTT data for HA-source printers — the `bambu_serial` field is now set just to enable Experiments tab live view, so all three AMS endpoints (get trays, sync all, sync single) now require `bambu_source=cloud` before reading from the MQTT cache; HA-source printers always read from HA entities

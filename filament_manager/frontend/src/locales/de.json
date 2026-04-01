@@ -226,7 +226,10 @@
       "statusNozzle": "Düse",
       "statusBed": "Bett",
       "statusFile": "Datei",
-      "configureInExperiments": "Cloud-Quelle im Tab Experimente konfigurieren"
+      "configureInExperiments": "Cloud-Quelle im Tab Experimente konfigurieren",
+      "notConnectedHint": "Nicht mit Bambu Lab Cloud verbunden. Verbinde dich zuerst im Tab Experimente.",
+      "selectDevice": "Drucker auswählen",
+      "serial": "Seriennummer"
     },
     "ha": {
       "title": "Home Assistant",

@@ -226,7 +226,10 @@
       "statusNozzle": "Nozzle",
       "statusBed": "Bed",
       "statusFile": "File",
-      "configureInExperiments": "Configure cloud source in the Experiments tab"
+      "configureInExperiments": "Configure cloud source in the Experiments tab",
+      "notConnectedHint": "Not connected to Bambu Lab Cloud. Go to the Experiments tab to connect first.",
+      "selectDevice": "Select your printer",
+      "serial": "Serial"
     },
     "ha": {
       "title": "Home Assistant",

@@ -226,7 +226,10 @@
       "statusNozzle": "Boquilla",
       "statusBed": "Cama",
       "statusFile": "Archivo",
-      "configureInExperiments": "Configura la fuente cloud en la pestaña Experimentos"
+      "configureInExperiments": "Configura la fuente cloud en la pestaña Experimentos",
+      "notConnectedHint": "No conectado a Bambu Lab Cloud. Ve a la pestaña Experimentos para conectarte primero.",
+      "selectDevice": "Selecciona tu impresora",
+      "serial": "Número de serie"
     },
     "ha": {
       "title": "Home Assistant",

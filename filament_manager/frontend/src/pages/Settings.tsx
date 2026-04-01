@@ -2,12 +2,12 @@ import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype } from '../types'
+import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype, BambuCloudStatus, BambuCloudDevice } from '../types'
 import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
 import Modal from '../components/Modal'
 import BambuCloudSection from '../components/BambuCloudSection'
 
-// ── Printer Form ──────────────────────────────────────────────────────────────
+// ── HA Printer Form ───────────────────────────────────────────────────────────
 
 type SensorKey = 'print_stage' | 'print_progress' | 'remaining_time' | 'nozzle_temp' | 'bed_temp' | 'current_file'
 
@@ -20,7 +20,8 @@ const SENSOR_DEFAULTS: Record<SensorKey, string> = {
   current_file:   'task_name',
 }
 
-function PrinterForm({
+/** HA printer form content (no modal shell — shell provided by AddPrinterModal or edit wrapper). */
+function HAprinterFormContent({
   initial,
   onSave,
   onCancel,
@@ -57,10 +58,10 @@ function PrinterForm({
 
   const haSlugify = (s: string) =>
     s.toLowerCase().trim()
-      .replace(/[\s-]+/g, '_')   // spaces/hyphens → underscore
-      .replace(/[^\w]/g, '')     // strip anything not a-z, 0-9, _
-      .replace(/_+/g, '_')       // collapse consecutive underscores
-      .replace(/^_|_$/g, '')     // trim leading/trailing underscores
+      .replace(/[\s-]+/g, '_')
+      .replace(/[^\w]/g, '')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '')
 
   const slug = haSlugify(deviceName)
   const amsSlug = haSlugify(amsDeviceName) || null
@@ -79,255 +80,510 @@ function PrinterForm({
   }
 
   const ENTITY_LABELS: Record<string, string> = {
-    print_stage: 'Print Stage',
-    print_progress: 'Print Progress',
-    remaining_time: 'Remaining Time',
-    nozzle_temp: 'Nozzle Temp',
-    bed_temp: 'Bed Temp',
-    current_file: 'Current File',
+    print_stage: 'Print Stage', print_progress: 'Print Progress',
+    remaining_time: 'Remaining Time', nozzle_temp: 'Nozzle Temp',
+    bed_temp: 'Bed Temp', current_file: 'Current File',
   }
 
   const foundCount = discovery
-    ? Object.values(discovery.printer_entities).filter(e => e.found).length
-    : 0
+    ? Object.values(discovery.printer_entities).filter(e => e.found).length : 0
   const amsFoundCount = discovery
-    ? discovery.ams_preview.flatMap(u => u.trays).filter(t => t.found).length
-    : 0
+    ? discovery.ams_preview.flatMap(u => u.trays).filter(t => t.found).length : 0
   const amsTotalCount = discovery
-    ? discovery.ams_preview.flatMap(u => u.trays).length
-    : 0
+    ? discovery.ams_preview.flatMap(u => u.trays).length : 0
 
+  return (
+    <>
+      <div className="p-5 space-y-4">
+        <div>
+          <label className="label">{t('settings.printers.name')} *</label>
+          <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="My Printer" />
+        </div>
+
+        <div>
+          <label className="label">{t('settings.printers.haDeviceName')}</label>
+          <p className="text-xs text-gray-500 mb-1.5">{t('settings.printers.haDeviceHint')}</p>
+          <div className="flex gap-2">
+            <input
+              className="input flex-1"
+              value={deviceName}
+              onChange={e => { setDeviceName(e.target.value); setDiscovery(null) }}
+              placeholder="My Printer"
+            />
+            <button
+              className="btn-ghost px-3 flex items-center gap-1.5 shrink-0"
+              onClick={discover}
+              disabled={!deviceName.trim() || discovering}
+            >
+              <Search size={13} className={discovering ? 'animate-spin' : ''} />
+              {t('settings.printers.discoverSearch')}
+            </button>
+          </div>
+          {slug && (
+            <p className="text-xs text-gray-500 mt-1">
+              Entity prefix: <code className="bg-surface-3 px-1 rounded">sensor.{slug}_…</code>
+            </p>
+          )}
+        </div>
+
+        {discovery && (
+          <div className="bg-surface-3/50 rounded-xl p-3 space-y-3">
+            <div>
+              <p className="text-xs font-medium text-gray-300 mb-2">
+                Printer: {foundCount}/{Object.keys(discovery.printer_entities).length} entities found
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                {Object.entries(discovery.printer_entities).map(([key, info]) => (
+                  <div key={key} className="flex items-center gap-1.5 text-xs">
+                    {info.found
+                      ? <CheckCircle size={11} className="text-green-400 shrink-0" />
+                      : <AlertCircle size={11} className="text-red-400 shrink-0" />
+                    }
+                    <span className={info.found ? 'text-gray-300' : 'text-gray-500'}>
+                      {ENTITY_LABELS[key]}
+                      {info.found && info.state && (
+                        <span className="text-gray-500"> = {info.state}</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-surface-3 pt-2">
+              <p className="text-xs font-medium text-gray-300 mb-2">
+                AMS: {amsFoundCount}/{amsTotalCount} tray entities found
+              </p>
+              <div className="grid grid-cols-4 gap-1">
+                {discovery.ams_preview.flatMap(u => u.trays).map(tr => (
+                  <div key={tr.slot} className={`text-xs text-center py-1 rounded ${
+                    tr.found ? 'bg-green-900/40 text-green-400' : 'bg-surface-3 text-gray-500'
+                  }`}>
+                    T{tr.slot}
+                    {tr.found && tr.state != null && (
+                      <span className="block text-gray-400">{tr.state}%</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {discovery.all_matching.length > 0 && foundCount === 0 && (
+              <div className="border-t border-surface-3 pt-2">
+                <p className="text-xs text-yellow-400 mb-1">
+                  No exact matches. Entities containing "{discovery.slug}":
+                </p>
+                <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                  {discovery.all_matching.slice(0, 10).map(e => (
+                    <p key={e.entity_id} className="text-xs font-mono text-gray-400">{e.entity_id}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div>
+          <label className="label">{t('settings.printers.amsUnitCount')}</label>
+          <select className="input w-32" value={amsCount} onChange={e => setAmsCount(Number(e.target.value))}>
+            {[1, 2, 3, 4].map(n => (
+              <option key={n} value={n}>{n} AMS unit{n > 1 ? 's' : ''}</option>
+            ))}
+          </select>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
+          {t('settings.printers.monitorPrinter')}
+        </label>
+
+        {/* Custom sensor entity ID overrides */}
+        <div>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+            onClick={() => setShowSensors(v => !v)}
+          >
+            {showSensors ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {t('settings.printers.customSensors')}
+          </button>
+
+          {showSensors && (
+            <div className="mt-2 space-y-2 bg-surface-3/40 rounded-xl p-3">
+              <p className="text-xs text-gray-500">{t('settings.printers.customSensorsHint')}</p>
+              {(Object.keys(SENSOR_DEFAULTS) as SensorKey[]).map(key => (
+                <div key={key}>
+                  <label className="label text-xs">{t(`settings.printers.sensor_${key}`)}</label>
+                  <input
+                    className="input text-xs"
+                    value={sensorOverrides[key] ?? ''}
+                    onChange={e => setSensorOverrides(prev => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={`sensor.${slug || '…'}_${SENSOR_DEFAULTS[key]}`}
+                  />
+                </div>
+              ))}
+
+              <div className="border-t border-surface-3 pt-2 mt-1">
+                <p className="text-xs font-medium text-gray-400 mb-2">{t('settings.printers.amsEntityOverrides')}</p>
+                <p className="text-xs text-gray-500 mb-2">{t('settings.printers.amsEntityOverridesHint')}</p>
+
+                <div className="mb-2">
+                  <label className="label text-xs">{t('settings.printers.amsDeviceName')}</label>
+                  <p className="text-xs text-gray-500 mb-1">{t('settings.printers.amsDeviceHint')}</p>
+                  <input
+                    className="input text-xs"
+                    value={amsDeviceName}
+                    onChange={e => { setAmsDeviceName(e.target.value); setDiscovery(null) }}
+                    placeholder={t('settings.printers.leaveBlank')}
+                  />
+                  {amsSlug && amsSlug !== slug && (
+                    <p className="text-[10px] text-gray-600 mt-0.5">
+                      AMS prefix: <code className="bg-surface-3 px-1 rounded">sensor.{amsSlug}_…</code>
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="label text-xs">{t('settings.printers.amsTrayPattern')}</label>
+                  <input
+                    className="input text-xs"
+                    value={amsTrayPattern}
+                    onChange={e => setAmsTrayPattern(e.target.value)}
+                    placeholder="tray_{t}"
+                  />
+                  <p className="text-[10px] text-gray-600 mt-0.5">{t('settings.printers.amsTrayPatternHint')}</p>
+                </div>
+
+                <div className="mt-2">
+                  <label className="label text-xs">{t('settings.printers.amsSuffixType')}</label>
+                  <input className="input text-xs" value={amsSuffixType} onChange={e => setAmsSuffixType(e.target.value)} placeholder="_type" />
+                </div>
+                <div className="mt-2">
+                  <label className="label text-xs">{t('settings.printers.amsSuffixColor')}</label>
+                  <input className="input text-xs" value={amsSuffixColor} onChange={e => setAmsSuffixColor(e.target.value)} placeholder="_color" />
+                </div>
+                <div className="mt-2">
+                  <label className="label text-xs">{t('settings.printers.amsSuffixRemain')}</label>
+                  <input className="input text-xs" value={amsSuffixRemain} onChange={e => setAmsSuffixRemain(e.target.value)} placeholder="_remain" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-3">
+        <button className="btn-ghost" onClick={onCancel}>{t('common.cancel')}</button>
+        <button
+          className="btn-primary"
+          onClick={() => onSave({
+            name,
+            device_slug: slug,
+            ams_device_slug: amsSlug !== slug ? amsSlug : null,
+            ams_unit_count: amsCount,
+            is_active: isActive,
+            bambu_source: 'ha',
+            sensor_print_stage:    sensorOverrides.print_stage    || null,
+            sensor_print_progress: sensorOverrides.print_progress || null,
+            sensor_remaining_time: sensorOverrides.remaining_time || null,
+            sensor_nozzle_temp:    sensorOverrides.nozzle_temp    || null,
+            sensor_bed_temp:       sensorOverrides.bed_temp       || null,
+            sensor_current_file:   sensorOverrides.current_file   || null,
+            ams_tray_pattern:  amsTrayPattern  || null,
+            ams_suffix_type:   amsSuffixType   || null,
+            ams_suffix_color:  amsSuffixColor  || null,
+            ams_suffix_remain: amsSuffixRemain || null,
+          })}
+          disabled={!name.trim() || !deviceName.trim()}
+        >
+          {t('common.save')}
+        </button>
+      </div>
+    </>
+  )
+}
+
+// ── Cloud Printer Form ────────────────────────────────────────────────────────
+
+function CloudPrinterFormContent({
+  initial,
+  onSave,
+  onCancel,
+  cloudStatus,
+}: {
+  initial?: PrinterConfig
+  onSave: (data: Record<string, unknown>) => void
+  onCancel: () => void
+  cloudStatus: BambuCloudStatus | undefined
+}) {
+  const { t } = useTranslation()
+  const [selectedSerial, setSelectedSerial] = useState(initial?.bambu_serial ?? '')
+  const [name, setName] = useState(initial?.name ?? '')
+  const [isActive, setIsActive] = useState(initial?.is_active ?? true)
+  const [activeAmsUnit, setActiveAmsUnit] = useState(1)
+
+  const isConnected = cloudStatus?.status === 'connected'
+
+  const { data: devices = [] } = useQuery<BambuCloudDevice[]>({
+    queryKey: ['bambu-cloud-devices'],
+    queryFn: api.getBambuCloudDevices,
+    enabled: isConnected,
+  })
+
+  const { data: liveStatus } = useQuery({
+    queryKey: ['cloud-status', selectedSerial],
+    queryFn: () => api.getBambuCloudPrinterStatus(selectedSerial),
+    enabled: !!selectedSerial,
+    refetchInterval: 10_000,
+  })
+
+  const { data: amsTrays } = useQuery({
+    queryKey: ['cloud-ams', selectedSerial],
+    queryFn: () => api.getBambuCloudPrinterAMS(selectedSerial),
+    enabled: !!selectedSerial,
+    refetchInterval: 10_000,
+  })
+
+  const handleSelectDevice = (serial: string, deviceName: string) => {
+    setSelectedSerial(serial)
+    if (!initial && !name) setName(deviceName)
+  }
+
+  // Detect AMS units from tray slot_keys
+  const amsUnits = amsTrays
+    ? Array.from(new Set(amsTrays.map(tr => {
+        const m = tr.slot_key.match(/^ams(\d+)_/)
+        return m ? parseInt(m[1]) : 1
+      }))).sort()
+    : []
+  const visibleAmsUnit = amsUnits.includes(activeAmsUnit) ? activeAmsUnit : (amsUnits[0] ?? 1)
+
+  const STATUS_LABELS: Record<string, string> = {
+    print_stage: 'Stage', print_progress: 'Progress',
+    remaining_time: 'Remaining', nozzle_temp: 'Nozzle',
+    bed_temp: 'Bed', current_file: 'File',
+  }
+  const STATUS_UNITS: Record<string, string> = {
+    nozzle_temp: '°C', bed_temp: '°C', print_progress: '%', remaining_time: ' min',
+  }
+
+  const statusEntries = liveStatus
+    ? Object.entries(liveStatus as Record<string, string | null>).filter(([, v]) => v != null && v !== '')
+    : []
+
+  const canSave = isConnected && !!selectedSerial && !!name.trim()
+
+  return (
+    <>
+      <div className="p-5 space-y-4">
+        {!isConnected ? (
+          <div className="flex items-start gap-2 text-xs text-yellow-400 bg-yellow-900/20 border border-yellow-800 rounded px-3 py-3">
+            <AlertCircle size={13} className="mt-0.5 shrink-0" />
+            <span>{t('settings.bambuCloud.notConnectedHint')}</span>
+          </div>
+        ) : (
+          <>
+            {/* Device picker — shown for new printers; locked for edit */}
+            {!initial ? (
+              <div>
+                <label className="label">{t('settings.bambuCloud.selectDevice')}</label>
+                {devices.length === 0 ? (
+                  <p className="text-xs text-gray-500">{t('settings.bambuCloud.noDevices')}</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {(devices as BambuCloudDevice[]).map(d => (
+                      <button
+                        key={d.serial}
+                        onClick={() => handleSelectDevice(d.serial, d.name)}
+                        className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs border transition-colors text-left ${
+                          selectedSerial === d.serial
+                            ? 'border-blue-500 bg-blue-900/20 text-white'
+                            : 'border-surface-3 bg-surface-3/40 text-gray-300 hover:border-gray-500'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.online ? 'bg-green-400' : 'bg-gray-600'}`} />
+                        <span className="font-medium">{d.name}</span>
+                        <span className="text-gray-500">{d.model}</span>
+                        <span className="ml-auto text-gray-600 font-mono text-[10px]">{d.serial}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs bg-surface-3/40 rounded-lg px-3 py-2">
+                <span className="text-gray-400">{t('settings.bambuCloud.serial')}:</span>
+                <span className="font-mono text-gray-300">{initial.bambu_serial}</span>
+                <span className="text-gray-600 text-[10px] ml-1">(locked)</span>
+              </div>
+            )}
+
+            <div>
+              <label className="label">{t('settings.printers.name')} *</label>
+              <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="My Printer" />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
+              {t('settings.printers.monitorPrinter')}
+            </label>
+
+            {/* Live preview when a device is selected */}
+            {selectedSerial && (
+              <div className="bg-surface-3/40 rounded-xl p-3 space-y-3">
+                {statusEntries.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-400">
+                    {statusEntries.map(([key, val]) => (
+                      <span key={key}>{STATUS_LABELS[key] ?? key}: <span className="text-white">{val}{STATUS_UNITS[key] ?? ''}</span></span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">{t('settings.bambuCloud.noStatusData')}</p>
+                )}
+
+                {amsTrays && amsTrays.length > 0 && (
+                  <div className="border-t border-surface-3 pt-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-xs font-medium text-gray-400">{t('settings.printers.amsAssignment')}</p>
+                      {amsUnits.length > 1 && (
+                        <div className="flex rounded overflow-hidden border border-surface-3 text-xs">
+                          {amsUnits.map(u => (
+                            <button
+                              key={u}
+                              onClick={() => setActiveAmsUnit(u)}
+                              className={`px-2.5 py-0.5 transition-colors ${
+                                visibleAmsUnit === u ? 'bg-blue-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                              }`}
+                            >
+                              AMS {u}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {amsTrays
+                        .filter(tr => {
+                          const m = tr.slot_key.match(/^ams(\d+)_/)
+                          return m ? parseInt(m[1]) === visibleAmsUnit : true
+                        })
+                        .map(tr => (
+                          <div key={tr.slot_key} className="flex items-center gap-2 bg-surface-3/40 rounded px-2 py-1 text-xs">
+                            <span className="font-mono text-gray-400 w-20 shrink-0">{tr.slot_key}</span>
+                            {tr.ha_color_hex ? (
+                              <span className="w-3 h-3 rounded-full border border-white/20 shrink-0" style={{ background: tr.ha_color_hex }} />
+                            ) : (
+                              <span className="w-3 h-3 rounded-full bg-surface-3 border border-white/10 shrink-0" />
+                            )}
+                            <span className="text-gray-300 flex-1">{tr.ha_material ?? '—'}</span>
+                            <span className="text-gray-400">{tr.ha_remaining != null ? `${tr.ha_remaining}%` : '—'}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-3">
+        <button className="btn-ghost" onClick={onCancel}>{t('common.cancel')}</button>
+        <button
+          className="btn-primary"
+          onClick={() => onSave({
+            name: name.trim(),
+            device_slug: '',
+            bambu_serial: selectedSerial,
+            bambu_source: 'cloud',
+            ams_unit_count: amsUnits.length || 1,
+            is_active: isActive,
+          })}
+          disabled={!canSave}
+        >
+          {t('common.save')}
+        </button>
+      </div>
+    </>
+  )
+}
+
+// ── Printer Form Modal ────────────────────────────────────────────────────────
+// Add mode: two tabs (Home Assistant | Bambu Lab Cloud)
+// Edit mode: shows the form matching the printer's source type — no tab switching
+
+function PrinterFormModal({
+  initial,
+  onSave,
+  onCancel,
+  cloudStatus,
+}: {
+  initial?: PrinterConfig
+  onSave: (data: Record<string, unknown>) => void
+  onCancel: () => void
+  cloudStatus: BambuCloudStatus | undefined
+}) {
+  const { t } = useTranslation()
+  const [addTab, setAddTab] = useState<'ha' | 'cloud'>('ha')
+
+  const title = initial ? t('settings.printers.editPrinter') : t('settings.printers.addPrinter')
+
+  // Edit mode: locked to the printer's source
+  if (initial) {
+    return (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="bg-surface-2 border border-surface-3 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-surface-3">
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold">{title}</h2>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wide ${
+                initial.bambu_source === 'cloud'
+                  ? 'bg-blue-900/60 text-blue-300'
+                  : 'bg-surface-3 text-gray-400'
+              }`}>
+                {initial.bambu_source === 'cloud' ? 'Bambu Cloud' : 'Home Assistant'}
+              </span>
+            </div>
+            <button onClick={onCancel} className="btn-ghost p-1"><X size={16} /></button>
+          </div>
+          {initial.bambu_source === 'cloud'
+            ? <CloudPrinterFormContent initial={initial} onSave={onSave} onCancel={onCancel} cloudStatus={cloudStatus} />
+            : <HAprinterFormContent initial={initial} onSave={onSave} onCancel={onCancel} />
+          }
+        </div>
+      </div>
+    )
+  }
+
+  // Add mode: two-tab picker
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div className="bg-surface-2 border border-surface-3 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-3">
-          <h2 className="font-semibold">{initial ? t('settings.printers.editPrinter') : t('settings.printers.addPrinter')}</h2>
+          <h2 className="font-semibold">{title}</h2>
           <button onClick={onCancel} className="btn-ghost p-1"><X size={16} /></button>
         </div>
 
-        <div className="p-5 space-y-4">
-          <div>
-            <label className="label">{t('settings.printers.name')} *</label>
-            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="My Printer" />
-          </div>
-
-          <div>
-            <label className="label">{t('settings.printers.haDeviceName')}</label>
-            <p className="text-xs text-gray-500 mb-1.5">{t('settings.printers.haDeviceHint')}</p>
-            <div className="flex gap-2">
-              <input
-                className="input flex-1"
-                value={deviceName}
-                onChange={e => { setDeviceName(e.target.value); setDiscovery(null) }}
-                placeholder="My Printer"
-              />
-              <button
-                className="btn-ghost px-3 flex items-center gap-1.5 shrink-0"
-                onClick={discover}
-                disabled={!deviceName.trim() || discovering}
-              >
-                <Search size={13} className={discovering ? 'animate-spin' : ''} />
-                {t('settings.printers.discoverSearch')}
-              </button>
-            </div>
-            {slug && (
-              <p className="text-xs text-gray-500 mt-1">
-                Entity prefix: <code className="bg-surface-3 px-1 rounded">sensor.{slug}_…</code>
-              </p>
-            )}
-          </div>
-
-          {discovery && (
-            <div className="bg-surface-3/50 rounded-xl p-3 space-y-3">
-              <div>
-                <p className="text-xs font-medium text-gray-300 mb-2">
-                  Printer: {foundCount}/{Object.keys(discovery.printer_entities).length} entities found
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                  {Object.entries(discovery.printer_entities).map(([key, info]) => (
-                    <div key={key} className="flex items-center gap-1.5 text-xs">
-                      {info.found
-                        ? <CheckCircle size={11} className="text-green-400 shrink-0" />
-                        : <AlertCircle size={11} className="text-red-400 shrink-0" />
-                      }
-                      <span className={info.found ? 'text-gray-300' : 'text-gray-500'}>
-                        {ENTITY_LABELS[key]}
-                        {info.found && info.state && (
-                          <span className="text-gray-500"> = {info.state}</span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-surface-3 pt-2">
-                <p className="text-xs font-medium text-gray-300 mb-2">
-                  AMS: {amsFoundCount}/{amsTotalCount} tray entities found
-                </p>
-                <div className="grid grid-cols-4 gap-1">
-                  {discovery.ams_preview.flatMap(u => u.trays).map(t => (
-                    <div key={t.slot} className={`text-xs text-center py-1 rounded ${
-                      t.found ? 'bg-green-900/40 text-green-400' : 'bg-surface-3 text-gray-500'
-                    }`}>
-                      T{t.slot}
-                      {t.found && t.state != null && (
-                        <span className="block text-gray-400">{t.state}%</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {discovery.all_matching.length > 0 && foundCount === 0 && (
-                <div className="border-t border-surface-3 pt-2">
-                  <p className="text-xs text-yellow-400 mb-1">
-                    No exact matches. Entities containing "{discovery.slug}":
-                  </p>
-                  <div className="space-y-0.5 max-h-24 overflow-y-auto">
-                    {discovery.all_matching.slice(0, 10).map(e => (
-                      <p key={e.entity_id} className="text-xs font-mono text-gray-400">{e.entity_id}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div>
-            <label className="label">{t('settings.printers.amsUnitCount')}</label>
-            <select
-              className="input w-32"
-              value={amsCount}
-              onChange={e => setAmsCount(Number(e.target.value))}
-            >
-              {[1, 2, 3, 4].map(n => (
-                <option key={n} value={n}>{n} AMS unit{n > 1 ? 's' : ''}</option>
-              ))}
-            </select>
-          </div>
-
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
-            {t('settings.printers.monitorPrinter')}
-          </label>
-
-          {/* Custom sensor entity ID overrides */}
-          <div>
+        {/* Source type tabs */}
+        <div className="flex border-b border-surface-3 px-5 gap-0">
+          {(['ha', 'cloud'] as const).map(tab => (
             <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
-              onClick={() => setShowSensors(v => !v)}
+              key={tab}
+              onClick={() => setAddTab(tab)}
+              className={`pb-2.5 pt-3 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                addTab === tab ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
             >
-              {showSensors ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              {t('settings.printers.customSensors')}
+              {tab === 'ha' ? t('settings.bambuCloud.sourceHA') : 'Bambu Lab Cloud'}
             </button>
-
-            {showSensors && (
-              <div className="mt-2 space-y-2 bg-surface-3/40 rounded-xl p-3">
-                <p className="text-xs text-gray-500">{t('settings.printers.customSensorsHint')}</p>
-                {(Object.keys(SENSOR_DEFAULTS) as SensorKey[]).map(key => (
-                  <div key={key}>
-                    <label className="label text-xs">{t(`settings.printers.sensor_${key}`)}</label>
-                    <input
-                      className="input text-xs"
-                      value={sensorOverrides[key] ?? ''}
-                      onChange={e => setSensorOverrides(prev => ({ ...prev, [key]: e.target.value }))}
-                      placeholder={`sensor.${slug || '…'}_${SENSOR_DEFAULTS[key]}`}
-                    />
-                  </div>
-                ))}
-
-                <div className="border-t border-surface-3 pt-2 mt-1">
-                  <p className="text-xs font-medium text-gray-400 mb-2">{t('settings.printers.amsEntityOverrides')}</p>
-                  <p className="text-xs text-gray-500 mb-2">{t('settings.printers.amsEntityOverridesHint')}</p>
-
-                  <div className="mb-2">
-                    <label className="label text-xs">{t('settings.printers.amsDeviceName')}</label>
-                    <p className="text-xs text-gray-500 mb-1">{t('settings.printers.amsDeviceHint')}</p>
-                    <input
-                      className="input text-xs"
-                      value={amsDeviceName}
-                      onChange={e => { setAmsDeviceName(e.target.value); setDiscovery(null) }}
-                      placeholder={t('settings.printers.leaveBlank')}
-                    />
-                    {amsSlug && amsSlug !== slug && (
-                      <p className="text-[10px] text-gray-600 mt-0.5">
-                        AMS prefix: <code className="bg-surface-3 px-1 rounded">sensor.{amsSlug}_…</code>
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="label text-xs">{t('settings.printers.amsTrayPattern')}</label>
-                    <input
-                      className="input text-xs"
-                      value={amsTrayPattern}
-                      onChange={e => setAmsTrayPattern(e.target.value)}
-                      placeholder="tray_{t}"
-                    />
-                    <p className="text-[10px] text-gray-600 mt-0.5">{t('settings.printers.amsTrayPatternHint')}</p>
-                  </div>
-
-                  <div className="mt-2">
-                    <label className="label text-xs">{t('settings.printers.amsSuffixType')}</label>
-                    <input
-                      className="input text-xs"
-                      value={amsSuffixType}
-                      onChange={e => setAmsSuffixType(e.target.value)}
-                      placeholder="_type"
-                    />
-                  </div>
-                  <div className="mt-2">
-                    <label className="label text-xs">{t('settings.printers.amsSuffixColor')}</label>
-                    <input
-                      className="input text-xs"
-                      value={amsSuffixColor}
-                      onChange={e => setAmsSuffixColor(e.target.value)}
-                      placeholder="_color"
-                    />
-                  </div>
-                  <div className="mt-2">
-                    <label className="label text-xs">{t('settings.printers.amsSuffixRemain')}</label>
-                    <input
-                      className="input text-xs"
-                      value={amsSuffixRemain}
-                      onChange={e => setAmsSuffixRemain(e.target.value)}
-                      placeholder="_remain"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          ))}
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-3">
-          <button className="btn-ghost" onClick={onCancel}>{t('common.cancel')}</button>
-          <button
-            className="btn-primary"
-            onClick={() => onSave({
-              name,
-              device_slug: slug,
-              ams_device_slug: amsSlug !== slug ? amsSlug : null,
-              ams_unit_count: amsCount,
-              is_active: isActive,
-              sensor_print_stage:    sensorOverrides.print_stage    || null,
-              sensor_print_progress: sensorOverrides.print_progress || null,
-              sensor_remaining_time: sensorOverrides.remaining_time || null,
-              sensor_nozzle_temp:    sensorOverrides.nozzle_temp    || null,
-              sensor_bed_temp:       sensorOverrides.bed_temp       || null,
-              sensor_current_file:   sensorOverrides.current_file   || null,
-              ams_tray_pattern:  amsTrayPattern  || null,
-              ams_suffix_type:   amsSuffixType   || null,
-              ams_suffix_color:  amsSuffixColor  || null,
-              ams_suffix_remain: amsSuffixRemain || null,
-            })}
-            disabled={!name.trim() || !deviceName.trim()}
-          >
-            {t('common.save')}
-          </button>
-        </div>
+        {addTab === 'ha'
+          ? <HAprinterFormContent onSave={onSave} onCancel={onCancel} />
+          : <CloudPrinterFormContent onSave={onSave} onCancel={onCancel} cloudStatus={cloudStatus} />
+        }
       </div>
     </div>
   )
@@ -387,7 +643,6 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <p className="text-xs font-medium text-gray-400">{t('settings.printers.amsAssignment')}</p>
-          {/* AMS unit tabs — only shown when there are multiple units */}
           {units.length > 1 && (
             <div className="flex rounded overflow-hidden border border-surface-3 text-xs">
               {units.map(u => (
@@ -517,7 +772,7 @@ function PrinterCard({ printer, onEdit, onDelete }: {
     queryKey: ['printer-status', printer.id],
     queryFn: () => api.getPrinterStatus(printer.id),
     refetchInterval: 30_000,
-    enabled: printer.is_active && !isCloud,
+    enabled: printer.is_active,
   })
 
   const stage = (status as Record<string, string | null> | undefined)?.print_stage?.toLowerCase() ?? 'unknown'
@@ -533,47 +788,36 @@ function PrinterCard({ printer, onEdit, onDelete }: {
 
   return (
     <div className="bg-surface-2 border border-surface-3 rounded-xl p-4">
-      <div className="flex items-start justify-between mb-2">
+      <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="font-semibold text-white">{printer.name}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-white">{printer.name}</p>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wide ${
+              isCloud ? 'bg-blue-900/60 text-blue-300' : 'bg-surface-3 text-gray-400'
+            }`}>
+              {isCloud ? 'Cloud' : 'HA'}
+            </span>
+          </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            {!isCloud && (
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                isPrinting ? 'bg-blue-900 text-blue-300' :
-                stage === 'finish' ? 'bg-green-900 text-green-300' :
-                'bg-surface-3 text-gray-400'
-              }`}>{stage}</span>
-            )}
+            <span className={`text-xs px-2 py-0.5 rounded-full ${
+              isPrinting ? 'bg-blue-900 text-blue-300' :
+              stage === 'finish' ? 'bg-green-900 text-green-300' :
+              'bg-surface-3 text-gray-400'
+            }`}>{stage}</span>
             <span className="text-xs text-gray-500">{printer.ams_unit_count} AMS</span>
           </div>
         </div>
         <div className="flex gap-1 shrink-0">
-          {!isCloud && (
-            <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh">
-              <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
-            </button>
-          )}
+          <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh">
+            <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
+          </button>
           <button className="btn-ghost p-1" onClick={onEdit}><Pencil size={12} /></button>
           <button className="btn-ghost p-1 text-red-400" onClick={onDelete}><Trash2 size={12} /></button>
         </div>
       </div>
 
-      {/* Data source selector — Cloud button disabled (configure in Experiments tab) */}
-      <div className="flex rounded overflow-hidden border border-surface-3 text-xs mb-3 w-fit">
-        <span className={`px-3 py-1 ${!isCloud ? 'bg-blue-700 text-white' : 'text-gray-500'}`}>
-          {t('settings.bambuCloud.sourceHA')}
-        </span>
-        <span
-          className="px-3 py-1 text-gray-600 cursor-not-allowed"
-          title={t('settings.bambuCloud.configureInExperiments')}
-        >
-          {t('settings.bambuCloud.sourceCloud')}
-          {isCloud && <span className="ml-1 text-green-500">✓</span>}
-        </span>
-      </div>
-
-      {/* HA status values — only for HA-source printers */}
-      {!isCloud && status && (
+      {/* Status values */}
+      {status && (
         <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
           {Object.entries(status as unknown as Record<string, string | null>).map(([key, val]) => (
             val && key !== 'print_stage' ? (
@@ -628,7 +872,6 @@ function BrandWeightsSection() {
       <p className="text-xs text-gray-500 mb-3">{t('settings.brandWeights.hint')}</p>
 
       <div className="card space-y-2">
-        {/* Add form at the top */}
         <div className="flex items-center gap-2 pb-2 border-b border-surface-3">
           <input
             className="input flex-1 text-sm py-1"
@@ -752,7 +995,6 @@ function NameListSection({
       {hint && <p className="text-xs text-gray-500 mb-3">{hint}</p>}
 
       <div className="card space-y-2">
-        {/* Add form at the top */}
         <div className="flex items-center gap-2 pb-2 border-b border-surface-3">
           <input
             className="input flex-1 text-sm py-1"
@@ -878,20 +1120,12 @@ function DataTransferSection() {
       <p className="text-xs text-gray-500 mb-4">{t('settings.dataTransfer.exportHint')}</p>
 
       <div className="flex flex-wrap gap-3 mb-4">
-        <button
-          onClick={handleExport}
-          disabled={exporting}
-          className="btn-primary flex items-center gap-2"
-        >
+        <button onClick={handleExport} disabled={exporting} className="btn-primary flex items-center gap-2">
           <Download size={14} />
           {exporting ? t('settings.dataTransfer.exporting') : t('settings.dataTransfer.exportBtn')}
         </button>
 
-        <button
-          onClick={handleExportSpoolman}
-          disabled={exportingSpoolman}
-          className="btn-ghost flex items-center gap-2"
-        >
+        <button onClick={handleExportSpoolman} disabled={exportingSpoolman} className="btn-ghost flex items-center gap-2">
           <Download size={14} />
           {exportingSpoolman ? t('settings.dataTransfer.exporting') : t('settings.dataTransfer.exportSpoolmanBtn')}
           <span className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-900/60 text-yellow-400 border border-yellow-700">
@@ -902,14 +1136,7 @@ function DataTransferSection() {
         <label className={`btn-ghost flex items-center gap-2 cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
           <Upload size={14} />
           {importing ? t('settings.dataTransfer.importing') : t('settings.dataTransfer.importBtn')}
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleFileChange}
-            disabled={importing}
-          />
+          <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} disabled={importing} />
         </label>
       </div>
 
@@ -965,6 +1192,8 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
     enabled: !!printer.bambu_serial,
   })
 
+  const [activeUnit, setActiveUnit] = useState(1)
+
   const LABELS: Record<string, string> = {
     print_stage: 'Stage', print_progress: 'Progress',
     remaining_time: 'Remaining', nozzle_temp: 'Nozzle',
@@ -977,6 +1206,15 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
   const statusEntries = status
     ? Object.entries(status as Record<string, string | null>).filter(([, v]) => v != null && v !== '')
     : []
+
+  // Group AMS trays by unit
+  const amsUnits = trays
+    ? Array.from(new Set(trays.map(tr => {
+        const m = tr.slot_key.match(/^ams(\d+)_/)
+        return m ? parseInt(m[1]) : 1
+      }))).sort()
+    : []
+  const visibleUnit = amsUnits.includes(activeUnit) ? activeUnit : (amsUnits[0] ?? 1)
 
   return (
     <div className="bg-surface-2 border border-surface-3 rounded-xl p-4">
@@ -1001,23 +1239,45 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
         <p className="text-xs text-gray-500 mb-3">{t('settings.bambuCloud.noStatusData')}</p>
       )}
 
-      {/* AMS tray values from MQTT */}
+      {/* AMS tray values — grouped by unit */}
       {trays && trays.length > 0 && (
         <div>
-          <p className="text-xs font-medium text-gray-400 mb-1.5">{t('settings.printers.amsAssignment')}</p>
-          <div className="space-y-1">
-            {trays.map(tray => (
-              <div key={tray.slot_key} className="flex items-center gap-2 bg-surface-3/40 rounded-lg px-3 py-1.5 text-xs">
-                <span className="font-mono text-gray-400 w-12 shrink-0">{tray.slot_key}</span>
-                {tray.ha_color_hex ? (
-                  <span className="w-3 h-3 rounded-full border border-white/20 shrink-0" style={{ background: tray.ha_color_hex }} />
-                ) : (
-                  <span className="w-3 h-3 rounded-full bg-surface-3 border border-white/10 shrink-0" />
-                )}
-                <span className="text-gray-300 flex-1">{tray.ha_material ?? '—'}</span>
-                <span className="text-gray-400">{tray.ha_remaining != null ? `${tray.ha_remaining}%` : '—'}</span>
+          <div className="flex items-center gap-2 mb-1.5">
+            <p className="text-xs font-medium text-gray-400">{t('settings.printers.amsAssignment')}</p>
+            {amsUnits.length > 1 && (
+              <div className="flex rounded overflow-hidden border border-surface-3 text-xs">
+                {amsUnits.map(u => (
+                  <button
+                    key={u}
+                    onClick={() => setActiveUnit(u)}
+                    className={`px-2.5 py-0.5 transition-colors ${
+                      visibleUnit === u ? 'bg-blue-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    AMS {u}
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
+          </div>
+          <div className="space-y-1">
+            {trays
+              .filter(tr => {
+                const m = tr.slot_key.match(/^ams(\d+)_/)
+                return m ? parseInt(m[1]) === visibleUnit : true
+              })
+              .map(tray => (
+                <div key={tray.slot_key} className="flex items-center gap-2 bg-surface-3/40 rounded-lg px-3 py-1.5 text-xs">
+                  <span className="font-mono text-gray-400 w-20 shrink-0">{tray.slot_key}</span>
+                  {tray.ha_color_hex ? (
+                    <span className="w-3 h-3 rounded-full border border-white/20 shrink-0" style={{ background: tray.ha_color_hex }} />
+                  ) : (
+                    <span className="w-3 h-3 rounded-full bg-surface-3 border border-white/10 shrink-0" />
+                  )}
+                  <span className="text-gray-300 flex-1">{tray.ha_material ?? '—'}</span>
+                  <span className="text-gray-400">{tray.ha_remaining != null ? `${tray.ha_remaining}%` : '—'}</span>
+                </div>
+              ))}
           </div>
         </div>
       )}
@@ -1064,7 +1324,6 @@ export default function Settings() {
   })
   const deleteMut = useMutation({ mutationFn: api.deletePrinter, onSuccess: invalidate })
 
-  // The currently visible printer in the Printers tab
   const activePrinter = printers.find(p => p.id === activePrinterId) ?? printers[0] ?? null
 
   const MAIN_TABS: { id: MainTab; label: string; dot?: boolean }[] = [
@@ -1082,6 +1341,7 @@ export default function Settings() {
     { id: 'locations',    label: t('settings.dataTabs.locations') },
   ]
 
+  // Experiments tab: all printers with a serial (regardless of source)
   const cloudPrinters = printers.filter(p => p.bambu_serial)
 
   return (
@@ -1112,7 +1372,6 @@ export default function Settings() {
       {/* ── Tab: Printers ── */}
       {mainTab === 'printers' && (
         <div className="card">
-          {/* HA status + Add button */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               {haStatus?.ha_available
@@ -1129,7 +1388,6 @@ export default function Settings() {
             <p className="text-sm text-gray-500">{t('settings.printers.noPrintersHint')}</p>
           ) : (
             <>
-              {/* Printer tabs — only shown when more than one printer */}
               {printers.length > 1 && (
                 <div className="flex border-b border-surface-3 mb-4 gap-0 -mx-5 px-5 overflow-x-auto">
                   {printers.map(p => (
@@ -1166,7 +1424,6 @@ export default function Settings() {
       {/* ── Tab: Data ── */}
       {mainTab === 'data' && (
         <div className="card">
-          {/* Data sub-tab bar — extra top padding so headers are not clipped */}
           <div className="flex border-b border-surface-3 mb-5 gap-0 -mx-5 px-5 overflow-x-auto pt-1">
             {DATA_SUBTABS.map(st => (
               <button
@@ -1241,7 +1498,6 @@ export default function Settings() {
       {/* ── Tab: Experiments ── */}
       {mainTab === 'experiments' && (
         <div className="space-y-4">
-          {/* Bambu Cloud auth/connection */}
           <div className="card">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-300">{t('settings.bambuCloud.title')}</h3>
@@ -1253,7 +1509,6 @@ export default function Settings() {
             <BambuCloudSection />
           </div>
 
-          {/* Live data per cloud-source printer */}
           {isCloudConnected && cloudPrinters.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
@@ -1267,10 +1522,12 @@ export default function Settings() {
         </div>
       )}
 
+      {/* Printer form modal */}
       {(showForm || editing) && (
         <Modal>
-          <PrinterForm
+          <PrinterFormModal
             initial={editing ?? undefined}
+            cloudStatus={cloudStatus}
             onSave={data => {
               if (editing) updateMut.mutate({ id: editing.id, data })
               else createMut.mutate(data)
