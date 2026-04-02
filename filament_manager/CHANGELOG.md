@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.3
+
+- Experiments tab: raw MQTT cache now shows ALL fields the printer sends (previously only ~15 pre-selected fields were stored); any new field appearing in any future firmware update is automatically captured
+- Experiments tab: raw cache section now shows both printer status fields and AMS tray fields (remain, material, color, remain_flag per slot) in separate labelled blocks, sorted alphabetically
+- Backend: `get_debug_info` now returns the full `ams_cache` detail (not just slot key names)
+
 ## 0.10.2
 
 - Fix: yellow "add filament usage" icon not showing on finished auto prints — condition was `usages.length === 0` but AMS percent drift can create 0g ghost usage records; changed to `total_grams === 0`

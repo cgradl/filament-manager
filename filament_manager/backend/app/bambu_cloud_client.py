@@ -273,17 +273,14 @@ def _process_device_message(serial: str, data: dict) -> None:
                 current["tray_now"] = ams_source["tray_now"]
     _printer_status_cache[serial] = current
 
-    # Merge status fields — Bambu sends incremental updates; only update fields
-    # that are actually present in this message so that a partial AMS-only update
-    # does not wipe out temperature/stage data from the previous full status push.
+    # Merge ALL scalar fields from the print object — Bambu sends incremental
+    # updates so we only overwrite keys that are present in this message.
+    # Storing every field ensures the raw cache in the Experiments tab shows
+    # the full picture of what the printer actually sends.
     current = _printer_status_cache.get(serial, {})
-    for field in ("gcode_state", "subtask_name", "mc_percent", "mc_remaining_time",
-                  "nozzle_temper", "bed_temper", "task_id", "project_id",
-                  "total_layer_num", "layer_num", "nozzle_diameter", "nozzle_type",
-                  "print_type", "mc_print_error_code",
-                  "mc_print_tick_cnt"):  # lifetime print seconds — same source as HA total_usage
-        val = print_data.get(field)
-        if val is not None:
+    for field, val in print_data.items():
+        # Skip nested objects (ams dict handled above); store everything else
+        if not isinstance(val, (dict, list)):
             current[field] = val
     _printer_status_cache[serial] = current
 
@@ -746,7 +743,7 @@ def get_debug_info() -> dict:
         "token": token_info,
         "mqtt_clients": clients_info,
         "printer_status_cache": dict(_printer_status_cache),
-        "ams_cache_keys": {s: list(v.keys()) for s, v in _ams_cache.items()},
+        "ams_cache": dict(_ams_cache),
         "serial_to_printer_id": dict(_serial_to_printer_id),
     }
 

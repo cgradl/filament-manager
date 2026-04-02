@@ -1225,6 +1225,9 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
   const rawCache = printer.bambu_serial && debugInfo?.printer_status_cache
     ? debugInfo.printer_status_cache[printer.bambu_serial] ?? {}
     : {}
+  const rawAmsCache = printer.bambu_serial && debugInfo?.ams_cache
+    ? debugInfo.ams_cache[printer.bambu_serial] ?? {}
+    : {}
 
   const [activeUnit, setActiveUnit] = useState(1)
   const [showRaw, setShowRaw] = useState(false)
@@ -1288,18 +1291,46 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
           className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
           onClick={() => setShowRaw(r => !r)}
         >
-          {showRaw ? '▾' : '▸'} Raw MQTT cache ({Object.keys(rawCache).length} fields)
+          {showRaw ? '▾' : '▸'} Raw MQTT cache ({Object.keys(rawCache).length} printer fields, {Object.keys(rawAmsCache).length} AMS slots)
         </button>
         {showRaw && (
-          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] font-mono">
-            {Object.entries(rawCache).map(([k, v]) => (
-              <span key={k} className="text-gray-500 truncate">
-                {k}: <span className="text-gray-300">{String(v)}</span>
-              </span>
-            ))}
-            {Object.keys(rawCache).length === 0 && (
-              <span className="text-gray-600 col-span-2">No data in cache yet</span>
-            )}
+          <div className="mt-2 space-y-3">
+            {/* Printer status fields */}
+            <div>
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Printer status</p>
+              {Object.keys(rawCache).length === 0 ? (
+                <span className="text-[11px] font-mono text-gray-600">No data in cache yet</span>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] font-mono">
+                  {Object.entries(rawCache).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => (
+                    <span key={k} className="text-gray-500 truncate">
+                      {k}: <span className="text-gray-300">{String(v)}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* AMS tray fields */}
+            <div>
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">AMS tray cache</p>
+              {Object.keys(rawAmsCache).length === 0 ? (
+                <span className="text-[11px] font-mono text-gray-600">No AMS data in cache yet</span>
+              ) : (
+                <div className="space-y-1">
+                  {Object.entries(rawAmsCache).sort(([a], [b]) => a.localeCompare(b)).map(([slot, td]) => (
+                    <div key={slot} className="text-[11px] font-mono">
+                      <span className="text-blue-400">{slot}</span>
+                      <span className="text-gray-600"> → </span>
+                      {Object.entries(td as Record<string, unknown>).map(([k, v]) => (
+                        <span key={k} className="text-gray-500 mr-3">
+                          {k}: <span className="text-gray-300">{String(v)}</span>
+                        </span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

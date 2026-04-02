@@ -144,7 +144,10 @@ export const api = {
   getBambuCloudPrinterStatus: (serial: string) =>
     request<Record<string, string | null>>(`bambu-cloud/printer/${serial}/status`),
   getBambuCloudDebug: () =>
-    request<{ printer_status_cache: Record<string, Record<string, unknown>> }>('bambu-cloud/debug'),
+    request<{
+      printer_status_cache: Record<string, Record<string, unknown>>
+      ams_cache: Record<string, Record<string, { remain: number | null; material: string; color: string | null; remain_flag: number | null }>>
+    }>('bambu-cloud/debug'),
   getBambuCloudPrinterAMS: (serial: string) =>
     request<{ slot_key: string; ha_material: string | null; ha_color_hex: string | null; ha_remaining: string | null }[]>(`bambu-cloud/printer/${serial}/ams`),
 
