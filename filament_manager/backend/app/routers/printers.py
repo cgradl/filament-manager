@@ -482,25 +482,13 @@ async def get_printer_status(printer_id: int, db: Session = Depends(get_db)):
     if getattr(p, "bambu_source", "ha") == "cloud":
         from .. import bambu_cloud_client
         raw = bambu_cloud_client.get_printer_cloud_status(p.bambu_serial)
-        # Format active tray: tray_now is 0-based slot within the AMS unit
-        tray_now = raw.get("tray_now")
-        active_tray = None
-        if tray_now is not None:
-            try:
-                slot = int(tray_now)
-                active_tray = f"T{slot + 1}" if slot >= 0 else None
-            except (ValueError, TypeError):
-                pass
         return {
-            "print_stage":       raw.get("gcode_state"),
-            "print_progress":    str(raw["mc_percent"]) if raw.get("mc_percent") is not None else None,
-            "remaining_time":    str(raw["mc_remaining_time"]) if raw.get("mc_remaining_time") is not None else None,
-            "nozzle_temp":       str(raw["nozzle_temper"]) if raw.get("nozzle_temper") is not None else None,
-            "bed_temp":          str(raw["bed_temper"]) if raw.get("bed_temper") is not None else None,
-            "current_file":      raw.get("subtask_name"),
-            "active_tray":       active_tray,
-            "filament_used":     str(raw["mc_print_filament_used"]) if raw.get("mc_print_filament_used") is not None else None,
-            "lifetime_filament": str(raw["mc_lifetime_filament_usage"]) if raw.get("mc_lifetime_filament_usage") is not None else None,
+            "print_stage":    raw.get("gcode_state"),
+            "print_progress": str(raw["mc_percent"]) if raw.get("mc_percent") is not None else None,
+            "remaining_time": str(raw["mc_remaining_time"]) if raw.get("mc_remaining_time") is not None else None,
+            "nozzle_temp":    str(raw["nozzle_temper"]) if raw.get("nozzle_temper") is not None else None,
+            "bed_temp":       str(raw["bed_temper"]) if raw.get("bed_temper") is not None else None,
+            "current_file":   raw.get("subtask_name"),
         }
 
     entities = ha_client.get_printer_entity_ids(p.device_slug, p.sensor_overrides)
