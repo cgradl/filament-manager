@@ -287,10 +287,12 @@ def _process_device_message(serial: str, data: dict) -> None:
             current[field] = val
     _printer_status_cache[serial] = current
 
-    gcode_state = current.get("gcode_state", "")
-    subtask_name = current.get("subtask_name", "")
-
-    if not gcode_state or _loop is None:
+    # Only dispatch print-state callbacks when gcode_state is actually present in
+    # this message.  Using the cached value would re-fire the callback on every
+    # incremental AMS/temperature update, causing duplicate coroutines that race
+    # to close the same job and hit SQLite write conflicts.
+    gcode_state_in_msg = print_data.get("gcode_state")
+    if not gcode_state_in_msg or _loop is None:
         return
 
     printer_id = _serial_to_printer_id.get(serial)
@@ -300,13 +302,18 @@ def _process_device_message(serial: str, data: dict) -> None:
     # Import here to avoid circular import at module level
     from . import print_monitor
 
-    state_upper = gcode_state.upper()
-    if state_upper == "RUNNING":
+    state_upper = gcode_state_in_msg.upper()
+    # States that mean "printer is actively printing" (Bambu MQTT vocabulary)
+    _CLOUD_PRINTING_STATES = frozenset({"RUNNING", "PREPARE", "SLICING"})
+
+    if state_upper in _CLOUD_PRINTING_STATES:
         asyncio.run_coroutine_threadsafe(
-            print_monitor.on_cloud_print_start(printer_id, subtask_name, serial),
+            print_monitor.on_cloud_print_start(printer_id, current.get("subtask_name", ""), serial),
             _loop,
         )
-    elif state_upper in ("FINISH", "FAILED", "IDLE"):
+    elif state_upper:
+        # Any other non-empty state (FINISH, FAILED, IDLE, PAUSE, …) closes an open job.
+        # The guard inside on_cloud_print_end ignores this when nothing was printing.
         asyncio.run_coroutine_threadsafe(
             print_monitor.on_cloud_print_end(printer_id, state_upper != "FAILED", state_upper),
             _loop,

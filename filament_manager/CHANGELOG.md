@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.1
+
+- Fix: cloud print end not detected — `_process_device_message` was firing `on_cloud_print_end` on every incremental MQTT update (temperature, progress) because it used the *cached* `gcode_state` instead of the value in the current message; rapid duplicate coroutines hit SQLite write conflicts and prevented `db.commit()`
+- Fix: `_on_print_end` now commits the job close *before* the HTTP weight fetch — a slow or failed Bambu Cloud task API call can no longer block or prevent the job record from being saved
+- Fix: `on_cloud_print_end` now catches exceptions from `_on_print_end` and always resets `_state` to idle so a failed close attempt never permanently blocks future end events
+- Improvement: end detection now triggers on any non-printing MQTT state (not just FINISH/FAILED/IDLE) — covers firmware variations and any unknown terminal states
+
 ## 0.10.0
 
 - Add `print_weight_g` field to print jobs: automatically captured at print end from the Bambu Cloud task API (cloud-source printers) or from the `sensor.{slug}_print_weight` HA entity (HA-source printers)

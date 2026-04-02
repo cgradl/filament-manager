@@ -145,11 +145,6 @@ async def _on_print_end(
         ams_now = bambu_cloud_client.get_ams_snapshot_for_serial(printer.bambu_serial)
         if ams_now and job.ams_snapshot_start:
             await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
-        # Fetch print weight from Bambu Cloud task API
-        weight = await bambu_cloud_client.get_task_weight_for_serial(printer.bambu_serial)
-        if weight is not None:
-            job.print_weight_g = weight
-            log.info("Cloud: recorded print_weight_g=%.1f for job #%d", weight, job.id)
     else:
         ams_config = ha_client.get_ams_config(printer.device_slug, printer.ams_unit_count,
                                                ams_device_slug=printer.ams_device_slug,
@@ -157,19 +152,31 @@ async def _on_print_end(
         if ams_config and job.ams_snapshot_start:
             ams_now = await ha_client.get_ams_snapshot(ams_config)
             await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
-        # Fetch print weight from HA sensor
-        entities = ha_client.get_printer_entity_ids(printer.device_slug, printer.sensor_overrides)
-        weight_str = await ha_client.get_entity_value(entities["print_weight"])
-        if weight_str is not None:
-            try:
-                job.print_weight_g = float(weight_str)
-                log.info("HA: recorded print_weight_g=%.1f for job #%d", job.print_weight_g, job.id)
-            except (ValueError, TypeError):
-                pass
 
+    # Commit job close + AMS usage FIRST — weight fetch is best-effort and must
+    # not block or prevent the job record from being persisted.
     db.commit()
     _state[printer.id] = {"stage": "idle", "job_id": None}
     log.info("Closed PrintJob #%d", job_id)
+
+    # Best-effort weight fetch (separate commit — never blocks job close)
+    try:
+        if getattr(printer, "bambu_source", "ha") == "cloud" and getattr(printer, "bambu_serial", None):
+            from . import bambu_cloud_client
+            weight = await bambu_cloud_client.get_task_weight_for_serial(printer.bambu_serial)
+            if weight is not None:
+                job.print_weight_g = weight
+                db.commit()
+                log.info("Cloud: recorded print_weight_g=%.1f for job #%d", weight, job.id)
+        else:
+            entities = ha_client.get_printer_entity_ids(printer.device_slug, printer.sensor_overrides)
+            weight_str = await ha_client.get_entity_value(entities["print_weight"])
+            if weight_str is not None:
+                job.print_weight_g = float(weight_str)
+                db.commit()
+                log.info("HA: recorded print_weight_g=%.1f for job #%d", job.print_weight_g, job.id)
+    except Exception as exc:
+        log.warning("print_weight fetch failed for job #%d: %s", job_id, exc)
 
 
 async def _record_ams_usage(
@@ -309,6 +316,11 @@ async def on_cloud_print_end(printer_id: int, success: bool, gcode_state: str) -
         }
 
         job_id = prev.get("job_id")
-        await _on_print_end(printer, db, job_id, success=success, extra_fields=extra)
+        try:
+            await _on_print_end(printer, db, job_id, success=success, extra_fields=extra)
+        except Exception as exc:
+            log.error("Cloud: _on_print_end failed for printer %s job #%s: %s", printer.name, job_id, exc)
+            # Always reset state — a stuck "printing" state would block all future end events
+            _state[printer_id] = {"stage": "idle", "job_id": None}
     finally:
         db.close()
