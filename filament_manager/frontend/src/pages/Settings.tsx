@@ -1220,6 +1220,7 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
     print_stage: 'Stage', print_progress: 'Progress',
     remaining_time: 'Remaining', nozzle_temp: 'Nozzle',
     bed_temp: 'Bed', current_file: 'File',
+    active_tray: 'Active tray', filament_used: 'Filament used', lifetime_filament: 'Lifetime filament',
   }
   const UNITS: Record<string, string> = {
     nozzle_temp: '°C', bed_temp: '°C', print_progress: '%', remaining_time: ' min',

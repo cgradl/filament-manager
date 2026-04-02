@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.30
+
+- Experiments tab: cloud printer live status now shows active AMS tray (`tray_now` → T1–T4), filament used in current/last print (`mc_print_filament_used`), and lifetime filament total (`mc_lifetime_filament_usage`); all three fields are now captured in the MQTT status cache
+
 ## 0.9.29
 
 - Remove Hours / Printer tab from dashboard chart section
