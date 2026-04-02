@@ -28,6 +28,7 @@ class PrinterIn(BaseModel):
     sensor_nozzle_temp:    str | None = None
     sensor_bed_temp:       str | None = None
     sensor_current_file:   str | None = None
+    sensor_print_weight:   str | None = None
     # AMS entity pattern/suffix overrides
     ams_tray_pattern:  str | None = None
     ams_suffix_type:   str | None = None
@@ -38,6 +39,7 @@ class PrinterIn(BaseModel):
         # Normalise empty strings to None so they're not stored as overrides
         for field in ("sensor_print_stage", "sensor_print_progress", "sensor_remaining_time",
                       "sensor_nozzle_temp", "sensor_bed_temp", "sensor_current_file",
+                      "sensor_print_weight",
                       "ams_tray_pattern", "ams_suffix_type", "ams_suffix_color", "ams_suffix_remain"):
             if isinstance(getattr(self, field), str) and not getattr(self, field).strip():
                 setattr(self, field, None)
@@ -58,6 +60,7 @@ class PrinterOut(BaseModel):
     sensor_nozzle_temp:    str | None
     sensor_bed_temp:       str | None
     sensor_current_file:   str | None
+    sensor_print_weight:   str | None
     ams_tray_pattern:  str | None
     ams_suffix_type:   str | None
     ams_suffix_color:  str | None

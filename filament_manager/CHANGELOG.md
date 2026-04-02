@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.0
+
+- Add `print_weight_g` field to print jobs: automatically captured at print end from the Bambu Cloud task API (cloud-source printers) or from the `sensor.{slug}_print_weight` HA entity (HA-source printers)
+- Add "Print Weight (g)" custom sensor entity ID override to HA printer settings form (for non-standard HA installations)
+
+## 0.9.33
+
+- Remove mc_print_filament_used and mc_lifetime_filament_usage from MQTT tracking — these fields are not sent by the O1S; no filament weight equivalent exists in the MQTT payload for this printer
+- Fix tray_now capture: the field lives inside the AMS dict in the MQTT message, not in the print dict — now correctly captured from the AMS section
+- Clean up filament_used / lifetime_filament from status endpoint and frontend labels
+
 ## 0.9.32
 
 - Experiments tab: add collapsible "Raw MQTT cache" section per printer showing every field/value the printer has sent via MQTT — needed to identify actual field names for filament/tray data

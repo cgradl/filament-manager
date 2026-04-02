@@ -128,6 +128,7 @@ class PrintJobOut(PrintJobBase):
     nozzle_type: str | None = None
     print_type: str | None = None
     error_code: str | None = None
+    print_weight_g: float | None = None
 
 
 # ── Dashboard ────────────────────────────────────────────────────────────────

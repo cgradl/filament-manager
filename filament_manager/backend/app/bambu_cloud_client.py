@@ -202,6 +202,37 @@ def _http_get_devices(token: str) -> list[dict]:
     return data.get("devices", [])
 
 
+def _http_get_task_weight(serial: str, token: str) -> float | None:
+    """Fetch the most recent completed task weight (grams) from the Bambu Cloud task API."""
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = requests.get(
+            f"https://api.bambulab.com/v1/user-service/my/tasks",
+            params={"deviceId": serial, "limit": 1},
+            headers=headers,
+            timeout=20,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        hits = data.get("hits") or []
+        if hits:
+            weight = hits[0].get("weight")
+            if weight is not None:
+                return float(weight)
+    except Exception as exc:
+        log.warning("Bambu Cloud task weight fetch failed for %s: %s", serial, exc)
+    return None
+
+
+async def get_task_weight_for_serial(serial: str) -> float | None:
+    """Async wrapper: fetch the most recent task weight for a printer serial."""
+    creds = _load_credentials()
+    if not creds or not creds.get("token"):
+        return None
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: _http_get_task_weight(serial, creds["token"]))
+
+
 def _http_get_uid(token: str) -> str:
     """Fetch the user's uid from the Bambu profile endpoint.
 
@@ -233,9 +264,14 @@ def _process_device_message(serial: str, data: dict) -> None:
     print_data = data.get("print", {})
 
     # Update AMS cache from top-level or nested ams object
+    # tray_now (currently active tray slot) lives inside the ams dict, not in print
+    current = _printer_status_cache.get(serial, {})
     for ams_source in (data.get("ams", {}), print_data.get("ams", {})):
         if ams_source:
             _parse_ams_into_cache(serial, ams_source)
+            if "tray_now" in ams_source:
+                current["tray_now"] = ams_source["tray_now"]
+    _printer_status_cache[serial] = current
 
     # Merge status fields — Bambu sends incremental updates; only update fields
     # that are actually present in this message so that a partial AMS-only update
@@ -245,10 +281,7 @@ def _process_device_message(serial: str, data: dict) -> None:
                   "nozzle_temper", "bed_temper", "task_id", "project_id",
                   "total_layer_num", "layer_num", "nozzle_diameter", "nozzle_type",
                   "print_type", "mc_print_error_code",
-                  "mc_print_tick_cnt",           # lifetime print seconds — same source as HA total_usage
-                  "mc_print_filament_used",      # filament used in current/last print (unit varies by firmware)
-                  "mc_lifetime_filament_usage",  # lifetime total filament
-                  "tray_now"):                   # currently active AMS tray slot (0-based)
+                  "mc_print_tick_cnt"):  # lifetime print seconds — same source as HA total_usage
         val = print_data.get(field)
         if val is not None:
             current[field] = val

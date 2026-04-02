@@ -93,6 +93,7 @@ class PrintJob(Base):
     nozzle_type = Column(String, nullable=True)    # "stainless_steel", "hardened_steel", etc.
     print_type = Column(String, nullable=True)     # "cloud", "local", "sdcard"
     error_code = Column(String, nullable=True)     # mc_print_error_code on failure
+    print_weight_g = Column(Float, nullable=True)  # total filament weight (g) reported by printer/cloud
 
     usages = relationship(
         "PrintUsage", back_populates="print_job", cascade="all, delete-orphan"
@@ -200,6 +201,7 @@ class PrinterConfig(Base):
     sensor_nozzle_temp    = Column(String, nullable=True)
     sensor_bed_temp       = Column(String, nullable=True)
     sensor_current_file   = Column(String, nullable=True)
+    sensor_print_weight   = Column(String, nullable=True)
 
     # Optional AMS entity pattern/suffix overrides
     # ams_tray_pattern: replaces "ams_{u}_tray_{t}" (no ams_device_slug) or "tray_{t}" (with ams_device_slug)
@@ -216,7 +218,7 @@ class PrinterConfig(Base):
     def sensor_overrides(self) -> dict:
         """Return only the printer sensor keys that have a non-empty override set."""
         keys = ("print_stage", "print_progress", "remaining_time",
-                "nozzle_temp", "bed_temp", "current_file")
+                "nozzle_temp", "bed_temp", "current_file", "print_weight")
         return {
             k: getattr(self, f"sensor_{k}")
             for k in keys

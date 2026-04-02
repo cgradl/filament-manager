@@ -16,6 +16,7 @@ _PRINTER_SUFFIXES = {
     "nozzle_temp":    "nozzle_temperature",
     "bed_temp":       "bed_temperature",
     "current_file":   "task_name",
+    "print_weight":   "print_weight",
 }
 
 

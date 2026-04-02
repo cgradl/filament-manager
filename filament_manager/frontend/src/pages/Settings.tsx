@@ -9,7 +9,7 @@ import BambuCloudSection from '../components/BambuCloudSection'
 
 // ── HA Printer Form ───────────────────────────────────────────────────────────
 
-type SensorKey = 'print_stage' | 'print_progress' | 'remaining_time' | 'nozzle_temp' | 'bed_temp' | 'current_file'
+type SensorKey = 'print_stage' | 'print_progress' | 'remaining_time' | 'nozzle_temp' | 'bed_temp' | 'current_file' | 'print_weight'
 
 const SENSOR_DEFAULTS: Record<SensorKey, string> = {
   print_stage:    'current_stage',
@@ -18,6 +18,7 @@ const SENSOR_DEFAULTS: Record<SensorKey, string> = {
   nozzle_temp:    'nozzle_temperature',
   bed_temp:       'bed_temperature',
   current_file:   'task_name',
+  print_weight:   'print_weight',
 }
 
 /** HA printer form content (no modal shell — shell provided by AddPrinterModal or edit wrapper). */
@@ -50,6 +51,7 @@ function HAprinterFormContent({
     nozzle_temp:    initial?.sensor_nozzle_temp    ?? '',
     bed_temp:       initial?.sensor_bed_temp       ?? '',
     current_file:   initial?.sensor_current_file   ?? '',
+    print_weight:   initial?.sensor_print_weight   ?? '',
   })
   const [amsTrayPattern,  setAmsTrayPattern]  = useState(initial?.ams_tray_pattern  ?? '')
   const [amsSuffixType,   setAmsSuffixType]   = useState(initial?.ams_suffix_type   ?? '')
@@ -289,6 +291,7 @@ function HAprinterFormContent({
             sensor_nozzle_temp:    sensorOverrides.nozzle_temp    || null,
             sensor_bed_temp:       sensorOverrides.bed_temp       || null,
             sensor_current_file:   sensorOverrides.current_file   || null,
+            sensor_print_weight:   sensorOverrides.print_weight   || null,
             ams_tray_pattern:  amsTrayPattern  || null,
             ams_suffix_type:   amsSuffixType   || null,
             ams_suffix_color:  amsSuffixColor  || null,
@@ -1230,7 +1233,7 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
     print_stage: 'Stage', print_progress: 'Progress',
     remaining_time: 'Remaining', nozzle_temp: 'Nozzle',
     bed_temp: 'Bed', current_file: 'File',
-    active_tray: 'Active tray', filament_used: 'Filament used', lifetime_filament: 'Lifetime filament',
+    active_tray: 'Active tray',
   }
   const UNITS: Record<string, string> = {
     nozzle_temp: '°C', bed_temp: '°C', print_progress: '%', remaining_time: ' min',

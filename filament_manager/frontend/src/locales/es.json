@@ -282,6 +282,7 @@
       "sensor_nozzle_temp": "Temperatura de boquilla",
       "sensor_bed_temp": "Temperatura de cama",
       "sensor_current_file": "Nombre de tarea",
+      "sensor_print_weight": "Peso de impresión (g)",
       "amsEntityOverrides": "Sensores AMS",
       "amsEntityOverridesHint": "Dispositivo AMS por defecto: {slug}_ams_{u} (ej. my_printer_ams_1). Bandeja por defecto: tray_{t}. Sobrescribe aquí si tu integración usa nombres diferentes.",
       "amsTrayPattern": "Patrón de entidad de bandeja",

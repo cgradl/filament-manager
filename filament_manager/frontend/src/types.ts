@@ -67,6 +67,7 @@ export interface PrinterConfig {
   sensor_nozzle_temp:    string | null
   sensor_bed_temp:       string | null
   sensor_current_file:   string | null
+  sensor_print_weight:   string | null
   ams_tray_pattern:  string | null
   ams_suffix_type:   string | null
   ams_suffix_color:  string | null

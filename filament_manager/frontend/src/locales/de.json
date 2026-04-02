@@ -282,6 +282,7 @@
       "sensor_nozzle_temp": "Düsentemperatur",
       "sensor_bed_temp": "Betttemperatur",
       "sensor_current_file": "Aufgabenname",
+      "sensor_print_weight": "Druckgewicht (g)",
       "amsEntityOverrides": "AMS-Sensoren",
       "amsEntityOverridesHint": "Standard-AMS-Gerät: {slug}_ams_{u} (z.B. my_printer_ams_1). Standard-Schacht: tray_{t}. Hier überschreiben, falls andere Namen verwendet werden.",
       "amsTrayPattern": "Schacht-Entitätsmuster",

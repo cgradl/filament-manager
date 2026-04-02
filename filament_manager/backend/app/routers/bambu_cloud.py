@@ -74,15 +74,13 @@ def get_printer_status_by_serial(serial: str) -> dict:
         except (ValueError, TypeError):
             pass
     return {
-        "print_stage":       raw.get("gcode_state"),
-        "print_progress":    str(raw["mc_percent"]) if raw.get("mc_percent") is not None else None,
-        "remaining_time":    str(raw["mc_remaining_time"]) if raw.get("mc_remaining_time") is not None else None,
-        "nozzle_temp":       str(raw["nozzle_temper"]) if raw.get("nozzle_temper") is not None else None,
-        "bed_temp":          str(raw["bed_temper"]) if raw.get("bed_temper") is not None else None,
-        "current_file":      raw.get("subtask_name"),
-        "active_tray":       active_tray,
-        "filament_used":     str(raw["mc_print_filament_used"]) if raw.get("mc_print_filament_used") is not None else None,
-        "lifetime_filament": str(raw["mc_lifetime_filament_usage"]) if raw.get("mc_lifetime_filament_usage") is not None else None,
+        "print_stage":    raw.get("gcode_state"),
+        "print_progress": str(raw["mc_percent"]) if raw.get("mc_percent") is not None else None,
+        "remaining_time": str(raw["mc_remaining_time"]) if raw.get("mc_remaining_time") is not None else None,
+        "nozzle_temp":    str(raw["nozzle_temper"]) if raw.get("nozzle_temper") is not None else None,
+        "bed_temp":       str(raw["bed_temper"]) if raw.get("bed_temper") is not None else None,
+        "current_file":   raw.get("subtask_name"),
+        "active_tray":    active_tray,
     }
 
 

@@ -282,6 +282,7 @@
       "sensor_nozzle_temp": "Nozzle Temperature",
       "sensor_bed_temp": "Bed Temperature",
       "sensor_current_file": "Task Name",
+      "sensor_print_weight": "Print Weight (g)",
       "amsEntityOverrides": "AMS Sensors",
       "amsEntityOverridesHint": "Default AMS device: {slug}_ams_{u} (e.g. my_printer_ams_1). Default tray: tray_{t}. Override here if your integration uses different names.",
       "amsTrayPattern": "Tray Entity Pattern",

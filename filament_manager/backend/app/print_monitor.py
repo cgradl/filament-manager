@@ -145,6 +145,11 @@ async def _on_print_end(
         ams_now = bambu_cloud_client.get_ams_snapshot_for_serial(printer.bambu_serial)
         if ams_now and job.ams_snapshot_start:
             await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
+        # Fetch print weight from Bambu Cloud task API
+        weight = await bambu_cloud_client.get_task_weight_for_serial(printer.bambu_serial)
+        if weight is not None:
+            job.print_weight_g = weight
+            log.info("Cloud: recorded print_weight_g=%.1f for job #%d", weight, job.id)
     else:
         ams_config = ha_client.get_ams_config(printer.device_slug, printer.ams_unit_count,
                                                ams_device_slug=printer.ams_device_slug,
@@ -152,6 +157,15 @@ async def _on_print_end(
         if ams_config and job.ams_snapshot_start:
             ams_now = await ha_client.get_ams_snapshot(ams_config)
             await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
+        # Fetch print weight from HA sensor
+        entities = ha_client.get_printer_entity_ids(printer.device_slug, printer.sensor_overrides)
+        weight_str = await ha_client.get_entity_value(entities["print_weight"])
+        if weight_str is not None:
+            try:
+                job.print_weight_g = float(weight_str)
+                log.info("HA: recorded print_weight_g=%.1f for job #%d", job.print_weight_g, job.id)
+            except (ValueError, TypeError):
+                pass
 
     db.commit()
     _state[printer.id] = {"stage": "idle", "job_id": None}
