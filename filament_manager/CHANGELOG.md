@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.2
+
+- Fix: yellow "add filament usage" icon not showing on finished auto prints — condition was `usages.length === 0` but AMS percent drift can create 0g ghost usage records; changed to `total_grams === 0`
+- Fix: PAUSE state was incorrectly closing open print jobs — reverted end-detection to only trigger on FINISH, FAILED, IDLE
+- Fix: poll_printers now queries only HA-source printers and returns early if none configured, eliminating noisy APScheduler log entries when all printers use cloud mode
+
 ## 0.10.1
 
 - Fix: cloud print end not detected — `_process_device_message` was firing `on_cloud_print_end` on every incremental MQTT update (temperature, progress) because it used the *cached* `gcode_state` instead of the value in the current message; rapid duplicate coroutines hit SQLite write conflicts and prevented `db.commit()`

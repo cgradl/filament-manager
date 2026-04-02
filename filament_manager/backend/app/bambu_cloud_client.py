@@ -303,17 +303,13 @@ def _process_device_message(serial: str, data: dict) -> None:
     from . import print_monitor
 
     state_upper = gcode_state_in_msg.upper()
-    # States that mean "printer is actively printing" (Bambu MQTT vocabulary)
-    _CLOUD_PRINTING_STATES = frozenset({"RUNNING", "PREPARE", "SLICING"})
-
-    if state_upper in _CLOUD_PRINTING_STATES:
+    if state_upper == "RUNNING":
         asyncio.run_coroutine_threadsafe(
             print_monitor.on_cloud_print_start(printer_id, current.get("subtask_name", ""), serial),
             _loop,
         )
-    elif state_upper:
-        # Any other non-empty state (FINISH, FAILED, IDLE, PAUSE, …) closes an open job.
-        # The guard inside on_cloud_print_end ignores this when nothing was printing.
+    elif state_upper in ("FINISH", "FAILED", "IDLE"):
+        # PAUSE is intentionally excluded — a paused job stays open until FINISH/FAILED/IDLE.
         asyncio.run_coroutine_threadsafe(
             print_monitor.on_cloud_print_end(printer_id, state_upper != "FAILED", state_upper),
             _loop,

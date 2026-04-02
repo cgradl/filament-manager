@@ -30,10 +30,13 @@ _FAILED_STAGES   = {"failed", "filament_runout", "front_cover_falling",
 async def poll_printers() -> None:
     db: Session = SessionLocal()
     try:
-        printers = db.query(PrinterConfig).filter(PrinterConfig.is_active == True).all()  # noqa: E712
+        printers = db.query(PrinterConfig).filter(
+            PrinterConfig.is_active == True,  # noqa: E712
+            PrinterConfig.bambu_source == "ha",
+        ).all()
+        if not printers:
+            return  # no HA-source printers configured — nothing to poll
         for printer in printers:
-            if getattr(printer, "bambu_source", "ha") == "cloud":
-                continue  # driven by MQTT, not HA polling
             await _check_printer(printer, db)
     except Exception as exc:
         log.error("print_monitor poll error: %s", exc)

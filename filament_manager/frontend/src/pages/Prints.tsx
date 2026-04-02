@@ -362,7 +362,7 @@ function PrintRow({ job, onEdit, onDelete, onLogUsage }: {
   onLogUsage: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const needsUsage = job.source === 'auto' && job.finished_at && job.usages.length === 0
+  const needsUsage = job.source === 'auto' && job.finished_at && job.total_grams === 0
   const showModel = job.model_name && job.model_name !== job.name
 
   return (
