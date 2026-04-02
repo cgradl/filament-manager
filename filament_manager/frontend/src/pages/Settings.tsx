@@ -1214,7 +1214,17 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
     enabled: !!printer.bambu_serial,
   })
 
+  const { data: debugInfo } = useQuery({
+    queryKey: ['cloud-debug'],
+    queryFn: () => api.getBambuCloudDebug(),
+    refetchInterval: 10_000,
+  })
+  const rawCache = printer.bambu_serial && debugInfo?.printer_status_cache
+    ? debugInfo.printer_status_cache[printer.bambu_serial] ?? {}
+    : {}
+
   const [activeUnit, setActiveUnit] = useState(1)
+  const [showRaw, setShowRaw] = useState(false)
 
   const LABELS: Record<string, string> = {
     print_stage: 'Stage', print_progress: 'Progress',
@@ -1268,6 +1278,28 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
       ) : (
         <p className="text-xs text-gray-500 mb-3">{t('settings.bambuCloud.noStatusData')}</p>
       )}
+
+      {/* Raw MQTT cache dump */}
+      <div className="mt-3 border-t border-surface-3 pt-2">
+        <button
+          className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
+          onClick={() => setShowRaw(r => !r)}
+        >
+          {showRaw ? '▾' : '▸'} Raw MQTT cache ({Object.keys(rawCache).length} fields)
+        </button>
+        {showRaw && (
+          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] font-mono">
+            {Object.entries(rawCache).map(([k, v]) => (
+              <span key={k} className="text-gray-500 truncate">
+                {k}: <span className="text-gray-300">{String(v)}</span>
+              </span>
+            ))}
+            {Object.keys(rawCache).length === 0 && (
+              <span className="text-gray-600 col-span-2">No data in cache yet</span>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* AMS tray values — grouped by unit */}
       {trays && trays.length > 0 && (

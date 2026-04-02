@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.32
+
+- Experiments tab: add collapsible "Raw MQTT cache" section per printer showing every field/value the printer has sent via MQTT — needed to identify actual field names for filament/tray data
+
 ## 0.9.31
 
 - Fix: new Experiments fields (active tray, filament used, lifetime filament) were wired to the wrong endpoint (`/api/printers/{id}/status`) instead of the one the Experiments tab actually calls (`/api/bambu-cloud/printer/{serial}/status`)
