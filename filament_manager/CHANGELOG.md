@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.4
+
+- AMS tray assignment: per-tray sync icon now only appears when the AMS reports a valid remaining % (≥ 0); non-Bambu Lab spools (reported as -1%) no longer show the icon
+- AMS tray assignment: add "Sync All" button that syncs remaining weight for all Bambu Lab spools at once; backend skips trays where AMS reports negative remaining (non-Bambu spools), preventing accidental weight corruption
+
 ## 0.10.3
 
 - Experiments tab: raw MQTT cache now shows ALL fields the printer sends (previously only ~15 pre-selected fields were stored); any new field appearing in any future firmware update is automatically captured

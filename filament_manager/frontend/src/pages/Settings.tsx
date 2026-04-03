@@ -650,6 +650,19 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
     },
   })
 
+  const syncAllMut = useMutation({
+    mutationFn: () => api.syncAMSWeights(printer.id),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['spools'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      const n = result.updated.length
+      alert(n > 0 ? `Synced ${n} Bambu Lab spool${n > 1 ? 's' : ''}` : 'No Bambu Lab spools to sync')
+    },
+    onError: (err) => {
+      alert(err instanceof Error ? err.message : 'Sync all failed')
+    },
+  })
+
   if (isLoading) return <p className="text-xs text-gray-500 py-2">{t('settings.printers.loadingAMS')}</p>
   if (!trays?.length) return <p className="text-xs text-gray-500 py-2">{t('settings.printers.noAMSData')}</p>
 
@@ -677,9 +690,19 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
             </div>
           )}
         </div>
-        <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh">
-          <RefreshCw size={11} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            className="btn-ghost px-2 py-0.5 text-xs"
+            onClick={() => syncAllMut.mutate()}
+            disabled={syncAllMut.isPending}
+            title="Sync remaining % for all Bambu Lab spools"
+          >
+            {syncAllMut.isPending ? <RefreshCw size={10} className="animate-spin" /> : t('settings.printers.syncAll')}
+          </button>
+          <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh display">
+            <RefreshCw size={11} />
+          </button>
+        </div>
       </div>
 
       <div className="space-y-1.5">
@@ -692,6 +715,7 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
             saving={assignMut.isPending}
             onSyncWeight={() => syncSlotMut.mutate(tray.slot_key)}
             syncingWeight={syncingSlot === tray.slot_key}
+            canSync={tray.ha_remaining != null && parseFloat(tray.ha_remaining) >= 0}
           />
         ))}
       </div>
@@ -706,6 +730,7 @@ function AMSTrayRow({
   saving,
   onSyncWeight,
   syncingWeight,
+  canSync,
 }: {
   tray: AMSTray
   spools: Spool[]
@@ -713,6 +738,7 @@ function AMSTrayRow({
   saving: boolean
   onSyncWeight: () => void
   syncingWeight: boolean
+  canSync: boolean
 }) {
   const { t } = useTranslation()
   const selectedId = tray.spool?.id ?? null
@@ -760,14 +786,18 @@ function AMSTrayRow({
             style={{ background: tray.spool.color_hex }}
             title={tray.spool.color_name}
           />
-          <button
-            className="btn-ghost p-1 shrink-0 text-gray-400 hover:text-white"
-            onClick={onSyncWeight}
-            disabled={syncingWeight}
-            title="Sync weight from AMS (only updates if HA reports > 0%)"
-          >
-            <RefreshCw size={10} className={syncingWeight ? 'animate-spin' : ''} />
-          </button>
+          {canSync ? (
+            <button
+              className="btn-ghost p-1 shrink-0 text-gray-400 hover:text-white"
+              onClick={onSyncWeight}
+              disabled={syncingWeight}
+              title="Sync weight from AMS"
+            >
+              <RefreshCw size={10} className={syncingWeight ? 'animate-spin' : ''} />
+            </button>
+          ) : (
+            <span className="w-6 h-6 shrink-0" />
+          )}
         </>
       ) : (
         <span className="w-3 h-3 shrink-0" />

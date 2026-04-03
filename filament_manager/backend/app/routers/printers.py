@@ -239,6 +239,9 @@ async def sync_ams_weights(printer_id: int, db: Session = Depends(get_db)):
         from .. import bambu_cloud_client
         snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(p.bambu_serial)
         for slot_key, remaining_pct in snapshot.items():
+            # Skip trays where the AMS has no reliable data (non-Bambu spools report -1)
+            if remaining_pct is None or remaining_pct < 0:
+                continue
             full_key = f"{p.name}:{slot_key}"
             spool = (
                 db.query(Spool).filter(Spool.ams_slot == full_key).first()
@@ -282,6 +285,10 @@ async def sync_ams_weights(printer_id: int, db: Session = Depends(get_db)):
             try:
                 remaining_pct = float(val)
             except (TypeError, ValueError):
+                continue
+
+            # Skip trays where HA has no reliable data (non-Bambu spools may report -1 or 0)
+            if remaining_pct < 0:
                 continue
 
             full_key = f"{p.name}:{slot_key}"
