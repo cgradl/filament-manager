@@ -103,6 +103,12 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added print_jobs.print_weight_g")
 
+        # print_jobs: add suggested_usages if missing
+        if "suggested_usages" not in job_cols:
+            conn.execute(text("ALTER TABLE print_jobs ADD COLUMN suggested_usages TEXT"))
+            conn.commit()
+            log.info("Migration: added print_jobs.suggested_usages")
+
         # spools: if current_weight_g is 0 for ALL spools and initial_weight_g exists,
         # recover from is_active flag (legacy) — set current = initial for active spools
         if "is_active" in spool_cols:

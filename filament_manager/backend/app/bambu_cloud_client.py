@@ -62,6 +62,9 @@ _printer_status_cache: dict[str, dict] = {}
 # serial → ams snapshot {slot_key: remain_pct}
 _ams_cache: dict[str, dict[str, float]] = {}
 
+# serial → set of 0-based tray indices seen during the current print (tray_now tracking)
+_print_active_trays: dict[str, set[int]] = {}
+
 # serial → printer_id (DB)
 _serial_to_printer_id: dict[str, int] = {}
 
@@ -202,12 +205,30 @@ def _http_get_devices(token: str) -> list[dict]:
     return data.get("devices", [])
 
 
-def _http_get_task_weight(serial: str, token: str) -> float | None:
-    """Fetch the most recent completed task weight (grams) from the Bambu Cloud task API."""
+def _ams_index_to_slot_key(index: int) -> str | None:
+    """Convert 0-based global AMS tray index (tray_now / amsDetailMapping[].ams) to slot key.
+
+    Returns "ams{unit}_tray{slot}" (1-based), or None for external spool (≥16, 254, 255).
+    """
+    if index is None or index >= 16 or index in (254, 255):
+        return None
+    unit = (index // 4) + 1
+    slot = (index % 4) + 1
+    return f"ams{unit}_tray{slot}"
+
+
+def _http_get_task_data(serial: str, token: str) -> dict:
+    """Fetch the most recent completed task from the Bambu Cloud task API.
+
+    Returns a dict with:
+      weight (float | None)       — total filament weight in grams
+      amsDetailMapping (list)     — per-tray breakdown [{ams, weight, filamentType, sourceColor, ...}]
+    """
+    result: dict = {"weight": None, "amsDetailMapping": []}
     try:
         headers = {"Authorization": f"Bearer {token}"}
         resp = requests.get(
-            f"https://api.bambulab.com/v1/user-service/my/tasks",
+            "https://api.bambulab.com/v1/user-service/my/tasks",
             params={"deviceId": serial, "limit": 1},
             headers=headers,
             timeout=20,
@@ -216,21 +237,25 @@ def _http_get_task_weight(serial: str, token: str) -> float | None:
         data = resp.json()
         hits = data.get("hits") or []
         if hits:
-            weight = hits[0].get("weight")
+            task = hits[0]
+            weight = task.get("weight")
             if weight is not None:
-                return float(weight)
+                result["weight"] = float(weight)
+            ams_map = task.get("amsDetailMapping")
+            if isinstance(ams_map, list):
+                result["amsDetailMapping"] = ams_map
     except Exception as exc:
-        log.warning("Bambu Cloud task weight fetch failed for %s: %s", serial, exc)
-    return None
+        log.warning("Bambu Cloud task data fetch failed for %s: %s", serial, exc)
+    return result
 
 
-async def get_task_weight_for_serial(serial: str) -> float | None:
-    """Async wrapper: fetch the most recent task weight for a printer serial."""
+async def get_task_data_for_serial(serial: str) -> dict:
+    """Async wrapper: fetch the most recent task data (weight + amsDetailMapping) for a serial."""
     creds = _load_credentials()
     if not creds or not creds.get("token"):
-        return None
+        return {"weight": None, "amsDetailMapping": []}
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, lambda: _http_get_task_weight(serial, creds["token"]))
+    return await loop.run_in_executor(None, lambda: _http_get_task_data(serial, creds["token"]))
 
 
 def _http_get_uid(token: str) -> str:
@@ -270,7 +295,17 @@ def _process_device_message(serial: str, data: dict) -> None:
         if ams_source:
             _parse_ams_into_cache(serial, ams_source)
             if "tray_now" in ams_source:
-                current["tray_now"] = ams_source["tray_now"]
+                tray_now_val = ams_source["tray_now"]
+                current["tray_now"] = tray_now_val
+                # Track active trays during print for suggested_usages fallback
+                try:
+                    idx = int(tray_now_val)
+                    if _ams_index_to_slot_key(idx) is not None:
+                        if serial not in _print_active_trays:
+                            _print_active_trays[serial] = set()
+                        _print_active_trays[serial].add(idx)
+                except (TypeError, ValueError):
+                    pass
     _printer_status_cache[serial] = current
 
     # Merge ALL scalar fields from the print object — Bambu sends incremental
@@ -644,6 +679,7 @@ async def logout() -> None:
     _serial_to_printer_id.clear()
     _printer_status_cache.clear()
     _ams_cache.clear()
+    _print_active_trays.clear()
     _pending.clear()
     _reauth_in_progress = False
     log.info("Bambu Cloud: logged out")
@@ -695,6 +731,16 @@ def get_ams_snapshot_for_serial(serial: str) -> dict[str, float]:
 def get_ams_detail_for_serial(serial: str) -> dict[str, dict]:
     """Return full AMS tray detail (remain, material, color) for display."""
     return dict(_ams_cache.get(serial, {}))
+
+
+def reset_print_trays(serial: str) -> None:
+    """Clear the active tray set for a serial — call at print start."""
+    _print_active_trays[serial] = set()
+
+
+def get_print_trays(serial: str) -> set[int]:
+    """Return the set of 0-based tray indices seen during the current/last print."""
+    return set(_print_active_trays.get(serial, set()))
 
 
 def register_printer(printer_id: int, serial: str) -> None:

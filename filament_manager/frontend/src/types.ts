@@ -33,6 +33,13 @@ export interface PrintUsage {
   spool: Spool | null
 }
 
+export interface SuggestedUsage {
+  ams_slot: string
+  grams: number
+  filament_type: string
+  color: string | null
+}
+
 export interface PrintJob {
   id: number
   name: string
@@ -50,6 +57,8 @@ export interface PrintJob {
   total_cost: number
   usages: PrintUsage[]
   created_at: string
+  print_weight_g: number | null
+  suggested_usages: SuggestedUsage[] | null
 }
 
 export interface PrinterConfig {

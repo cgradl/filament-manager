@@ -94,6 +94,7 @@ class PrintJob(Base):
     print_type = Column(String, nullable=True)     # "cloud", "local", "sdcard"
     error_code = Column(String, nullable=True)     # mc_print_error_code on failure
     print_weight_g = Column(Float, nullable=True)  # total filament weight (g) reported by printer/cloud
+    suggested_usages = Column(JSON, nullable=True)  # cloud-sourced per-tray usage hints [{ams_slot, grams, filament_type, color}]
 
     usages = relationship(
         "PrintUsage", back_populates="print_job", cascade="all, delete-orphan"

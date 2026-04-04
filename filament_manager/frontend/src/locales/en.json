@@ -180,7 +180,8 @@
     "confirmDelete": "Delete print \"{{name}}\"?",
     "loadMore": "Load more ({{n}} remaining)",
     "saveUsage": "Save Usage",
-    "gramsHint": "Enter grams used per tray. Inventory will be updated on save."
+    "gramsHint": "Enter grams used per tray. Inventory will be updated on save.",
+    "cloudSuggestion": "Values pre-filled from Bambu Cloud data — verify and adjust before saving."
   },
   "settings": {
     "title": "Settings",

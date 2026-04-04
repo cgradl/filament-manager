@@ -143,12 +143,10 @@ async def _on_print_end(
             if hasattr(job, k) and v is not None:
                 setattr(job, k, v)
 
-    if getattr(printer, "bambu_source", "ha") == "cloud" and getattr(printer, "bambu_serial", None):
-        from . import bambu_cloud_client
-        ams_now = bambu_cloud_client.get_ams_snapshot_for_serial(printer.bambu_serial)
-        if ams_now and job.ams_snapshot_start:
-            await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
-    else:
+    is_cloud = getattr(printer, "bambu_source", "ha") == "cloud" and getattr(printer, "bambu_serial", None)
+
+    if not is_cloud:
+        # HA-source printers: delta-based recording as before
         ams_config = ha_client.get_ams_config(printer.device_slug, printer.ams_unit_count,
                                                ams_device_slug=printer.ams_device_slug,
                                                ams_overrides=printer.ams_overrides)
@@ -156,30 +154,105 @@ async def _on_print_end(
             ams_now = await ha_client.get_ams_snapshot(ams_config)
             await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
 
-    # Commit job close + AMS usage FIRST — weight fetch is best-effort and must
-    # not block or prevent the job record from being persisted.
+    # Commit job close (+ HA delta usages if applicable) FIRST.
+    # Cloud prints: no automatic usage recording — user must confirm via LogUsageModal.
     db.commit()
     _state[printer.id] = {"stage": "idle", "job_id": None}
     log.info("Closed PrintJob #%d", job_id)
 
-    # Best-effort weight fetch (separate commit — never blocks job close)
+    # Best-effort post-print data fetch (separate commit — never blocks job close)
     try:
-        if getattr(printer, "bambu_source", "ha") == "cloud" and getattr(printer, "bambu_serial", None):
+        if is_cloud:
             from . import bambu_cloud_client
-            weight = await bambu_cloud_client.get_task_weight_for_serial(printer.bambu_serial)
+            task_data = await bambu_cloud_client.get_task_data_for_serial(printer.bambu_serial)
+            weight = task_data.get("weight")
+            ams_detail = task_data.get("amsDetailMapping") or []
+
             if weight is not None:
                 job.print_weight_g = weight
-                db.commit()
                 log.info("Cloud: recorded print_weight_g=%.1f for job #%d", weight, job.id)
+
+            # Build suggested_usages from amsDetailMapping (per-tray cloud breakdown)
+            if ams_detail:
+                suggestions = []
+                for entry in ams_detail:
+                    idx = entry.get("ams")
+                    tray_weight = entry.get("weight")
+                    if idx is None or tray_weight is None:
+                        continue
+                    slot_key = bambu_cloud_client._ams_index_to_slot_key(int(idx))
+                    if slot_key is None:
+                        continue  # external spool — skip
+                    color_raw = entry.get("sourceColor") or entry.get("targetColor") or ""
+                    color_hex = f"#{color_raw[:6]}" if len(color_raw) >= 6 else None
+                    suggestions.append({
+                        "ams_slot": slot_key,
+                        "grams": round(float(tray_weight), 1),
+                        "filament_type": entry.get("filamentType") or entry.get("targetFilamentType") or "",
+                        "color": color_hex,
+                    })
+                if suggestions:
+                    job.suggested_usages = suggestions
+                    log.info("Cloud: stored %d suggested_usages for job #%d", len(suggestions), job.id)
+            elif weight is not None:
+                # No per-tray detail — use total weight distributed across tracked trays
+                tracked = bambu_cloud_client.get_print_trays(printer.bambu_serial)
+                if len(tracked) == 1:
+                    idx = next(iter(tracked))
+                    slot_key = bambu_cloud_client._ams_index_to_slot_key(idx)
+                    if slot_key:
+                        job.suggested_usages = [{
+                            "ams_slot": slot_key,
+                            "grams": round(float(weight), 1),
+                            "filament_type": "",
+                            "color": None,
+                        }]
+                        log.info("Cloud: stored single-tray suggestion %.1fg on %s for job #%d",
+                                 weight, slot_key, job.id)
+
+            if job.print_weight_g is not None or job.suggested_usages is not None:
+                db.commit()
         else:
             entities = ha_client.get_printer_entity_ids(printer.device_slug, printer.sensor_overrides)
-            weight_str = await ha_client.get_entity_value(entities["print_weight"])
-            if weight_str is not None:
-                job.print_weight_g = float(weight_str)
-                db.commit()
-                log.info("HA: recorded print_weight_g=%.1f for job #%d", job.print_weight_g, job.id)
+            state_data = await ha_client.get_entity_state(entities["print_weight"])
+            if state_data is not None:
+                weight_str = state_data.get("state")
+                if weight_str is not None:
+                    try:
+                        job.print_weight_g = float(weight_str)
+                        log.info("HA: recorded print_weight_g=%.1f for job #%d", job.print_weight_g, job.id)
+                    except (TypeError, ValueError):
+                        pass
+
+                # Build suggested_usages from per-tray weight attributes
+                # ha-bambulab exposes: {"AMS 1 Tray 2": 17.32, "AMS 1 Tray 3": 2.66, ...}
+                attrs = state_data.get("attributes", {})
+                suggestions = []
+                import re as _re
+                for attr_key, attr_val in attrs.items():
+                    m = _re.match(r"AMS\s+(\d+)\s+Tray\s+(\d+)", str(attr_key))
+                    if m and attr_val:
+                        try:
+                            grams = float(attr_val)
+                        except (TypeError, ValueError):
+                            continue
+                        if grams <= 0:
+                            continue
+                        slot_key = f"ams{m.group(1)}_tray{m.group(2)}"
+                        suggestions.append({
+                            "ams_slot": slot_key,
+                            "grams": round(grams, 1),
+                            "filament_type": "",
+                            "color": None,
+                        })
+                if suggestions:
+                    job.suggested_usages = suggestions
+                    log.info("HA: stored %d suggested_usages for job #%d", len(suggestions), job.id)
+
+                if job.print_weight_g is not None or job.suggested_usages is not None:
+                    db.commit()
     except Exception as exc:
-        log.warning("print_weight fetch failed for job #%d: %s", job_id, exc)
+        log.warning("post-print data fetch failed for job #%d: %s", job_id, exc)
 
 
 async def _record_ams_usage(
@@ -261,6 +334,7 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str) 
             display_name = f"Print {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
         from . import bambu_cloud_client
+        bambu_cloud_client.reset_print_trays(serial)
         ams_snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(serial)
         status = bambu_cloud_client.get_printer_cloud_status(serial)
 

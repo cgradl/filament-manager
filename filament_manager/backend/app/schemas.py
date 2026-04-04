@@ -129,6 +129,7 @@ class PrintJobOut(PrintJobBase):
     print_type: str | None = None
     error_code: str | None = None
     print_weight_g: float | None = None
+    suggested_usages: list | None = None
 
 
 # ── Dashboard ────────────────────────────────────────────────────────────────

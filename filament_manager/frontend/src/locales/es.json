@@ -180,7 +180,8 @@
     "confirmDelete": "¿Eliminar impresión \"{{name}}\"?",
     "loadMore": "Cargar más ({{n}} restantes)",
     "saveUsage": "Guardar uso",
-    "gramsHint": "Introduce los gramos usados por bandeja. El inventario se actualizará al guardar."
+    "gramsHint": "Introduce los gramos usados por bandeja. El inventario se actualizará al guardar.",
+    "cloudSuggestion": "Valores prellenados desde Bambu Cloud — verifica y ajusta antes de guardar."
   },
   "settings": {
     "title": "Ajustes",

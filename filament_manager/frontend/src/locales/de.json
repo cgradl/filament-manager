@@ -180,7 +180,8 @@
     "confirmDelete": "Druck \"{{name}}\" löschen?",
     "loadMore": "Mehr laden ({{n}} verbleibend)",
     "saveUsage": "Verbrauch speichern",
-    "gramsHint": "Gramm pro Fach eingeben. Lagerbestand wird beim Speichern aktualisiert."
+    "gramsHint": "Gramm pro Fach eingeben. Lagerbestand wird beim Speichern aktualisiert.",
+    "cloudSuggestion": "Werte aus Bambu Cloud vorausgefüllt — bitte prüfen und ggf. anpassen."
   },
   "settings": {
     "title": "Einstellungen",

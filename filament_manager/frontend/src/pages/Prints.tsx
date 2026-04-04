@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { PrintJob, Spool, AMSTray, PrinterConfig } from '../types'
+import type { PrintJob, Spool, AMSTray, PrinterConfig, SuggestedUsage } from '../types'
 import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download } from 'lucide-react'
 import Modal from '../components/Modal'
 import { format } from 'date-fns'
@@ -276,7 +276,18 @@ function LogUsageModal({
   })
 
   const assigned = trays.filter(t => t.spool !== null)
-  const [grams, setGrams] = useState<Record<string, string>>({})
+  const suggestions: Record<string, SuggestedUsage> = {}
+  if (job.suggested_usages) {
+    for (const s of job.suggested_usages) suggestions[s.ams_slot] = s
+  }
+  const hasSuggestions = Object.keys(suggestions).length > 0
+
+  const [grams, setGrams] = useState<Record<string, string>>(() => {
+    if (!job.suggested_usages) return {}
+    const init: Record<string, string> = {}
+    for (const s of job.suggested_usages) init[s.ams_slot] = String(s.grams)
+    return init
+  })
 
   const handleSave = () => {
     const usages = assigned
@@ -299,41 +310,51 @@ function LogUsageModal({
         <div className="p-5 space-y-3">
           {isLoading && <p className="text-sm text-gray-500">{t('prints.form.loading')}</p>}
 
+          {hasSuggestions && (
+            <p className="text-xs text-blue-400 bg-blue-950/40 rounded px-3 py-1.5">
+              {t('prints.cloudSuggestion')}
+            </p>
+          )}
+
           {!isLoading && assigned.length === 0 && (
             <p className="text-sm text-gray-500">{t('prints.form.noAMSAssigned')}</p>
           )}
 
-          {assigned.map(t => (
-            <div key={t.slot_key} className="flex items-center gap-3">
-              <span
-                className="w-3 h-3 rounded-full shrink-0"
-                style={{ background: t.spool!.color_hex }}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-white truncate">
-                  {t.spool!.brand} {t.spool!.material}
-                  {t.spool!.subtype ? ` ${t.spool!.subtype}` : ''} · {t.spool!.color_name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {t.tray} · {t.spool!.remaining_pct}% {t.spool!.current_weight_g !== undefined
-                    ? `(${(t.spool!.current_weight_g / 1000).toFixed(3)} kg)`
-                    : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <input
-                  className="input w-20 text-sm py-1 text-right"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="0"
-                  value={grams[t.slot_key] ?? ''}
-                  onChange={e => setGrams(g => ({ ...g, [t.slot_key]: e.target.value }))}
+          {assigned.map(tray => {
+            const suggested = suggestions[tray.slot_key]
+            return (
+              <div key={tray.slot_key} className="flex items-center gap-3">
+                <span
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ background: tray.spool!.color_hex }}
                 />
-                <span className="text-xs text-gray-500">g</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">
+                    {tray.spool!.brand} {tray.spool!.material}
+                    {tray.spool!.subtype ? ` ${tray.spool!.subtype}` : ''} · {tray.spool!.color_name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {tray.tray} · {tray.spool!.remaining_pct}% {tray.spool!.current_weight_g !== undefined
+                      ? `(${(tray.spool!.current_weight_g / 1000).toFixed(3)} kg)`
+                      : ''}
+                    {suggested ? <span className="text-blue-400 ml-1">· cloud: {suggested.grams}g</span> : null}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <input
+                    className="input w-20 text-sm py-1 text-right"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder="0"
+                    value={grams[tray.slot_key] ?? ''}
+                    onChange={e => setGrams(g => ({ ...g, [tray.slot_key]: e.target.value }))}
+                  />
+                  <span className="text-xs text-gray-500">g</span>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
 
           <p className="text-xs text-gray-500 pt-1">{t('prints.gramsHint')}</p>
         </div>

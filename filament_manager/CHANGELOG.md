@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.10.6
+
+- HA-source printers: `sensor.{slug}_print_weight` attributes now read per-tray grams at print end; `suggested_usages` pre-filled in LogUsageModal same as cloud printers
+- HA-source printers: works for both LAN/FTP mode (3mf parsed by ha-bambulab) and cloud-authenticated HA mode; ha-bambulab exposes per-AMS-tray grams as sensor attributes (`AMS 1 Tray 2: 17.32`, etc.)
+- HA-source printers: delta-based AMS usage recording is still used for auto-commit (as before); `suggested_usages` is an additional hint for manual confirmation
+
+## 0.10.5
+
+- Cloud prints: filament usage is no longer auto-recorded via AMS delta; user must confirm via the yellow usage icon (LogUsageModal) — eliminates ghost 0g usage records from sensor noise
+- Cloud prints: after print end, Bambu Cloud task API `amsDetailMapping` is fetched to get per-tray grams used; values are stored as `suggested_usages` on the print job
+- Cloud prints: LogUsageModal pre-fills gram inputs from cloud-sourced `suggested_usages` when available; a blue banner indicates the values are cloud suggestions to verify before saving
+- Cloud prints: if `amsDetailMapping` is unavailable but total weight is known and only one tray was active, a single-tray suggestion is generated automatically
+- Backend: `tray_now` MQTT field is now continuously tracked per serial during a print to support single-tray weight attribution
+
 ## 0.10.4
 
 - AMS tray assignment: per-tray sync icon now only appears when the AMS reports a valid remaining % (≥ 0); non-Bambu Lab spools (reported as -1%) no longer show the icon
