@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.8
+
+- Fix: AMS tray assignment dropdown no longer shows empty spools (current_weight_g = 0)
+
 ## 0.10.7
 
 - HA printer sensor entity IDs are now auto-discovered via the HA entity registry (`GET /api/config/entity_registry_entries/sensor`) — works correctly regardless of HA language or device name
