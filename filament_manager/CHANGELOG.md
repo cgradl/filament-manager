@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.12
+
+- AMS slot count is now derived from actual data instead of being hardcoded to 4 per unit
+- Cloud printers: AMS slots are enumerated from the MQTT cache keys exactly as Bambu reports them — AMS HT (1 slot) and any future AMS variants are handled automatically
+- HA printers: tray count per unit is discovered by checking which `sensor.{slug}_ams_{u}_tray_{t}` entities actually exist in HA — AMS HT units will show only 1 slot
+- Fixed `tray_now` global index → slot key conversion to use per-unit tray counts from MQTT data, so the active tray is correctly identified in mixed AMS setups (e.g. standard AMS + AMS HT)
+
 ## 0.10.11
 
 - Spools: new "#" field — user-assigned reference number (1–9999, integers only, optional); first column in the table; sortable and filterable (numeric operators =, >=, <=, >, <); shown in add/edit spool form

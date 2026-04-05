@@ -93,8 +93,14 @@ async def discover_printer(device: str, ams_device: str | None = None):
             "state": entity_map.get(eid),
         }
 
-    # AMS preview (1 unit, 4 trays)
-    ams_config = ha_client.get_ams_config(slug, ams_unit_count=1, ams_device_slug=ams_slug if ams_device else None)
+    # AMS preview — discover actual tray count for unit 1 from HA entities
+    ams_tray_counts = await ha_client.discover_ams_tray_counts(
+        slug, ams_unit_count=1, ams_device_slug=ams_slug if ams_device else None,
+    )
+    ams_config = ha_client.get_ams_config(
+        slug, ams_unit_count=1, trays_per_unit=ams_tray_counts,
+        ams_device_slug=ams_slug if ams_device else None,
+    )
     ams_result = []
     for unit in ams_config:
         trays = []
@@ -139,37 +145,50 @@ async def get_ams_trays(printer_id: int, db: Session = Depends(get_db)):
     if not p:
         raise HTTPException(404, "Printer not found")
 
-    # Cloud-source printers: use MQTT cache instead of HA entities
+    # Cloud-source printers: enumerate directly from MQTT cache keys.
+    # The cache contains exactly the slot keys Bambu reported, so AMS variants
+    # (e.g. AMS HT with 1 slot, standard AMS with 4) are handled automatically.
     if p.bambu_source == "cloud" and p.bambu_serial:
+        import re as _re
         from .. import bambu_cloud_client
         detail = bambu_cloud_client.get_ams_detail_for_serial(p.bambu_serial)
+
+        def _slot_sort_key(k: str) -> tuple[int, int]:
+            m = _re.match(r'^ams(\d+)_tray(\d+)$', k)
+            return (int(m.group(1)), int(m.group(2))) if m else (99, 99)
+
         result = []
-        for u in range(1, p.ams_unit_count + 1):
-            for t in range(1, 5):
-                slot_key = f"ams{u}_tray{t}"
-                td = detail.get(slot_key, {})
-                full_key = f"{p.name}:{slot_key}"
-                spool = (
-                    db.query(Spool).filter(Spool.ams_slot == full_key).first()
-                    or db.query(Spool).filter(Spool.ams_slot == slot_key).first()
-                )
-                remain_val = td.get("remain")
-                # Negative remain (typically -1) means "not tracked by AMS" — show nothing
-                ha_remaining = str(round(remain_val, 1)) if remain_val is not None and remain_val >= 0 else None
-                result.append({
-                    "slot_key":     slot_key,
-                    "ams_id":       u,
-                    "tray":         t,
-                    "ha_material":  td.get("material") or None,
-                    "ha_color_hex": td.get("color"),
-                    "ha_remaining": ha_remaining,
-                    "spool":        SpoolOut.model_validate(spool).model_dump() if spool else None,
-                })
+        for slot_key in sorted(detail.keys(), key=_slot_sort_key):
+            m = _re.match(r'^ams(\d+)_tray(\d+)$', slot_key)
+            if not m:
+                continue
+            u, t = int(m.group(1)), int(m.group(2))
+            td = detail[slot_key]
+            full_key = f"{p.name}:{slot_key}"
+            spool = (
+                db.query(Spool).filter(Spool.ams_slot == full_key).first()
+                or db.query(Spool).filter(Spool.ams_slot == slot_key).first()
+            )
+            remain_val = td.get("remain")
+            # Negative remain (typically -1) means "not tracked by AMS" — show nothing
+            ha_remaining = str(round(remain_val, 1)) if remain_val is not None and remain_val >= 0 else None
+            result.append({
+                "slot_key":     slot_key,
+                "ams_id":       u,
+                "tray":         t,
+                "ha_material":  td.get("material") or None,
+                "ha_color_hex": td.get("color"),
+                "ha_remaining": ha_remaining,
+                "spool":        SpoolOut.model_validate(spool).model_dump() if spool else None,
+            })
         return result
 
+    tray_counts = await ha_client.discover_ams_tray_counts(
+        p.device_slug, p.ams_unit_count, p.ams_device_slug, p.ams_overrides,
+    )
     ams_config = ha_client.get_ams_config(
-        p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug,
-        ams_overrides=p.ams_overrides,
+        p.device_slug, p.ams_unit_count, trays_per_unit=tray_counts,
+        ams_device_slug=p.ams_device_slug, ams_overrides=p.ams_overrides,
     )
     all_entities = await ha_client.get_all_entities()
     entity_map = {e["entity_id"]: e for e in all_entities}
@@ -264,9 +283,12 @@ async def sync_ams_weights(printer_id: int, db: Session = Depends(get_db)):
         db.commit()
         return {"updated": updated}
 
+    tray_counts_sync = await ha_client.discover_ams_tray_counts(
+        p.device_slug, p.ams_unit_count, p.ams_device_slug, p.ams_overrides,
+    )
     ams_config = ha_client.get_ams_config(
-        p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug,
-        ams_overrides=p.ams_overrides,
+        p.device_slug, p.ams_unit_count, trays_per_unit=tray_counts_sync,
+        ams_device_slug=p.ams_device_slug, ams_overrides=p.ams_overrides,
     )
     all_entities = await ha_client.get_all_entities()
     entity_map = {e["entity_id"]: e for e in all_entities}
@@ -355,9 +377,12 @@ async def sync_ams_tray_weight(printer_id: int, slot_key: str, db: Session = Dep
             "new_weight_g": spool.current_weight_g,
         }
 
+    tray_counts_single = await ha_client.discover_ams_tray_counts(
+        p.device_slug, p.ams_unit_count, p.ams_device_slug, p.ams_overrides,
+    )
     ams_config = ha_client.get_ams_config(
-        p.device_slug, p.ams_unit_count, ams_device_slug=p.ams_device_slug,
-        ams_overrides=p.ams_overrides,
+        p.device_slug, p.ams_unit_count, trays_per_unit=tray_counts_single,
+        ams_device_slug=p.ams_device_slug, ams_overrides=p.ams_overrides,
     )
     all_entities = await ha_client.get_all_entities()
     entity_map = {e["entity_id"]: e for e in all_entities}

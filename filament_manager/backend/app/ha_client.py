@@ -36,6 +36,10 @@ _BAMBU_KEY_MAP: dict[str, str] = {
 # Per-serial cache of registry-discovered entity IDs: serial → {our_key: entity_id}
 _registry_cache: dict[str, dict[str, str]] = {}
 
+# Per-device-slug cache of discovered AMS tray counts: device_slug → {unit_id: tray_count}
+# Populated by discover_ams_tray_counts(); reused by print_monitor to avoid extra HA calls.
+_ams_tray_counts_cache: dict[str, dict[int, int]] = {}
+
 
 def slugify(name: str) -> str:
     """'My Printer' → 'my_printer'. Mirrors HA's internal slug logic."""
@@ -62,9 +66,63 @@ def get_printer_entity_ids(device_slug: str, sensor_overrides: dict | None = Non
     return result
 
 
-def get_ams_config(device_slug: str, ams_unit_count: int, trays_per_ams: int = 4,
-                   ams_device_slug: str | None = None,
-                   ams_overrides: dict | None = None) -> list[dict]:
+def get_cached_ams_tray_counts(device_slug: str) -> dict[int, int] | None:
+    """Return the last discovered per-unit tray counts for a device slug, or None if unknown."""
+    return _ams_tray_counts_cache.get(device_slug)
+
+
+async def discover_ams_tray_counts(
+    device_slug: str,
+    ams_unit_count: int,
+    ams_device_slug: str | None = None,
+    ams_overrides: dict | None = None,
+) -> dict[int, int]:
+    """Discover the actual number of trays per AMS unit by checking which HA entities exist.
+
+    For each unit 1..ams_unit_count, probes HA entity IDs and counts how many
+    consecutive tray entities are present.  This detects AMS variants (e.g. AMS HT
+    with 1 slot vs standard AMS with 4) without any hardcoding.
+
+    Result is cached in _ams_tray_counts_cache[device_slug] and also returned.
+    Falls back to 4 trays per unit when HA is unreachable or no entities are found.
+    """
+    ov = ams_overrides or {}
+    tray_pattern = ov.get("tray_pattern") or "tray_{t}"
+
+    try:
+        all_entities = await get_all_entities()
+        entity_ids = {e["entity_id"] for e in all_entities}
+    except Exception:
+        result = {u: 4 for u in range(1, ams_unit_count + 1)}
+        _ams_tray_counts_cache[device_slug] = result
+        return result
+
+    result: dict[int, int] = {}
+    for u in range(1, ams_unit_count + 1):
+        slug = ams_device_slug if ams_device_slug else f"{device_slug}_ams_{u}"
+        highest = 0
+        for t in range(1, 17):  # generous upper bound
+            slot = tray_pattern.format(u=u, t=t)
+            entity = f"sensor.{slug}_{slot}"
+            if entity in entity_ids:
+                highest = t
+            elif highest > 0:
+                break  # first gap after finding at least one — stop
+        # Fall back to 4 if no entities found (HA offline or not yet discovered)
+        result[u] = highest if highest > 0 else 4
+
+    _ams_tray_counts_cache[device_slug] = result
+    return result
+
+
+def get_ams_config(
+    device_slug: str,
+    ams_unit_count: int,
+    trays_per_unit: dict[int, int] | None = None,
+    trays_per_ams: int = 4,
+    ams_device_slug: str | None = None,
+    ams_overrides: dict | None = None,
+) -> list[dict]:
     """
     Build the AMS config structure (same format used by print_monitor).
 
@@ -75,6 +133,10 @@ def get_ams_config(device_slug: str, ams_unit_count: int, trays_per_ams: int = 4
 
     When ams_device_slug is explicitly set, that slug is used instead of
     the auto-computed "{device_slug}_ams_{u}".
+
+    trays_per_unit: per-unit tray count dict {unit_id: count} from discover_ams_tray_counts().
+                    When provided, overrides trays_per_ams for each unit individually.
+    trays_per_ams:  fallback tray count per unit when trays_per_unit is not given.
 
     ams_overrides keys: tray_pattern (default "tray_{t}"),
                         suffix_type, suffix_color, suffix_remain
@@ -90,31 +152,19 @@ def get_ams_config(device_slug: str, ams_unit_count: int, trays_per_ams: int = 4
     for u in range(1, ams_unit_count + 1):
         # Effective AMS device slug for this unit
         effective_ams_slug = ams_device_slug if ams_device_slug else f"{device_slug}_ams_{u}"
+        tray_count = (trays_per_unit or {}).get(u, trays_per_ams)
         trays = []
-        for t in range(1, trays_per_ams + 1):
+        for t in range(1, tray_count + 1):
             slot = tray_pattern.format(u=u, t=t)
-            if ams_device_slug:
-                # Explicit override slug: attribute mode (single entity per tray)
-                entity = f"sensor.{effective_ams_slug}_{slot}"
-                trays.append({
-                    "slot": t,
-                    "entity_tray":      entity,
-                    "entity_material":  entity,
-                    "entity_color":     entity,
-                    "entity_remaining": entity,
-                    "remaining_source": "attribute",
-                })
-            else:
-                # Default: greghesp integration auto-slug {device_slug}_ams_{u}, attribute mode
-                entity = f"sensor.{effective_ams_slug}_{slot}"
-                trays.append({
-                    "slot": t,
-                    "entity_tray":      entity,
-                    "entity_material":  entity,
-                    "entity_color":     entity,
-                    "entity_remaining": entity,
-                    "remaining_source": "attribute",
-                })
+            entity = f"sensor.{effective_ams_slug}_{slot}"
+            trays.append({
+                "slot": t,
+                "entity_tray":      entity,
+                "entity_material":  entity,
+                "entity_color":     entity,
+                "entity_remaining": entity,
+                "remaining_source": "attribute",
+            })
         units.append({"ams_id": u, "trays": trays})
     return units
 

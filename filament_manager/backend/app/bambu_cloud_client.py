@@ -65,6 +65,10 @@ _ams_cache: dict[str, dict[str, float]] = {}
 # serial → set of 0-based tray indices seen during the current print (tray_now tracking)
 _print_active_trays: dict[str, set[int]] = {}
 
+# serial → {unit_id (1-based): max tray number seen for that unit}
+# Derived from actual MQTT data — tells us how many slots each AMS unit really has.
+_ams_unit_tray_counts: dict[str, dict[int, int]] = {}
+
 # serial → printer_id (DB)
 _serial_to_printer_id: dict[str, int] = {}
 
@@ -205,16 +209,46 @@ def _http_get_devices(token: str) -> list[dict]:
     return data.get("devices", [])
 
 
-def _ams_index_to_slot_key(index: int) -> str | None:
+def _ams_index_to_slot_key(
+    index: int,
+    unit_tray_counts: dict[int, int] | None = None,
+) -> str | None:
     """Convert 0-based global AMS tray index (tray_now / amsDetailMapping[].ams) to slot key.
 
-    Returns "ams{unit}_tray{slot}" (1-based), or None for external spool (≥16, 254, 255).
+    When unit_tray_counts is supplied ({1: 4, 2: 1} etc.) the actual per-unit tray counts
+    are used to compute the unit/tray from the global offset.  Falls back to the legacy
+    4-trays-per-unit assumption when no counts are available.
+
+    Returns "ams{unit}_tray{slot}" (1-based), or None for external spool (254, 255) or
+    an index that exceeds the known AMS capacity.
     """
-    if index is None or index >= 16 or index in (254, 255):
+    if index is None or index in (254, 255):
+        return None
+
+    if unit_tray_counts:
+        offset = 0
+        for unit_id in sorted(unit_tray_counts.keys()):
+            count = unit_tray_counts[unit_id]
+            if index < offset + count:
+                tray = (index - offset) + 1  # 1-based
+                return f"ams{unit_id}_tray{tray}"
+            offset += count
+        return None  # index exceeds known AMS capacity
+
+    # Fallback: standard 4-trays-per-unit assumption (max 4 units = 16 slots)
+    if index >= 16:
         return None
     unit = (index // 4) + 1
     slot = (index % 4) + 1
     return f"ams{unit}_tray{slot}"
+
+
+def get_ams_unit_tray_counts(serial: str) -> dict[int, int]:
+    """Return the observed tray count per AMS unit for a device serial.
+
+    Derived from actual MQTT data; empty dict if no data has been received yet.
+    """
+    return dict(_ams_unit_tray_counts.get(serial, {}))
 
 
 def _http_get_task_data(serial: str, token: str) -> dict:
@@ -300,7 +334,7 @@ def _process_device_message(serial: str, data: dict) -> None:
                 # Track active trays during print for suggested_usages fallback
                 try:
                     idx = int(tray_now_val)
-                    if _ams_index_to_slot_key(idx) is not None:
+                    if _ams_index_to_slot_key(idx, get_ams_unit_tray_counts(serial)) is not None:
                         if serial not in _print_active_trays:
                             _print_active_trays[serial] = set()
                         _print_active_trays[serial].add(idx)
@@ -355,10 +389,19 @@ def _parse_ams_into_cache(serial: str, ams_raw: dict) -> None:
     # entire cache on every incremental update would wipe the material name
     # that was captured from the last pushall.
     existing = dict(_ams_cache.get(serial, {}))
+    unit_counts = dict(_ams_unit_tray_counts.get(serial, {}))
     changed = False
     for unit in ams_raw.get("ams", []):
         ams_id = int(unit.get("id", 0)) + 1   # 1-based
-        for tray in unit.get("tray", []):
+        trays_in_msg = unit.get("tray", [])
+
+        # Track the highest tray id seen for this unit.  Use max() so incremental
+        # updates (which may only report a single tray) don't shrink the count.
+        tray_ids_in_msg = {int(t.get("id", 0)) + 1 for t in trays_in_msg if "id" in t}
+        if tray_ids_in_msg:
+            unit_counts[ams_id] = max(unit_counts.get(ams_id, 0), max(tray_ids_in_msg))
+
+        for tray in trays_in_msg:
             tray_id = int(tray.get("id", 0)) + 1  # 1-based
             slot_key = f"ams{ams_id}_tray{tray_id}"
             slot = dict(existing.get(slot_key, {}))
@@ -391,6 +434,8 @@ def _parse_ams_into_cache(serial: str, ams_raw: dict) -> None:
 
     if changed:
         _ams_cache[serial] = existing
+    if unit_counts:
+        _ams_unit_tray_counts[serial] = unit_counts
 
 
 async def _reauthenticate() -> None:
@@ -695,6 +740,7 @@ async def logout() -> None:
     _printer_status_cache.clear()
     _ams_cache.clear()
     _print_active_trays.clear()
+    _ams_unit_tray_counts.clear()
     _pending.clear()
     _reauth_in_progress = False
     log.info("Bambu Cloud: logged out")

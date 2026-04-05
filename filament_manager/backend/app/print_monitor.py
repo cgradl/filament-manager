@@ -89,9 +89,12 @@ async def _check_printer(printer: PrinterConfig, db: Session) -> None:
 async def _on_print_start(printer: PrinterConfig, entities: dict, db: Session) -> None:
     log.info("Print started on %s", printer.name)
     filename = await ha_client.get_entity_value(entities["current_file"]) or ""
-    ams_config = ha_client.get_ams_config(printer.device_slug, printer.ams_unit_count,
-                                           ams_device_slug=printer.ams_device_slug,
-                                           ams_overrides=printer.ams_overrides)
+    ams_config = ha_client.get_ams_config(
+        printer.device_slug, printer.ams_unit_count,
+        trays_per_unit=ha_client.get_cached_ams_tray_counts(printer.device_slug),
+        ams_device_slug=printer.ams_device_slug,
+        ams_overrides=printer.ams_overrides,
+    )
     ams_snapshot = await ha_client.get_ams_snapshot(ams_config)
 
     # Use the gcode filename as the display name; strip common extensions
@@ -149,9 +152,12 @@ async def _on_print_end(
 
     if not is_cloud:
         # HA-source printers: delta-based recording as before
-        ams_config = ha_client.get_ams_config(printer.device_slug, printer.ams_unit_count,
-                                               ams_device_slug=printer.ams_device_slug,
-                                               ams_overrides=printer.ams_overrides)
+        ams_config = ha_client.get_ams_config(
+            printer.device_slug, printer.ams_unit_count,
+            trays_per_unit=ha_client.get_cached_ams_tray_counts(printer.device_slug),
+            ams_device_slug=printer.ams_device_slug,
+            ams_overrides=printer.ams_overrides,
+        )
         if ams_config and job.ams_snapshot_start:
             ams_now = await ha_client.get_ams_snapshot(ams_config)
             await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
@@ -182,7 +188,9 @@ async def _on_print_end(
                     tray_weight = entry.get("weight")
                     if idx is None or tray_weight is None:
                         continue
-                    slot_key = bambu_cloud_client._ams_index_to_slot_key(int(idx))
+                    slot_key = bambu_cloud_client._ams_index_to_slot_key(
+                        int(idx), bambu_cloud_client.get_ams_unit_tray_counts(printer.bambu_serial),
+                    )
                     if slot_key is None:
                         continue  # external spool — skip
                     color_raw = entry.get("sourceColor") or entry.get("targetColor") or ""
@@ -201,7 +209,9 @@ async def _on_print_end(
                 tracked = bambu_cloud_client.get_print_trays(printer.bambu_serial)
                 if len(tracked) == 1:
                     idx = next(iter(tracked))
-                    slot_key = bambu_cloud_client._ams_index_to_slot_key(idx)
+                    slot_key = bambu_cloud_client._ams_index_to_slot_key(
+                        idx, bambu_cloud_client.get_ams_unit_tray_counts(printer.bambu_serial),
+                    )
                     if slot_key:
                         job.suggested_usages = [{
                             "ams_slot": slot_key,
