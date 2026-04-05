@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.11
+
+- Spools: new "#" field — user-assigned reference number (1–9999, integers only, optional); first column in the table; sortable and filterable (numeric operators =, >=, <=, >, <); shown in add/edit spool form
+
 ## 0.10.10
 
 - AMS tray assignment: selecting a spool that is already assigned to another tray/printer now automatically removes it from the previous slot and shows a warning ("Spool was already assigned to Printer / AMS 1 Tray 2 — it has been moved here")

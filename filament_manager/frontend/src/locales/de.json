@@ -82,6 +82,7 @@
     "noMatch": "Keine Spulen entsprechen den aktuellen Filtern.",
     "confirmDelete": "Spule \"{{brand}} {{color}}\" löschen?",
     "form": {
+      "customId": "# (Referenz)",
       "brand": "Marke",
       "material": "Material",
       "subtype": "Untertyp",

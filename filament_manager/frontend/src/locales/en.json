@@ -82,6 +82,7 @@
     "noMatch": "No spools match the current filters.",
     "confirmDelete": "Delete spool \"{{brand}} {{color}}\"?",
     "form": {
+      "customId": "# (Reference)",
       "brand": "Brand",
       "material": "Material",
       "subtype": "Subtype",

@@ -48,8 +48,14 @@ async def lifespan(app: FastAPI):
                 conn.commit()
                 log.info("Migration: added print_jobs.%s", _col)
 
-        # spools: add purchase_location if missing
+        # spools: add custom_id if missing
         spool_cols = [c["name"] for c in insp.get_columns("spools")]
+        if "custom_id" not in spool_cols:
+            conn.execute(text("ALTER TABLE spools ADD COLUMN custom_id INTEGER"))
+            conn.commit()
+            log.info("Migration: added spools.custom_id")
+
+        # spools: add purchase_location if missing
         if "purchase_location" not in spool_cols:
             conn.execute(text("ALTER TABLE spools ADD COLUMN purchase_location TEXT"))
             conn.commit()

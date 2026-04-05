@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 # ── Spool ────────────────────────────────────────────────────────────────────
 
 class SpoolBase(BaseModel):
+    custom_id: int | None = None
     brand: str
     material: str
     subtype: str | None = None
@@ -27,6 +28,7 @@ class SpoolCreate(SpoolBase):
 
 
 class SpoolUpdate(BaseModel):
+    custom_id: int | None = None
     brand: str | None = None
     material: str | None = None
     subtype: str | None = None

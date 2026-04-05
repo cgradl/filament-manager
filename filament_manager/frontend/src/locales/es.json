@@ -82,6 +82,7 @@
     "noMatch": "Ninguna bobina coincide con los filtros actuales.",
     "confirmDelete": "¿Eliminar bobina \"{{brand}} {{color}}\"?",
     "form": {
+      "customId": "# (Referencia)",
       "brand": "Marca",
       "material": "Material",
       "subtype": "Subtipo",

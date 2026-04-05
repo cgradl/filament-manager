@@ -1,5 +1,6 @@
 export interface Spool {
   id: number
+  custom_id: number | null
   brand: string
   material: string
   subtype: string | null

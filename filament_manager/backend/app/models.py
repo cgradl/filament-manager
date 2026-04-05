@@ -24,6 +24,7 @@ class Spool(Base):
     __tablename__ = "spools"
 
     id = Column(Integer, primary_key=True, index=True)
+    custom_id = Column(Integer, nullable=True)   # user-assigned reference number (1–9999)
     brand = Column(String, nullable=False)
     material = Column(String, nullable=False)
     subtype = Column(String)

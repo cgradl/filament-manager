@@ -9,6 +9,7 @@ import Modal from '../components/Modal'
 // ── Spool Form ────────────────────────────────────────────────────────────────
 
 const EMPTY_FORM = {
+  custom_id: '',
   brand: '', material: 'PLA', subtype: '', subtype2: '', color_name: '', color_hex: '#888888',
   diameter_mm: 1.75, initial_weight_g: 1000, current_weight_g: 1000,
   purchase_price: '', purchased_at: '', purchase_location: '',
@@ -78,6 +79,22 @@ function SpoolForm({
         </div>
 
         <div className="p-5 space-y-4">
+          <div>
+            <label className="label">{t('spools.form.customId')}</label>
+            <input
+              className="input w-28"
+              type="number"
+              min="1"
+              max="9999"
+              step="1"
+              placeholder="—"
+              value={form.custom_id ?? ''}
+              onChange={e => {
+                const v = e.target.value.replace(/\D/g, '').slice(0, 4)
+                setForm(f => ({ ...f, custom_id: v }))
+              }}
+            />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">{t('spools.form.brand')} *</label>
@@ -331,7 +348,7 @@ function SpoolCard({ spool, onEdit, onDuplicate, onDelete }: {
 
 // ── Table View ────────────────────────────────────────────────────────────────
 
-type SortKey = 'brand' | 'material' | 'subtype' | 'color_name' | 'remaining_pct' |
+type SortKey = 'custom_id' | 'brand' | 'material' | 'subtype' | 'color_name' | 'remaining_pct' |
                'current_weight_g' | 'initial_weight_g' | 'purchase_price' |
                'price_per_kg' | 'purchased_at' | 'purchase_location' | 'ams_slot'
 type SortDir = 'asc' | 'desc'
@@ -357,7 +374,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
     setSort(s => s.key === k ? { key: k, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key: k, dir: 'asc' })
 
   const NUMERIC_COLS = new Set<SortKey>([
-    'remaining_pct', 'current_weight_g', 'initial_weight_g', 'purchase_price', 'price_per_kg',
+    'custom_id', 'remaining_pct', 'current_weight_g', 'initial_weight_g', 'purchase_price', 'price_per_kg',
   ])
 
   const processed = useMemo(() => {
@@ -415,6 +432,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
   }, [spools, sort, filters])
 
   const cols: { key: SortKey; label: string; width?: string }[] = [
+    { key: 'custom_id',        label: '#',                            width: 'w-14' },
     { key: 'brand',            label: t('spools.table.brand'),        width: 'w-24' },
     { key: 'material',         label: t('spools.table.material'),     width: 'w-20' },
     { key: 'subtype',          label: t('spools.table.subtype'),      width: 'w-24' },
@@ -479,6 +497,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                 key={s.id}
                 className="border-b border-surface-3/50 hover:bg-surface-3/40 transition-colors"
               >
+                <td className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono">{s.custom_id ?? '—'}</td>
                 <td className="px-3 py-2 font-medium text-white whitespace-nowrap">{s.brand}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{s.material}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-gray-300">
@@ -609,6 +628,7 @@ export default function Spools() {
 
   const buildPayload = (form: typeof EMPTY_FORM) => ({
     ...form,
+    custom_id: form.custom_id !== '' ? parseInt(form.custom_id as string, 10) || null : null,
     purchase_price: form.purchase_price ? parseFloat(form.purchase_price as string) : null,
     purchased_at: form.purchased_at || null,
     purchase_location: form.purchase_location || null,
