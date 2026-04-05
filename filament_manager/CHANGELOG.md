@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.9
+
+- Fix: AMS tray assignment dropdown hides spools that display as 0% remaining — catches both truly empty spools (current_weight_g = 0) and spools with sub-gram residue (e.g. 0.0003g) that round to 0%
+
 ## 0.10.8
 
 - Fix: AMS tray assignment dropdown no longer shows empty spools (current_weight_g = 0)

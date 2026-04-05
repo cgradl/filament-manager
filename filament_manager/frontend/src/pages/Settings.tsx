@@ -772,7 +772,7 @@ function AMSTrayRow({
         onChange={e => onAssign(e.target.value ? Number(e.target.value) : null)}
       >
         <option value="">{t('settings.printers.unassigned')}</option>
-        {spools.filter(s => s.current_weight_g > 0).map(s => (
+        {spools.filter(s => Math.round(s.remaining_pct) > 0).map(s => (
           <option key={s.id} value={s.id}>
             {s.brand} {s.material}{s.subtype ? ` ${s.subtype}` : ''} · {s.color_name} ({Math.round(s.remaining_pct)}%)
           </option>
