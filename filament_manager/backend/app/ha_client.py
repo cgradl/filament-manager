@@ -8,7 +8,9 @@ log = logging.getLogger(__name__)
 HA_API = "http://supervisor/core/api"
 _TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 
-# Entity suffixes used by the greghesp Bambu Lab HA integration
+# Entity suffixes used by the greghesp Bambu Lab HA integration (English defaults).
+# Used as the last-resort fallback when neither the entity registry nor manual overrides
+# resolve an entity ID.
 _PRINTER_SUFFIXES = {
     "print_stage":    "current_stage",
     "print_progress": "print_progress",
@@ -18,6 +20,21 @@ _PRINTER_SUFFIXES = {
     "current_file":   "task_name",
     "print_weight":   "print_weight",
 }
+
+# Maps ha-bambulab sensor `key` (in definitions.py / unique_id suffix) → our internal key.
+# unique_id format used by ha-bambulab: "{serial}_{key}"
+_BAMBU_KEY_MAP: dict[str, str] = {
+    "stage":          "print_stage",
+    "print_progress": "print_progress",
+    "remaining_time": "remaining_time",
+    "nozzle_temp":    "nozzle_temp",
+    "bed_temp":       "bed_temp",
+    "subtask_name":   "current_file",
+    "print_weight":   "print_weight",
+}
+
+# Per-serial cache of registry-discovered entity IDs: serial → {our_key: entity_id}
+_registry_cache: dict[str, dict[str, str]] = {}
 
 
 def slugify(name: str) -> str:
@@ -139,6 +156,88 @@ async def get_entity_value(entity_id: str) -> str | None:
     if data:
         return data.get("state")
     return None
+
+
+async def discover_bambu_sensor_ids(serial: str) -> dict[str, str]:
+    """Query the HA entity registry to find actual entity_ids for a Bambu printer.
+
+    ha-bambulab assigns unique_id = "{serial}_{key}" for every sensor (e.g.
+    "01S00A123456789_print_weight").  HA stores the entity_id that was generated
+    at install time (language-dependent) in the entity registry, so matching by
+    unique_id suffix is the only reliable way to find the correct entity_id
+    regardless of the HA language or device name.
+
+    Results are cached for the process lifetime.  Call clear_registry_cache()
+    after saving a printer config to force a fresh lookup.
+    """
+    if serial in _registry_cache:
+        return _registry_cache[serial]
+
+    result: dict[str, str] = {}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{HA_API}/config/entity_registry_entries/sensor",
+                headers=_headers(),
+            )
+            if r.status_code == 200:
+                prefix = f"{serial}_"
+                for entry in r.json():
+                    if entry.get("platform") != "bambu_lab":
+                        continue
+                    uid = entry.get("unique_id", "")
+                    if not uid.startswith(prefix):
+                        continue
+                    bambu_key = uid[len(prefix):]
+                    our_key = _BAMBU_KEY_MAP.get(bambu_key)
+                    if our_key:
+                        entity_id = entry.get("entity_id")
+                        if entity_id:
+                            result[our_key] = entity_id
+                            log.debug("Registry: %s → %s (uid=%s)", our_key, entity_id, uid)
+            else:
+                log.debug("HA entity registry returned %s", r.status_code)
+    except Exception as exc:
+        log.warning("HA entity registry lookup failed for %s: %s", serial, exc)
+
+    _registry_cache[serial] = result
+    if result:
+        log.info("Discovered %d sensor entity IDs for serial %s via HA registry", len(result), serial)
+    return result
+
+
+def clear_registry_cache(serial: str | None = None) -> None:
+    """Invalidate the cached registry lookup for a serial (or all serials)."""
+    if serial:
+        _registry_cache.pop(serial, None)
+    else:
+        _registry_cache.clear()
+
+
+async def resolve_printer_entity_ids(
+    device_slug: str,
+    sensor_overrides: dict | None = None,
+    serial: str | None = None,
+) -> dict[str, str]:
+    """Return effective entity_id for each printer sensor.
+
+    Resolution priority (highest → lowest):
+    1. Manual sensor_overrides stored on the printer config
+    2. Entity registry auto-discovered entity_id (requires bambu_serial)
+    3. Default: sensor.{device_slug}_{english_suffix}
+    """
+    result = {k: f"sensor.{device_slug}_{v}" for k, v in _PRINTER_SUFFIXES.items()}
+
+    if serial:
+        discovered = await discover_bambu_sensor_ids(serial)
+        result.update(discovered)
+
+    if sensor_overrides:
+        for k, v in sensor_overrides.items():
+            if v and v.strip():
+                result[k] = v.strip()
+
+    return result
 
 
 async def get_ams_snapshot(ams_config: list[dict]) -> dict[str, float]:

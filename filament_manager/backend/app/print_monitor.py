@@ -64,7 +64,9 @@ async def _check_printer(printer: PrinterConfig, db: Session) -> None:
         else:
             _state[printer.id] = {"stage": "idle", "job_id": None}
 
-    entities = ha_client.get_printer_entity_ids(printer.device_slug, printer.sensor_overrides)
+    entities = await ha_client.resolve_printer_entity_ids(
+        printer.device_slug, printer.sensor_overrides, getattr(printer, "bambu_serial", None)
+    )
     stage_raw = await ha_client.get_entity_value(entities["print_stage"])
     if stage_raw is None:
         return
@@ -213,7 +215,9 @@ async def _on_print_end(
             if job.print_weight_g is not None or job.suggested_usages is not None:
                 db.commit()
         else:
-            entities = ha_client.get_printer_entity_ids(printer.device_slug, printer.sensor_overrides)
+            entities = await ha_client.resolve_printer_entity_ids(
+                printer.device_slug, printer.sensor_overrides, getattr(printer, "bambu_serial", None)
+            )
             state_data = await ha_client.get_entity_state(entities["print_weight"])
             if state_data is not None:
                 weight_str = state_data.get("state")

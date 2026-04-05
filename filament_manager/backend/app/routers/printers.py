@@ -447,6 +447,7 @@ def create_printer(body: PrinterIn, db: Session = Depends(get_db)):
     db.refresh(p)
     if p.bambu_serial:
         bambu_cloud_client.register_printer(p.id, p.bambu_serial)
+        ha_client.clear_registry_cache(p.bambu_serial)
     return p
 
 
@@ -471,6 +472,7 @@ def update_printer(printer_id: int, body: PrinterIn, db: Session = Depends(get_d
     db.refresh(p)
     if p.bambu_serial:
         bambu_cloud_client.register_printer(p.id, p.bambu_serial)
+        ha_client.clear_registry_cache(p.bambu_serial)
     return p
 
 
@@ -501,7 +503,9 @@ async def get_printer_status(printer_id: int, db: Session = Depends(get_db)):
             "current_file":   raw.get("subtask_name"),
         }
 
-    entities = ha_client.get_printer_entity_ids(p.device_slug, p.sensor_overrides)
+    entities = await ha_client.resolve_printer_entity_ids(
+        p.device_slug, p.sensor_overrides, getattr(p, "bambu_serial", None)
+    )
     result = {}
     for key, eid in entities.items():
         result[key] = await ha_client.get_entity_value(eid)

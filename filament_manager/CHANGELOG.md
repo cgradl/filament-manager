@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.7
+
+- HA printer sensor entity IDs are now auto-discovered via the HA entity registry (`GET /api/config/entity_registry_entries/sensor`) — works correctly regardless of HA language or device name
+- Discovery matches by `unique_id` suffix (ha-bambulab always sets `unique_id = "{serial}_{key}"`) so German `sensor.bambooo_aktueller_arbeitsschritt` is found just as reliably as English `sensor.bambooo_current_stage`
+- Registry results are cached per serial for the process lifetime; cache is invalidated on printer create/update so config changes take effect immediately
+- Manual sensor overrides in printer settings still take highest priority; English defaults remain as last-resort fallback for installations without a bambu_serial set
+
 ## 0.10.6
 
 - HA-source printers: `sensor.{slug}_print_weight` attributes now read per-tray grams at print end; `suggested_usages` pre-filled in LogUsageModal same as cloud printers
