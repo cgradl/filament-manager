@@ -628,9 +628,16 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
   const assignMut = useMutation({
     mutationFn: ({ slot, spoolId }: { slot: string; spoolId: number | null }) =>
       api.assignAMSTray(printer.id, slot, spoolId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['printer-ams', printer.id] })
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['printer-ams'] })  // all printers — spool may have moved
       qc.invalidateQueries({ queryKey: ['spools'] })
+      if (result.previous_slot) {
+        const parts = result.previous_slot.split(':')
+        const [prevPrinter, prevSlot] = parts.length === 2 ? parts : ['', parts[0]]
+        const slotLabel = prevSlot.replace(/ams(\d+)_tray(\d+)/, 'AMS $1 Tray $2')
+        const location = prevPrinter ? `${prevPrinter} / ${slotLabel}` : slotLabel
+        alert(`Spool was already assigned to ${location} — it has been moved here.`)
+      }
     },
   })
 
@@ -762,7 +769,7 @@ function AMSTrayRow({
       </div>
 
       <span className="text-xs text-gray-500 w-10 shrink-0 text-right">
-        {tray.ha_remaining != null ? `${tray.ha_remaining}%` : '—'}
+        {tray.ha_remaining != null ? `${Math.round(parseFloat(tray.ha_remaining))}%` : '—'}
       </span>
 
       <select

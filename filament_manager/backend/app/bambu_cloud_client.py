@@ -349,33 +349,48 @@ def _process_device_message(serial: str, data: dict) -> None:
 
 
 def _parse_ams_into_cache(serial: str, ams_raw: dict) -> None:
-    snapshot: dict[str, dict] = {}
+    # Merge into the existing cache — do NOT replace wholesale.  Bambu sends
+    # incremental MQTT updates that may only carry `remain` without the full
+    # tray profile (tray_sub_brands / tray_type / color).  Overwriting the
+    # entire cache on every incremental update would wipe the material name
+    # that was captured from the last pushall.
+    existing = dict(_ams_cache.get(serial, {}))
+    changed = False
     for unit in ams_raw.get("ams", []):
         ams_id = int(unit.get("id", 0)) + 1   # 1-based
         for tray in unit.get("tray", []):
             tray_id = int(tray.get("id", 0)) + 1  # 1-based
-            remain = tray.get("remain")
-            try:
-                remain_f = float(remain)
-            except (TypeError, ValueError):
-                remain_f = None  # empty/unknown tray — still include it so the slot shows up
-            # Bambu sends color as RRGGBBAA hex — take only the RGB part
+            slot_key = f"ams{ams_id}_tray{tray_id}"
+            slot = dict(existing.get(slot_key, {}))
+
+            # remain — always update when the key is present in the message
+            if "remain" in tray:
+                try:
+                    slot["remain"] = float(tray["remain"])
+                except (TypeError, ValueError):
+                    slot["remain"] = None
+
+            # remain_flag — update when present
+            if "remain_flag" in tray:
+                slot["remain_flag"] = tray["remain_flag"]
+
+            # color — update only when a non-empty value is sent
             color_raw = str(tray.get("tray_color") or tray.get("color") or "").strip()
-            color_hex = f"#{color_raw[:6]}" if len(color_raw) >= 6 else None
-            # tray_sub_brands = detailed name ("Bambu PLA Silk+"); tray_type = base type ("PLA")
-            # If neither field is set the slot is empty — use "Empty" to match HA integration label
+            if len(color_raw) >= 6:
+                slot["color"] = f"#{color_raw[:6]}"
+
+            # material — update only when the message carries actual profile data;
+            # preserve the existing name if this update has no material fields at all
             sub_brand = tray.get("tray_sub_brands") or ""
             base_type = tray.get("tray_type") or tray.get("type") or ""
-            material = sub_brand or base_type or "Empty"
-            remain_flag = tray.get("remain_flag")
-            snapshot[f"ams{ams_id}_tray{tray_id}"] = {
-                "remain":      remain_f,
-                "material":    material,
-                "color":       color_hex,
-                "remain_flag": remain_flag,  # None / 0 = reliable, 1 = rough estimate
-            }
-    if snapshot:
-        _ams_cache[serial] = snapshot
+            if sub_brand or base_type:
+                slot["material"] = sub_brand or base_type
+
+            existing[slot_key] = slot
+            changed = True
+
+    if changed:
+        _ams_cache[serial] = existing
 
 
 async def _reauthenticate() -> None:

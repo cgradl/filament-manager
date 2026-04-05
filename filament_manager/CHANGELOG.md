@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.10
+
+- AMS tray assignment: selecting a spool that is already assigned to another tray/printer now automatically removes it from the previous slot and shows a warning ("Spool was already assigned to Printer / AMS 1 Tray 2 — it has been moved here")
+- AMS tray assignment: all printer AMS views are refreshed after assignment so the cleared slot is reflected immediately across printers
+- Fix: cloud printer AMS material name was reverting to base type ("PETG") after any incremental MQTT update — incremental updates only carry `remain`, not `tray_sub_brands`, so the cache was being overwritten with empty material; now merges updates instead of replacing the whole cache
+- Cloud printer AMS trays: remaining % is no longer shown for non-Bambu spools / untracked slots (was "-1.0%", now "—")
+- AMS tray remaining % consistently displayed as rounded integer for both cloud and HA printers
+
 ## 0.10.9
 
 - Fix: AMS tray assignment dropdown hides spools that display as 0% remaining — catches both truly empty spools (current_weight_g = 0) and spools with sub-gram residue (e.g. 0.0003g) that round to 0%

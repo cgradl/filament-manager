@@ -153,13 +153,16 @@ async def get_ams_trays(printer_id: int, db: Session = Depends(get_db)):
                     db.query(Spool).filter(Spool.ams_slot == full_key).first()
                     or db.query(Spool).filter(Spool.ams_slot == slot_key).first()
                 )
+                remain_val = td.get("remain")
+                # Negative remain (typically -1) means "not tracked by AMS" — show nothing
+                ha_remaining = str(round(remain_val, 1)) if remain_val is not None and remain_val >= 0 else None
                 result.append({
                     "slot_key":     slot_key,
                     "ams_id":       u,
                     "tray":         t,
-                    "ha_material":  td.get("material"),
+                    "ha_material":  td.get("material") or None,
                     "ha_color_hex": td.get("color"),
-                    "ha_remaining": str(td["remain"]) if "remain" in td else None,
+                    "ha_remaining": ha_remaining,
                     "spool":        SpoolOut.model_validate(spool).model_dump() if spool else None,
                 })
         return result
@@ -421,14 +424,18 @@ def assign_ams_tray(
         (Spool.ams_slot == full_key) | (Spool.ams_slot == slot_key)
     ).update({"ams_slot": None})
 
+    previous_slot: str | None = None
     if spool_id is not None:
         spool = db.get(Spool, spool_id)
         if not spool:
             raise HTTPException(404, "Spool not found")
+        # If this spool is already assigned to a different slot, clear it and record the old slot
+        if spool.ams_slot and spool.ams_slot != full_key:
+            previous_slot = spool.ams_slot
         spool.ams_slot = full_key  # store as "PrinterName:ams1_tray2"
 
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "previous_slot": previous_slot}
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
