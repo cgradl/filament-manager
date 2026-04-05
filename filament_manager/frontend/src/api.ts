@@ -60,7 +60,7 @@ export const api = {
   getPrinterAMS: (id: number) =>
     request<import('./types').AMSTray[]>(`printers/${id}/ams`),
   assignAMSTray: (printerId: number, slotKey: string, spoolId: number | null) =>
-    request<{ ok: boolean }>(`printers/${printerId}/ams/${slotKey}/assign`, {
+    request<{ ok: boolean; previous_slot: string | null }>(`printers/${printerId}/ams/${slotKey}/assign`, {
       method: 'POST',
       body: JSON.stringify({ spool_id: spoolId }),
     }),
