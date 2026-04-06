@@ -8,16 +8,19 @@ A Home Assistant app for tracking 3D printer filament inventory, monitoring prin
 
 ## Features
 
-- **Automatic print detection** — monitors your Bambu Lab printer state via HA sensors and creates print records automatically
+- **Automatic print detection** — monitors your Bambu Lab printer state via HA sensors (HA printers) or Bambu Cloud MQTT (Cloud printers) and creates print records automatically
 - **AMS filament tracking** — snapshots filament levels at print start/end and calculates grams used per spool
+- **Suggested filament usage** — on print completion the app pre-fills grams used per tray for review; an optional per-printer *auto-deduct* flag applies the deduction immediately without confirmation
+- **Live print status** — active print jobs show real-time stage, progress, remaining time, weight, and active tray, sourced from HA sensors (HA printers) or MQTT cache (Cloud printers)
 - **Spool inventory** — full CRUD for filament spools with brand, material, color, weight, and cost data
 - **Cost analytics** — per-print cost, price per kg, inventory value, and spend by purchase location
 - **Dashboard** — overview charts, low-stock alerts, and recent print history
+- **Print history search** — filter print jobs by name, printer, or spool material/color
 - **Printer discovery** — scans Home Assistant for your Bambu Lab entities automatically
 - **EN / DE / ES interface** — full translations with in-app language switcher; inherits language from your HA instance by default
 - **Data export / import** — back up and restore all spools, prints, and settings as a single JSON bundle
 - **Spoolman export** *(experimental)* — export your spool inventory in [Spoolman](https://github.com/Donkie/Spoolman)-compatible format
-- **Bambu Lab Cloud** *(experimental)* — direct MQTT connection to Bambu Lab Cloud for real-time print monitoring; HA integration and Cloud mode coexist per-printer
+- **Bambu Lab Cloud** *(experimental)* — direct MQTT connection to Bambu Lab Cloud (US / EU / CN regions) for real-time print monitoring; HA integration and Cloud mode coexist per-printer; live MQTT connection indicator with one-click reconnect
 - **Custom sensor entity IDs** — per-printer overrides for all HA sensor entity IDs, for users whose HA installation is in a different language or with renamed entities
 - **Print weight tracking** — total filament weight (g) per print job, fetched automatically from the Bambu Cloud task API (cloud printers) or the `print_weight` HA sensor (HA printers)
 
@@ -54,7 +57,7 @@ Once the app shows up in your list click on it and press install
 
 ---
 
-## Configuration (dont use cloud yet)
+## Configuration
 ```
 After installation go to Settings page
 Click "+ Add Printer" 
