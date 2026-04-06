@@ -149,9 +149,11 @@ async def _on_print_end(
                 setattr(job, k, v)
 
     is_cloud = getattr(printer, "bambu_source", "ha") == "cloud" and getattr(printer, "bambu_serial", None)
+    auto_deduct = getattr(printer, "auto_deduct", False)
 
     if not is_cloud:
-        # HA-source printers: delta-based recording as before
+        # HA-source: build suggested_usages from AMS snapshot delta.
+        # If auto_deduct is enabled, immediately apply them; otherwise leave for user confirmation.
         ams_config = ha_client.get_ams_config(
             printer.device_slug, printer.ams_unit_count,
             trays_per_unit=ha_client.get_cached_ams_tray_counts(printer.device_slug),
@@ -160,10 +162,16 @@ async def _on_print_end(
         )
         if ams_config and job.ams_snapshot_start:
             ams_now = await ha_client.get_ams_snapshot(ams_config)
-            await _record_ams_usage(job, job.ams_snapshot_start, ams_now, db)
+            suggestions = _build_ha_delta_suggestions(
+                job, job.ams_snapshot_start, ams_now, db
+            )
+            if suggestions:
+                job.suggested_usages = suggestions
+                if auto_deduct:
+                    _apply_suggested_usages(job, db)
+                    log.info("HA auto-deduct: applied %d usages for job #%d", len(suggestions), job.id)
 
-    # Commit job close (+ HA delta usages if applicable) FIRST.
-    # Cloud prints: no automatic usage recording — user must confirm via LogUsageModal.
+    # Commit job close FIRST — includes suggested_usages and any auto-deducted usages.
     db.commit()
     _state[printer.id] = {"stage": "idle", "job_id": None}
     log.info("Closed PrintJob #%d", job_id)
@@ -222,6 +230,11 @@ async def _on_print_end(
                         log.info("Cloud: stored single-tray suggestion %.1fg on %s for job #%d",
                                  weight, slot_key, job.id)
 
+            if job.suggested_usages and auto_deduct:
+                _apply_suggested_usages(job, db)
+                log.info("Cloud auto-deduct: applied %d usages for job #%d",
+                         len(job.suggested_usages), job.id)
+
             if job.print_weight_g is not None or job.suggested_usages is not None:
                 db.commit()
         else:
@@ -238,30 +251,36 @@ async def _on_print_end(
                     except (TypeError, ValueError):
                         pass
 
-                # Build suggested_usages from per-tray weight attributes
+                # Supplement suggested_usages from per-tray weight attributes when
+                # AMS delta didn't produce suggestions (e.g. no AMS snapshot at job start).
                 # ha-bambulab exposes: {"AMS 1 Tray 2": 17.32, "AMS 1 Tray 3": 2.66, ...}
-                attrs = state_data.get("attributes", {})
-                suggestions = []
-                import re as _re
-                for attr_key, attr_val in attrs.items():
-                    m = _re.match(r"AMS\s+(\d+)\s+Tray\s+(\d+)", str(attr_key))
-                    if m and attr_val:
-                        try:
-                            grams = float(attr_val)
-                        except (TypeError, ValueError):
-                            continue
-                        if grams <= 0:
-                            continue
-                        slot_key = f"ams{m.group(1)}_tray{m.group(2)}"
-                        suggestions.append({
-                            "ams_slot": slot_key,
-                            "grams": round(grams, 1),
-                            "filament_type": "",
-                            "color": None,
-                        })
-                if suggestions:
-                    job.suggested_usages = suggestions
-                    log.info("HA: stored %d suggested_usages for job #%d", len(suggestions), job.id)
+                if not job.suggested_usages:
+                    attrs = state_data.get("attributes", {})
+                    suggestions = []
+                    import re as _re
+                    for attr_key, attr_val in attrs.items():
+                        m = _re.match(r"AMS\s+(\d+)\s+Tray\s+(\d+)", str(attr_key))
+                        if m and attr_val:
+                            try:
+                                grams = float(attr_val)
+                            except (TypeError, ValueError):
+                                continue
+                            if grams <= 0:
+                                continue
+                            slot_key = f"ams{m.group(1)}_tray{m.group(2)}"
+                            suggestions.append({
+                                "ams_slot": slot_key,
+                                "grams": round(grams, 1),
+                                "filament_type": "",
+                                "color": None,
+                            })
+                    if suggestions:
+                        job.suggested_usages = suggestions
+                        log.info("HA: stored %d suggested_usages from print_weight attrs for job #%d",
+                                 len(suggestions), job.id)
+                        if auto_deduct:
+                            _apply_suggested_usages(job, db)
+                            log.info("HA auto-deduct (weight attrs): applied for job #%d", job.id)
 
                 if job.print_weight_g is not None or job.suggested_usages is not None:
                     db.commit()
@@ -269,9 +288,17 @@ async def _on_print_end(
         log.warning("post-print data fetch failed for job #%d: %s", job_id, exc)
 
 
-async def _record_ams_usage(
+def _build_ha_delta_suggestions(
     job: PrintJob, snapshot_start: dict, snapshot_end: dict, db: Session
-) -> None:
+) -> list[dict]:
+    """Build suggested_usages from AMS remain% delta (HA source).
+
+    Returns a list of {ams_slot, grams, filament_type, color} dicts — same
+    format as cloud suggestions — without writing any usage rows.
+    Only includes slots where the delta is meaningful (> 0.5%) and a spool
+    is assigned to the slot.
+    """
+    suggestions = []
     for slot_key, pct_start in snapshot_start.items():
         pct_end = snapshot_end.get(slot_key)
         if pct_end is None:
@@ -279,8 +306,6 @@ async def _record_ams_usage(
         delta_pct = pct_start - pct_end
         if delta_pct <= 0.5:
             continue
-        # Look up by prefixed key first ("PrinterName:ams1_tray2"), fall back to bare key
-        # for spools assigned before the prefix was introduced.
         full_slot = f"{job.printer_name}:{slot_key}" if job.printer_name else slot_key
         spool = (
             db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
@@ -288,12 +313,58 @@ async def _record_ams_usage(
         )
         if not spool:
             continue
-        grams_used = round(spool.initial_weight_g * delta_pct / 100, 1)
-        spool.current_weight_g = max(0, spool.current_weight_g - grams_used)
-        db.add(PrintUsage(print_job_id=job.id, spool_id=spool.id,
-                          grams_used=grams_used, ams_slot=slot_key))
-        log.info("Recorded %.1fg from spool #%d (%s) for job #%d",
-                 grams_used, spool.id, slot_key, job.id)
+        grams = round(spool.initial_weight_g * delta_pct / 100, 1)
+        suggestions.append({
+            "ams_slot": slot_key,
+            "grams": grams,
+            "filament_type": f"{spool.brand} {spool.material}".strip(),
+            "color": spool.color_hex,
+            "spool_id": spool.id,  # stored so auto-deduct can find the spool directly
+        })
+        log.info("HA delta: %.1fg from spool #%d (%s) for job #%d",
+                 grams, spool.id, slot_key, job.id)
+    return suggestions
+
+
+def _apply_suggested_usages(job: PrintJob, db: Session) -> None:
+    """Write PrintUsage rows and update spool weights from job.suggested_usages.
+
+    Skips slots that already have a usage row (idempotent).
+    Each suggestion entry may carry a spool_id (set by HA delta path) or
+    ams_slot only (cloud path — looks up by slot assignment).
+    """
+    if not job.suggested_usages:
+        return
+    existing_slots = {u.ams_slot for u in job.usages}
+    for s in job.suggested_usages:
+        slot_key = s.get("ams_slot", "")
+        if slot_key in existing_slots:
+            continue
+        grams = float(s.get("grams") or 0)
+        if grams <= 0:
+            continue
+        # Prefer explicit spool_id (HA delta) then fall back to AMS slot lookup (cloud)
+        spool_id = s.get("spool_id")
+        if spool_id:
+            spool = db.get(Spool, spool_id)
+        else:
+            full_slot = f"{job.printer_name}:{slot_key}" if job.printer_name else slot_key
+            spool = (
+                db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
+                or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
+            )
+        if not spool:
+            log.warning("auto-deduct: no spool found for slot %s — skipping", slot_key)
+            continue
+        spool.current_weight_g = max(0.0, spool.current_weight_g - grams)
+        db.add(PrintUsage(
+            print_job_id=job.id,
+            spool_id=spool.id,
+            grams_used=grams,
+            ams_slot=slot_key,
+        ))
+        log.info("auto-deduct: %.1fg from spool #%d (%s) for job #%d",
+                 grams, spool.id, slot_key, job.id)
 
 
 # ── Bambu Cloud MQTT bridge ───────────────────────────────────────────────────

@@ -125,10 +125,10 @@ export const api = {
   // Bambu Cloud
   getBambuCloudStatus: () =>
     request<import('./types').BambuCloudStatus>('bambu-cloud/status'),
-  bambuCloudLogin: (email: string, password: string) =>
+  bambuCloudLogin: (email: string, password: string, region: string) =>
     request<{ requires_2fa: boolean }>('bambu-cloud/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, region }),
     }),
   bambuCloudVerify: (code: string) =>
     request<{ ok: boolean }>('bambu-cloud/verify', {
@@ -147,7 +147,10 @@ export const api = {
     request<{
       printer_status_cache: Record<string, Record<string, unknown>>
       ams_cache: Record<string, Record<string, { remain: number | null; material: string; color: string | null; remain_flag: number | null }>>
+      mqtt_clients: Record<string, { connected: boolean; printer_id: number | null }>
     }>('bambu-cloud/debug'),
+  bambuCloudReconnect: () =>
+    request<{ ok: boolean; error?: string }>('bambu-cloud/reconnect', { method: 'POST' }),
   getBambuCloudPrinterAMS: (serial: string) =>
     request<{ slot_key: string; ha_material: string | null; ha_color_hex: string | null; ha_remaining: string | null }[]>(`bambu-cloud/printer/${serial}/ams`),
 

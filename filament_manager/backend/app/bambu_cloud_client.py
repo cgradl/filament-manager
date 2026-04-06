@@ -39,7 +39,11 @@ _2FA_TIMEOUT_SECONDS = 600  # 10 minutes
 
 _AUTH_BASE = "https://api.bambulab.com/v1/user-service/user"
 _IOT_BASE  = "https://api.bambulab.com/v1/iot-service/api"
-MQTT_HOST  = "us.mqtt.bambulab.com"
+MQTT_HOSTS: dict[str, str] = {
+    "us": "us.mqtt.bambulab.com",
+    "eu": "eu.mqtt.bambulab.com",
+    "cn": "cn.mqtt.bambulab.com.cn",
+}
 MQTT_PORT  = 8883
 
 # ── Module-level state ────────────────────────────────────────────────────────
@@ -138,7 +142,7 @@ def _mqtt_username(email: str, token: str) -> str:
 
 # ── Credential helpers ────────────────────────────────────────────────────────
 
-def _save_credentials(email: str, password: str, token: str, uid: str = "") -> None:
+def _save_credentials(email: str, password: str, token: str, uid: str = "", region: str = "us") -> None:
     key = Fernet.generate_key()
     f = Fernet(key)
     data = {
@@ -147,6 +151,7 @@ def _save_credentials(email: str, password: str, token: str, uid: str = "") -> N
         "fernet_key": key.decode(),
         "token": token,
         "uid": uid,
+        "region": region,
         "saved_at": datetime.now(timezone.utc).isoformat(),
     }
     with open(CRED_FILE, "w") as fp:
@@ -494,7 +499,8 @@ async def _reauthenticate() -> None:
         return
 
     uid = await loop.run_in_executor(None, lambda: _http_get_uid(new_token))
-    _save_credentials(email, password, new_token, uid)
+    region = creds.get("region", "us")
+    _save_credentials(email, password, new_token, uid, region)
     _status["status"] = "connected"
     _status["email"] = email
     _status["error"] = None
@@ -589,7 +595,11 @@ def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
         client.on_disconnect = on_disconnect
         client.on_log = on_log
 
-        client.connect_async(MQTT_HOST, MQTT_PORT)
+        creds2 = _load_credentials()
+        region = (creds2 or {}).get("region", "us")
+        mqtt_host = MQTT_HOSTS.get(region, MQTT_HOSTS["us"])
+        log.info("Bambu Cloud MQTT connecting to %s (region=%s) for %s", mqtt_host, region, serial)
+        client.connect_async(mqtt_host, MQTT_PORT)
         client.loop_start()  # background thread — non-blocking
 
         _mqtt_clients[serial] = client
@@ -643,7 +653,7 @@ async def shutdown() -> None:
     _mqtt_clients.clear()
 
 
-async def begin_login(email: str, password: str) -> dict:
+async def begin_login(email: str, password: str, region: str = "us") -> dict:
     """
     Start the login flow.
     - If Bambu requires 2FA: sends the verification email and returns
@@ -651,6 +661,9 @@ async def begin_login(email: str, password: str) -> dict:
     - If no 2FA needed: completes login immediately.
     """
     global _pending
+
+    if region not in MQTT_HOSTS:
+        region = "us"
 
     try:
         resp = await asyncio.get_event_loop().run_in_executor(
@@ -664,7 +677,7 @@ async def begin_login(email: str, password: str) -> dict:
     login_type = resp.get("loginType", "")
 
     if login_type == "verifyCode":
-        _pending = {"email": email, "password": password}
+        _pending = {"email": email, "password": password, "region": region}
         _status["status"] = "pending_2fa"
         _status["email"] = email
         _status["error"] = None
@@ -681,7 +694,7 @@ async def begin_login(email: str, password: str) -> dict:
 
     loop = asyncio.get_event_loop()
     uid = await loop.run_in_executor(None, lambda: _http_get_uid(token))
-    _save_credentials(email, password, token, uid)
+    _save_credentials(email, password, token, uid, region)
     _status["status"] = "connected"
     _status["email"] = email
     _status["error"] = None
@@ -714,9 +727,10 @@ async def verify_2fa(code: str) -> None:
         raise HTTPException(400, f"Login failed: {err}")
 
     global _reauth_in_progress
+    region = _pending.get("region", "us")
     loop = asyncio.get_event_loop()
     uid = await loop.run_in_executor(None, lambda: _http_get_uid(token))
-    _save_credentials(email, password, token, uid)
+    _save_credentials(email, password, token, uid, region)
     _status["status"] = "connected"
     _status["email"] = email
     _status["error"] = None
@@ -725,7 +739,7 @@ async def verify_2fa(code: str) -> None:
     await _connect_mqtt_for_cloud_printers(email, token)
     # Clear flag AFTER new clients are registered (same ordering as _reauthenticate)
     _reauth_in_progress = False
-    log.info("Bambu Cloud: login complete for %s", email)
+    log.info("Bambu Cloud: login complete for %s (region=%s)", email, region)
 
 
 async def logout() -> None:
@@ -747,10 +761,12 @@ async def logout() -> None:
 
 
 def get_status() -> dict:
+    creds = _load_credentials()
     return {
         "status": _status["status"],
         "email": _status["email"],
         "error": _status["error"],
+        "region": (creds or {}).get("region", "us"),
     }
 
 
@@ -805,8 +821,32 @@ def get_print_trays(serial: str) -> set[int]:
 
 
 def register_printer(printer_id: int, serial: str) -> None:
-    """Called when a printer config with a bambu_serial is saved."""
+    """Called when a printer config with a bambu_serial is saved.
+
+    Registers the serial → printer_id mapping and, if the cloud client is
+    already connected, schedules a full MQTT reconnect on the async event loop.
+    This uses the exact same code path as login so all MQTT clients are
+    properly initialised — calling _start_mqtt_for_serial directly from the
+    sync route handler thread was unreliable.
+    """
     _serial_to_printer_id[serial] = printer_id
+
+    if _status["status"] != "connected" or _loop is None:
+        return
+
+    creds = _load_credentials()
+    if not creds or not creds.get("token"):
+        return
+
+    email = creds.get("email", "")
+    token = creds.get("token", "")
+    if email and token and _is_token_valid(token):
+        log.info("Bambu Cloud: scheduling MQTT reconnect for newly registered serial %s", serial)
+        asyncio.run_coroutine_threadsafe(
+            _connect_mqtt_for_cloud_printers(email, token), _loop
+        )
+    else:
+        log.warning("Bambu Cloud: token invalid — cannot start MQTT for %s; reconnect needed", serial)
 
 
 def cancel_pending_2fa() -> None:

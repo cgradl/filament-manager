@@ -204,14 +204,16 @@ class PrinterConfig(Base):
     sensor_bed_temp       = Column(String, nullable=True)
     sensor_current_file   = Column(String, nullable=True)
     sensor_print_weight   = Column(String, nullable=True)
+    sensor_active_tray    = Column(String, nullable=True)  # sensor.{slug}_active_tray — currently loaded tray slot
+    sensor_ams_active     = Column(String, nullable=True)  # binary_sensor.{slug}_ams_1_active — Running/Not running: AMS unit 1 currently in use
 
     # Optional AMS entity pattern/suffix overrides
     # ams_tray_pattern: replaces "ams_{u}_tray_{t}" (no ams_device_slug) or "tray_{t}" (with ams_device_slug)
     # ams_suffix_*: replaces "_type" / "_color" / "_remain" suffixes (no ams_device_slug mode only)
     ams_tray_pattern  = Column(String, nullable=True)
-    ams_suffix_type   = Column(String, nullable=True)
-    ams_suffix_color  = Column(String, nullable=True)
-    ams_suffix_remain = Column(String, nullable=True)
+
+    # When True: apply suggested_usages automatically on print completion (no user confirmation needed)
+    auto_deduct = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -220,7 +222,7 @@ class PrinterConfig(Base):
     def sensor_overrides(self) -> dict:
         """Return only the printer sensor keys that have a non-empty override set."""
         keys = ("print_stage", "print_progress", "remaining_time",
-                "nozzle_temp", "bed_temp", "current_file", "print_weight")
+                "nozzle_temp", "bed_temp", "current_file", "print_weight", "active_tray", "ams_active")
         return {
             k: getattr(self, f"sensor_{k}")
             for k in keys
@@ -233,10 +235,4 @@ class PrinterConfig(Base):
         result = {}
         if self.ams_tray_pattern:
             result["tray_pattern"] = self.ams_tray_pattern
-        if self.ams_suffix_type:
-            result["suffix_type"] = self.ams_suffix_type
-        if self.ams_suffix_color:
-            result["suffix_color"] = self.ams_suffix_color
-        if self.ams_suffix_remain:
-            result["suffix_remain"] = self.ams_suffix_remain
         return result

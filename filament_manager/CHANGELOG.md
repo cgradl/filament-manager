@@ -1,5 +1,70 @@
 # Changelog
 
+## 0.10.24
+
+- Print History: added search box to filter jobs by name, printer, or spool material/color
+
+## 0.10.23
+
+- Edit Print form: removed Model File input (set automatically by print detection, not user-editable)
+- Edit Print form: Printer field is now read-only when editing an existing job (shown as static text)
+- Edit Print form: Finished At is read-only when the job already has a completion time (auto-filled by print detection)
+
+## 0.10.22
+
+- Fixed: adding a cloud printer while already connected now correctly starts MQTT — register_printer now schedules _connect_mqtt_for_cloud_printers on the async event loop (via asyncio.run_coroutine_threadsafe) instead of calling _start_mqtt_for_serial directly from the sync route handler thread, which was unreliable
+- Reconnect button: polls debug endpoint until MQTT shows connected (up to 15s) instead of a fixed 3s sleep, so the UI refreshes as soon as data is actually available
+
+## 0.10.21
+
+- Experiments tab: live status card now shows MQTT connection state (green MQTT / red not connected) per printer
+- Added "Reconnect" button that restarts all MQTT connections and waits 3s for pushall response before refreshing the UI
+- api.ts: expose mqtt_clients from debug endpoint; add bambuCloudReconnect()
+
+## 0.10.20
+
+- HA and Cloud printers: print completion now stores suggested_usages and waits for user confirmation via the Scale button — no automatic deduction without consent
+- HA printers: AMS delta (start vs end remain%) converted to suggested_usages in the same format as Cloud, including spool name and color
+- HA printers: print_weight sensor attributes (per-tray breakdown) used as fallback suggestions when no AMS snapshot was available at job start
+- New per-printer setting: "Auto-deduct filament on print completion" — when enabled, applies suggested_usages immediately without user interaction (equivalent to the old HA auto-deduct behaviour, now available for both HA and Cloud printers)
+- Added `auto_deduct` column to printer_configs with migration
+
+## 0.10.19
+
+- Prints page: active (open) print jobs now show a live status bar with stage, progress, remaining time, print weight, AMS active, and active tray — polled every 10s
+- HA printers: values read from HA sensor entities (respects custom overrides); Cloud printers: values read from MQTT cache
+- Backend: cloud printer status endpoint now also returns print_weight (gcode_file_weight), ams_active, and active_tray alongside the existing fields
+
+## 0.10.18
+
+- Hide device serial numbers in UI — shown as ••••••••XXXX (last 4 digits only) in device list, edit modal, and live status card
+
+## 0.10.17
+
+- Fixed Bambu Cloud: MQTT client now starts immediately when a cloud printer is saved while already connected — previously adding a printer after login produced no data until the next re-login or restart
+
+## 0.10.16
+
+- Fixed Bambu Cloud MQTT: added region selection (Global/US, Europe, China) to the login form
+- Region is stored in credentials and used to connect to the correct regional MQTT broker (us/eu/cn.mqtt.bambulab.com)
+- Fixed trailing comma JSON syntax error in all three locale files that caused Docker build failure
+
+## 0.10.15
+
+- Removed ams_suffix_type/color/remain fields entirely — they were dead code (assigned in get_ams_config but never referenced in entity construction; no matching entities exist in the greghesp ha-bambulab integration)
+- Removed from model, migration list, router schemas, frontend state, save payload, UI, and all locale files
+
+## 0.10.14
+
+- HA printer config: added `binary_sensor.{slug}_ams_1_active` (AMS active tray indicator) as a new configurable sensor with entity ID override support
+- HA printer config: sensor overrides for print_progress, remaining_time, nozzle_temp, bed_temp are now correctly exposed (they were always used in the status endpoint but missing from the override form)
+- Sensor override placeholder now shows the correct domain (binary_sensor vs sensor) per field
+
+## 0.10.13
+
+- Cloud printer config: removed HA-only fields (device_slug, ams_unit_count, sensor overrides, ams_tray_pattern/suffix) — backend strips them on create/update; frontend no longer sends them
+- Printer card: hide "N AMS" label for cloud printers (count is derived from MQTT data, not config)
+
 ## 0.10.12
 
 - AMS slot count is now derived from actual data instead of being hardcoded to 4 per unit

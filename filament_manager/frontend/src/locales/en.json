@@ -182,7 +182,9 @@
     "loadMore": "Load more ({{n}} remaining)",
     "saveUsage": "Save Usage",
     "gramsHint": "Enter grams used per tray. Inventory will be updated on save.",
-    "cloudSuggestion": "Values pre-filled from Bambu Cloud data — verify and adjust before saving."
+    "cloudSuggestion": "Values pre-filled from printer data — verify and adjust before saving.",
+    "search": "Search prints…",
+    "noResults": "No prints match your search."
   },
   "settings": {
     "title": "Settings",
@@ -232,6 +234,10 @@
       "statusNozzle": "Nozzle",
       "statusBed": "Bed",
       "statusFile": "File",
+      "region": "Region",
+      "regionUS": "Global / North America",
+      "regionEU": "Europe",
+      "regionCN": "China",
       "configureInExperiments": "Configure cloud source in the Experiments tab",
       "notConnectedHint": "Not connected to Bambu Lab Cloud. Go to the Experiments tab to connect first.",
       "selectDevice": "Select your printer",
@@ -266,6 +272,7 @@
       "slugHint": "e.g. my_printer",
       "amsSlugHint": "Leave blank if AMS uses same slug as printer",
       "monitorPrinter": "Monitor this printer",
+      "autoDeduct": "Auto-deduct filament on print completion",
       "loadingAMS": "Loading AMS data…",
       "noAMSData": "No AMS tray data found.",
       "amsUnit": "AMS Unit {{n}}",
@@ -285,13 +292,12 @@
       "sensor_bed_temp": "Bed Temperature",
       "sensor_current_file": "Task Name",
       "sensor_print_weight": "Print Weight (g)",
+      "sensor_active_tray": "Active Tray",
+      "sensor_ams_active": "AMS 1 In Use — Running/Not running (binary_sensor)",
       "amsEntityOverrides": "AMS Sensors",
       "amsEntityOverridesHint": "Default AMS device: {slug}_ams_{u} (e.g. my_printer_ams_1). Default tray: tray_{t}. Override here if your integration uses different names.",
       "amsTrayPattern": "Tray Entity Pattern",
-      "amsTrayPatternHint": "Replaces the tray part of the entity name. Default: tray_{t}. Use {t} for the tray number.",
-      "amsSuffixType": "Material Suffix",
-      "amsSuffixColor": "Color Suffix",
-      "amsSuffixRemain": "Remaining % Suffix"
+      "amsTrayPatternHint": "Replaces the tray part of the entity name. Default: tray_{t}. Use {t} for the tray number."
     },
     "brandWeights": {
       "title": "Brand Spool Tare Weights",

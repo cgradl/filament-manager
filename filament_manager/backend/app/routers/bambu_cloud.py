@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/bambu-cloud", tags=["bambu-cloud"])
 class LoginIn(BaseModel):
     email: str
     password: str
+    region: str = "us"
 
 
 class VerifyIn(BaseModel):
@@ -27,7 +28,7 @@ class VerifyIn(BaseModel):
 @router.post("/login")
 async def login(body: LoginIn) -> dict:
     """Initiate login. Always returns {requires_2fa: true} — a code is sent by email."""
-    return await bambu_cloud_client.begin_login(body.email, body.password)
+    return await bambu_cloud_client.begin_login(body.email, body.password, body.region)
 
 
 @router.post("/verify")

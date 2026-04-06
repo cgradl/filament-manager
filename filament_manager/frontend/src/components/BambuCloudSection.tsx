@@ -12,6 +12,7 @@ export default function BambuCloudSection() {
   const [step, setStep] = useState<'form' | '2fa'>('form')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [region, setRegion] = useState('us')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,7 +44,7 @@ export default function BambuCloudSection() {
     setError(null)
     setBusy(true)
     try {
-      const res = await api.bambuCloudLogin(email, password)
+      const res = await api.bambuCloudLogin(email, password, region)
       if (res.requires_2fa) {
         setStep('2fa')
         refetchStatus()
@@ -101,6 +102,9 @@ export default function BambuCloudSection() {
             <div className="flex items-center gap-2 text-sm text-green-400">
               <Wifi size={15} />
               <span>{t('settings.bambuCloud.connectedAs', { email: cloudStatus?.email })}</span>
+              {cloudStatus?.region && cloudStatus.region !== 'us' && (
+                <span className="text-[10px] font-mono text-gray-500 uppercase">{cloudStatus.region}</span>
+              )}
             </div>
             <button
               onClick={handleLogout}
@@ -123,7 +127,7 @@ export default function BambuCloudSection() {
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.online ? 'bg-green-400' : 'bg-gray-600'}`} />
                     <span className="font-medium">{d.name}</span>
                     <span className="text-gray-500">{d.model}</span>
-                    <span className="ml-auto text-gray-600 font-mono text-[10px]">{d.serial}</span>
+                    <span className="ml-auto text-gray-600 font-mono text-[10px]">{'•'.repeat(8)}{d.serial.slice(-4)}</span>
                   </div>
                 ))}
               </div>
@@ -211,6 +215,14 @@ export default function BambuCloudSection() {
               required
               autoComplete="current-password"
             />
+          </div>
+          <div>
+            <label className="label">{t('settings.bambuCloud.region')}</label>
+            <select className="input" value={region} onChange={e => setRegion(e.target.value)}>
+              <option value="us">{t('settings.bambuCloud.regionUS')}</option>
+              <option value="eu">{t('settings.bambuCloud.regionEU')}</option>
+              <option value="cn">{t('settings.bambuCloud.regionCN')}</option>
+            </select>
           </div>
           {error && (
             <div className="flex items-start gap-2 text-xs text-red-400">

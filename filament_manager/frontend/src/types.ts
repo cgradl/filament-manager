@@ -69,6 +69,7 @@ export interface PrinterConfig {
   ams_device_slug: string | null
   ams_unit_count: number
   is_active: boolean
+  auto_deduct: boolean
   bambu_serial: string | null
   bambu_source: string   // "ha" | "cloud"
   sensor_print_stage:    string | null
@@ -78,16 +79,16 @@ export interface PrinterConfig {
   sensor_bed_temp:       string | null
   sensor_current_file:   string | null
   sensor_print_weight:   string | null
+  sensor_active_tray:    string | null
+  sensor_ams_active:     string | null
   ams_tray_pattern:  string | null
-  ams_suffix_type:   string | null
-  ams_suffix_color:  string | null
-  ams_suffix_remain: string | null
 }
 
 export interface BambuCloudStatus {
   status: 'disconnected' | 'pending_2fa' | 'connected' | 'error'
   email: string | null
   error: string | null
+  region: string | null
 }
 
 export interface BambuCloudDevice {
@@ -132,6 +133,9 @@ export interface PrinterStatus {
   nozzle_temp: string | null
   bed_temp: string | null
   current_file: string | null
+  print_weight: string | null
+  ams_active: string | null
+  active_tray: string | null
   [key: string]: string | null
 }
 

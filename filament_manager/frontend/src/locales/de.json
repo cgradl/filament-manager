@@ -182,7 +182,9 @@
     "loadMore": "Mehr laden ({{n}} verbleibend)",
     "saveUsage": "Verbrauch speichern",
     "gramsHint": "Gramm pro Fach eingeben. Lagerbestand wird beim Speichern aktualisiert.",
-    "cloudSuggestion": "Werte aus Bambu Cloud vorausgefüllt — bitte prüfen und ggf. anpassen."
+    "cloudSuggestion": "Werte vom Drucker vorausgefüllt — bitte prüfen und ggf. anpassen.",
+    "search": "Drucke suchen…",
+    "noResults": "Keine Drucke entsprechen der Suche."
   },
   "settings": {
     "title": "Einstellungen",
@@ -232,6 +234,10 @@
       "statusNozzle": "Düse",
       "statusBed": "Bett",
       "statusFile": "Datei",
+      "region": "Region",
+      "regionUS": "Global / Nordamerika",
+      "regionEU": "Europa",
+      "regionCN": "China",
       "configureInExperiments": "Cloud-Quelle im Tab Experimente konfigurieren",
       "notConnectedHint": "Nicht mit Bambu Lab Cloud verbunden. Verbinde dich zuerst im Tab Experimente.",
       "selectDevice": "Drucker auswählen",
@@ -265,7 +271,8 @@
       "haRemaining": "HA: {{pct}}% verbleibend",
       "slugHint": "z.B. my_printer",
       "amsSlugHint": "Leer lassen wenn AMS denselben Slug wie Drucker hat",
-      "monitorPrinter": "Diesen Drucker überwachen",
+      "autoDeduct": "Filament bei Druckabschluss automatisch abziehen",
+      "monitorPrinter":"Diesen Drucker überwachen",
       "loadingAMS": "AMS-Daten werden geladen…",
       "noAMSData": "Keine AMS-Fachdaten gefunden.",
       "amsUnit": "AMS-Einheit {{n}}",
@@ -285,13 +292,12 @@
       "sensor_bed_temp": "Betttemperatur",
       "sensor_current_file": "Aufgabenname",
       "sensor_print_weight": "Druckgewicht (g)",
+      "sensor_active_tray": "Aktiver Schacht",
+      "sensor_ams_active": "AMS 1 in Verwendung — Running/Not running (binary_sensor)",
       "amsEntityOverrides": "AMS-Sensoren",
       "amsEntityOverridesHint": "Standard-AMS-Gerät: {slug}_ams_{u} (z.B. my_printer_ams_1). Standard-Schacht: tray_{t}. Hier überschreiben, falls andere Namen verwendet werden.",
       "amsTrayPattern": "Schacht-Entitätsmuster",
-      "amsTrayPatternHint": "Ersetzt den Schacht-Teil des Entitätsnamens. Standard: tray_{t}. {t} = Schachtnummer.",
-      "amsSuffixType": "Material-Suffix",
-      "amsSuffixColor": "Farbe-Suffix",
-      "amsSuffixRemain": "Verbleibend-%-Suffix"
+      "amsTrayPatternHint": "Ersetzt den Schacht-Teil des Entitätsnamens. Standard: tray_{t}. {t} = Schachtnummer."
     },
     "brandWeights": {
       "title": "Leerspulengewichte je Marke",

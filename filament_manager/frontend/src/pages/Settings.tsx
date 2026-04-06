@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype, BambuCloudStatus, BambuCloudDevice } from '../types'
-import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
+import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, Download, Upload, Wifi, WifiOff } from 'lucide-react'
 import Modal from '../components/Modal'
 import BambuCloudSection from '../components/BambuCloudSection'
 
 // ── HA Printer Form ───────────────────────────────────────────────────────────
 
-type SensorKey = 'print_stage' | 'print_progress' | 'remaining_time' | 'nozzle_temp' | 'bed_temp' | 'current_file' | 'print_weight'
+type SensorKey = 'print_stage' | 'print_progress' | 'remaining_time' | 'nozzle_temp' | 'bed_temp' | 'current_file' | 'print_weight' | 'active_tray' | 'ams_active'
 
 const SENSOR_DEFAULTS: Record<SensorKey, string> = {
   print_stage:    'current_stage',
@@ -19,6 +19,13 @@ const SENSOR_DEFAULTS: Record<SensorKey, string> = {
   bed_temp:       'bed_temperature',
   current_file:   'task_name',
   print_weight:   'print_weight',
+  active_tray:    'active_tray',
+  ams_active:     'ams_1_active',
+}
+
+// Keys whose entity domain is not 'sensor' — used to build the placeholder hint
+const SENSOR_DOMAINS: Partial<Record<SensorKey, string>> = {
+  ams_active: 'binary_sensor',
 }
 
 /** HA printer form content (no modal shell — shell provided by AddPrinterModal or edit wrapper). */
@@ -41,6 +48,7 @@ function HAprinterFormContent({
   )
   const [amsCount, setAmsCount] = useState(initial?.ams_unit_count ?? 1)
   const [isActive, setIsActive] = useState(initial?.is_active ?? true)
+  const [autoDeduct, setAutoDeduct] = useState(initial?.auto_deduct ?? false)
   const [discovery, setDiscovery] = useState<DiscoverResult | null>(null)
   const [discovering, setDiscovering] = useState(false)
   const [showSensors, setShowSensors] = useState(false)
@@ -52,11 +60,10 @@ function HAprinterFormContent({
     bed_temp:       initial?.sensor_bed_temp       ?? '',
     current_file:   initial?.sensor_current_file   ?? '',
     print_weight:   initial?.sensor_print_weight   ?? '',
+    active_tray:    initial?.sensor_active_tray    ?? '',
+    ams_active:     initial?.sensor_ams_active     ?? '',
   })
-  const [amsTrayPattern,  setAmsTrayPattern]  = useState(initial?.ams_tray_pattern  ?? '')
-  const [amsSuffixType,   setAmsSuffixType]   = useState(initial?.ams_suffix_type   ?? '')
-  const [amsSuffixColor,  setAmsSuffixColor]  = useState(initial?.ams_suffix_color  ?? '')
-  const [amsSuffixRemain, setAmsSuffixRemain] = useState(initial?.ams_suffix_remain ?? '')
+  const [amsTrayPattern, setAmsTrayPattern] = useState(initial?.ams_tray_pattern ?? '')
 
   const haSlugify = (s: string) =>
     s.toLowerCase().trim()
@@ -199,6 +206,11 @@ function HAprinterFormContent({
           {t('settings.printers.monitorPrinter')}
         </label>
 
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" checked={autoDeduct} onChange={e => setAutoDeduct(e.target.checked)} />
+          {t('settings.printers.autoDeduct')}
+        </label>
+
         {/* Custom sensor entity ID overrides */}
         <div>
           <button
@@ -220,7 +232,7 @@ function HAprinterFormContent({
                     className="input text-xs"
                     value={sensorOverrides[key] ?? ''}
                     onChange={e => setSensorOverrides(prev => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={`sensor.${slug || '…'}_${SENSOR_DEFAULTS[key]}`}
+                    placeholder={`${SENSOR_DOMAINS[key] ?? 'sensor'}.${slug || '…'}_${SENSOR_DEFAULTS[key]}`}
                   />
                 </div>
               ))}
@@ -256,18 +268,6 @@ function HAprinterFormContent({
                   <p className="text-[10px] text-gray-600 mt-0.5">{t('settings.printers.amsTrayPatternHint')}</p>
                 </div>
 
-                <div className="mt-2">
-                  <label className="label text-xs">{t('settings.printers.amsSuffixType')}</label>
-                  <input className="input text-xs" value={amsSuffixType} onChange={e => setAmsSuffixType(e.target.value)} placeholder="_type" />
-                </div>
-                <div className="mt-2">
-                  <label className="label text-xs">{t('settings.printers.amsSuffixColor')}</label>
-                  <input className="input text-xs" value={amsSuffixColor} onChange={e => setAmsSuffixColor(e.target.value)} placeholder="_color" />
-                </div>
-                <div className="mt-2">
-                  <label className="label text-xs">{t('settings.printers.amsSuffixRemain')}</label>
-                  <input className="input text-xs" value={amsSuffixRemain} onChange={e => setAmsSuffixRemain(e.target.value)} placeholder="_remain" />
-                </div>
               </div>
             </div>
           )}
@@ -284,6 +284,7 @@ function HAprinterFormContent({
             ams_device_slug: amsSlug !== slug ? amsSlug : null,
             ams_unit_count: amsCount,
             is_active: isActive,
+            auto_deduct: autoDeduct,
             bambu_source: 'ha',
             sensor_print_stage:    sensorOverrides.print_stage    || null,
             sensor_print_progress: sensorOverrides.print_progress || null,
@@ -292,10 +293,9 @@ function HAprinterFormContent({
             sensor_bed_temp:       sensorOverrides.bed_temp       || null,
             sensor_current_file:   sensorOverrides.current_file   || null,
             sensor_print_weight:   sensorOverrides.print_weight   || null,
-            ams_tray_pattern:  amsTrayPattern  || null,
-            ams_suffix_type:   amsSuffixType   || null,
-            ams_suffix_color:  amsSuffixColor  || null,
-            ams_suffix_remain: amsSuffixRemain || null,
+            sensor_active_tray:    sensorOverrides.active_tray    || null,
+            sensor_ams_active:     sensorOverrides.ams_active     || null,
+            ams_tray_pattern:  amsTrayPattern || null,
           })}
           disabled={!name.trim() || !deviceName.trim()}
         >
@@ -325,6 +325,7 @@ function CloudPrinterFormContent({
   const [selectedSerial, setSelectedSerial] = useState(initial?.bambu_serial ?? '')
   const [name, setName] = useState(initial?.name ?? '')
   const [isActive, setIsActive] = useState(initial?.is_active ?? true)
+  const [autoDeduct, setAutoDeduct] = useState(initial?.auto_deduct ?? false)
   const [activeAmsUnit, setActiveAmsUnit] = useState(1)
 
   const isConnected = cloudStatus?.status === 'connected'
@@ -420,7 +421,7 @@ function CloudPrinterFormContent({
                     <option value="">{t('settings.bambuCloud.selectDevice')}…</option>
                     {availableDevices.map(d => (
                       <option key={d.serial} value={d.serial}>
-                        {d.name}  {d.model}  ({d.serial})
+                        {d.name}  {d.model}
                       </option>
                     ))}
                   </select>
@@ -429,7 +430,7 @@ function CloudPrinterFormContent({
             ) : (
               <div className="flex items-center gap-2 text-xs bg-surface-3/40 rounded-lg px-3 py-2">
                 <span className="text-gray-400">{t('settings.bambuCloud.serial')}:</span>
-                <span className="font-mono text-gray-300">{initial.bambu_serial}</span>
+                <span className="font-mono text-gray-300">{'•'.repeat(8)}{initial.bambu_serial?.slice(-4)}</span>
                 <span className="text-gray-600 text-[10px] ml-1">(locked)</span>
               </div>
             )}
@@ -442,6 +443,11 @@ function CloudPrinterFormContent({
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
               {t('settings.printers.monitorPrinter')}
+            </label>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={autoDeduct} onChange={e => setAutoDeduct(e.target.checked)} />
+              {t('settings.printers.autoDeduct')}
             </label>
 
             {/* Live preview when a device is selected */}
@@ -510,11 +516,10 @@ function CloudPrinterFormContent({
           className="btn-primary"
           onClick={() => onSave({
             name: name.trim(),
-            device_slug: '',
             bambu_serial: selectedSerial,
             bambu_source: 'cloud',
-            ams_unit_count: amsUnits.length || 1,
             is_active: isActive,
+            auto_deduct: autoDeduct,
           })}
           disabled={!canSave}
         >
@@ -859,7 +864,7 @@ function PrinterCard({ printer, onEdit, onDelete }: {
               stage === 'finish' ? 'bg-green-900 text-green-300' :
               'bg-surface-3 text-gray-400'
             }`}>{stage}</span>
-            <span className="text-xs text-gray-500">{printer.ams_unit_count} AMS</span>
+            {!isCloud && <span className="text-xs text-gray-500">{printer.ams_unit_count} AMS</span>}
           </div>
         </div>
         <div className="flex gap-1 shrink-0">
@@ -1239,6 +1244,8 @@ type DataSubTab = 'brandWeights' | 'brands' | 'materials' | 'subtypes' | 'locati
 
 function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
   const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [reconnecting, setReconnecting] = useState(false)
 
   const { data: status, refetch, isFetching } = useQuery({
     queryKey: ['cloud-status', printer.bambu_serial],
@@ -1247,14 +1254,14 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
     enabled: !!printer.bambu_serial,
   })
 
-  const { data: trays } = useQuery({
+  const { data: trays, refetch: refetchTrays } = useQuery({
     queryKey: ['cloud-ams', printer.bambu_serial],
     queryFn: () => api.getBambuCloudPrinterAMS(printer.bambu_serial!),
     refetchInterval: 10_000,
     enabled: !!printer.bambu_serial,
   })
 
-  const { data: debugInfo } = useQuery({
+  const { data: debugInfo, refetch: refetchDebug } = useQuery({
     queryKey: ['cloud-debug'],
     queryFn: () => api.getBambuCloudDebug(),
     refetchInterval: 10_000,
@@ -1265,6 +1272,38 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
   const rawAmsCache = printer.bambu_serial && debugInfo?.ams_cache
     ? debugInfo.ams_cache[printer.bambu_serial] ?? {}
     : {}
+
+  // MQTT connection status for this serial
+  const mqttInfo = printer.bambu_serial && debugInfo?.mqtt_clients
+    ? debugInfo.mqtt_clients[printer.bambu_serial] ?? null
+    : null
+  const mqttConnected = mqttInfo?.connected === true
+
+  const handleReconnect = async () => {
+    setReconnecting(true)
+    try {
+      await api.bambuCloudReconnect()
+      // Poll debug endpoint until MQTT shows connected for this serial (max 15s)
+      const serial = printer.bambu_serial
+      if (serial) {
+        for (let i = 0; i < 15; i++) {
+          await new Promise(r => setTimeout(r, 1000))
+          const dbg = await api.getBambuCloudDebug()
+          if (dbg.mqtt_clients?.[serial]?.connected) break
+        }
+      }
+      await Promise.all([refetch(), refetchTrays(), refetchDebug()])
+      qc.invalidateQueries({ queryKey: ['printer-ams'] })
+    } finally {
+      setReconnecting(false)
+    }
+  }
+
+  const handleRefreshAll = () => {
+    refetch()
+    refetchTrays()
+    refetchDebug()
+  }
 
   const [activeUnit, setActiveUnit] = useState(1)
   const [showRaw, setShowRaw] = useState(false)
@@ -1297,11 +1336,30 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="font-semibold text-white">{printer.name}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{printer.bambu_serial ?? t('settings.bambuCloud.serialPlaceholder')}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-gray-500">{'•'.repeat(8)}{printer.bambu_serial?.slice(-4) ?? '—'}</p>
+            {/* MQTT connection indicator */}
+            {mqttInfo !== null && (
+              mqttConnected
+                ? <span className="flex items-center gap-1 text-[10px] text-green-400"><Wifi size={10} /> MQTT</span>
+                : <span className="flex items-center gap-1 text-[10px] text-red-400"><WifiOff size={10} /> not connected</span>
+            )}
+          </div>
         </div>
-        <button className="btn-ghost p-1" onClick={() => refetch()} title="Refresh">
-          <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            className="btn-ghost p-1 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+            onClick={handleReconnect}
+            disabled={reconnecting}
+            title="Reconnect MQTT and request fresh data"
+          >
+            <RefreshCw size={11} className={reconnecting ? 'animate-spin' : ''} />
+            {reconnecting ? 'Connecting…' : 'Reconnect'}
+          </button>
+          <button className="btn-ghost p-1" onClick={handleRefreshAll} title="Refresh cache">
+            <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {/* Printer sensor values */}
@@ -1320,6 +1378,49 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
         </div>
       ) : (
         <p className="text-xs text-gray-500 mb-3">{t('settings.bambuCloud.noStatusData')}</p>
+      )}
+
+      {/* AMS tray values — grouped by unit */}
+      {trays && trays.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <p className="text-xs font-medium text-gray-400">{t('settings.printers.amsAssignment')}</p>
+            {amsUnits.length > 1 && (
+              <div className="flex rounded overflow-hidden border border-surface-3 text-xs">
+                {amsUnits.map(u => (
+                  <button
+                    key={u}
+                    onClick={() => setActiveUnit(u)}
+                    className={`px-2.5 py-0.5 transition-colors ${
+                      visibleUnit === u ? 'bg-blue-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    AMS {u}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="space-y-1">
+            {trays
+              .filter(tr => {
+                const m = tr.slot_key.match(/^ams(\d+)_/)
+                return m ? parseInt(m[1]) === visibleUnit : true
+              })
+              .map(tray => (
+                <div key={tray.slot_key} className="flex items-center gap-2 bg-surface-3/40 rounded-lg px-3 py-1.5 text-xs">
+                  <span className="font-mono text-gray-400 w-20 shrink-0">{tray.slot_key}</span>
+                  {tray.ha_color_hex ? (
+                    <span className="w-3 h-3 rounded-full border border-white/20 shrink-0" style={{ background: tray.ha_color_hex }} />
+                  ) : (
+                    <span className="w-3 h-3 rounded-full bg-surface-3 border border-white/10 shrink-0" />
+                  )}
+                  <span className="text-gray-300 flex-1">{tray.ha_material ?? '—'}</span>
+                  <span className="text-gray-400">{tray.ha_remaining != null ? `${tray.ha_remaining}%` : '—'}</span>
+                </div>
+              ))}
+          </div>
+        </div>
       )}
 
       {/* Raw MQTT cache dump */}
@@ -1371,49 +1472,6 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
           </div>
         )}
       </div>
-
-      {/* AMS tray values — grouped by unit */}
-      {trays && trays.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <p className="text-xs font-medium text-gray-400">{t('settings.printers.amsAssignment')}</p>
-            {amsUnits.length > 1 && (
-              <div className="flex rounded overflow-hidden border border-surface-3 text-xs">
-                {amsUnits.map(u => (
-                  <button
-                    key={u}
-                    onClick={() => setActiveUnit(u)}
-                    className={`px-2.5 py-0.5 transition-colors ${
-                      visibleUnit === u ? 'bg-blue-700 text-white' : 'text-gray-400 hover:text-gray-200'
-                    }`}
-                  >
-                    AMS {u}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="space-y-1">
-            {trays
-              .filter(tr => {
-                const m = tr.slot_key.match(/^ams(\d+)_/)
-                return m ? parseInt(m[1]) === visibleUnit : true
-              })
-              .map(tray => (
-                <div key={tray.slot_key} className="flex items-center gap-2 bg-surface-3/40 rounded-lg px-3 py-1.5 text-xs">
-                  <span className="font-mono text-gray-400 w-20 shrink-0">{tray.slot_key}</span>
-                  {tray.ha_color_hex ? (
-                    <span className="w-3 h-3 rounded-full border border-white/20 shrink-0" style={{ background: tray.ha_color_hex }} />
-                  ) : (
-                    <span className="w-3 h-3 rounded-full bg-surface-3 border border-white/10 shrink-0" />
-                  )}
-                  <span className="text-gray-300 flex-1">{tray.ha_material ?? '—'}</span>
-                  <span className="text-gray-400">{tray.ha_remaining != null ? `${tray.ha_remaining}%` : '—'}</span>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

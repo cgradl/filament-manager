@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { PrintJob, Spool, AMSTray, PrinterConfig, SuggestedUsage } from '../types'
-import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download } from 'lucide-react'
+import type { PrintJob, Spool, AMSTray, PrinterConfig, SuggestedUsage, PrinterStatus } from '../types'
+import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search } from 'lucide-react'
 import Modal from '../components/Modal'
 import { format } from 'date-fns'
 
@@ -135,11 +135,6 @@ function PrintForm({
               placeholder={t('prints.form.namePlaceholder')} />
           </div>
           <div>
-            <label className="label">{t('prints.form.modelFile')}</label>
-            <input className="input" value={modelName} onChange={e => setModelName(e.target.value)}
-              placeholder={t('prints.form.modelPlaceholder')} />
-          </div>
-          <div>
             <label className="label">{t('prints.form.description')}</label>
             <input className="input" value={description} onChange={e => setDescription(e.target.value)} />
           </div>
@@ -151,7 +146,13 @@ function PrintForm({
             </div>
             <div>
               <label className="label">{t('prints.form.finishedAt')}</label>
-              <input className="input" type="datetime-local" value={finishedAt} onChange={e => setFinishedAt(e.target.value)} />
+              <input
+                className={`input ${initial?.finished_at ? 'opacity-60' : ''}`}
+                type="datetime-local"
+                value={finishedAt}
+                onChange={e => setFinishedAt(e.target.value)}
+                readOnly={!!initial?.finished_at}
+              />
             </div>
           </div>
 
@@ -163,16 +164,22 @@ function PrintForm({
             </div>
             <div>
               <label className="label">{t('prints.form.printer')}</label>
-              <select
-                className="input"
-                value={printerId}
-                onChange={e => setPrinterId(e.target.value ? Number(e.target.value) : '')}
-              >
-                <option value="">{t('common.none')}</option>
-                {printers.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              {initial ? (
+                <p className="input opacity-60 cursor-default select-none">
+                  {initial.printer_name ?? t('common.none')}
+                </p>
+              ) : (
+                <select
+                  className="input"
+                  value={printerId}
+                  onChange={e => setPrinterId(e.target.value ? Number(e.target.value) : '')}
+                >
+                  <option value="">{t('common.none')}</option>
+                  {printers.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
@@ -374,10 +381,52 @@ function LogUsageModal({
   )
 }
 
+// ── Live status bar for active (open) print jobs ──────────────────────────────
+
+const LIVE_LABELS: Record<string, string> = {
+  print_stage:    'Stage',
+  print_progress: 'Progress',
+  remaining_time: 'Remaining',
+  print_weight:   'Weight',
+  ams_active:     'AMS active',
+  active_tray:    'Tray',
+}
+const LIVE_UNITS: Record<string, string> = {
+  print_progress: '%',
+  remaining_time: ' min',
+  print_weight:   'g',
+}
+const LIVE_KEYS = ['print_stage', 'print_progress', 'remaining_time', 'print_weight', 'ams_active', 'active_tray'] as const
+
+function LivePrintStatus({ printerId }: { printerId: number }) {
+  const { data: status } = useQuery<PrinterStatus>({
+    queryKey: ['printer-status-live', printerId],
+    queryFn: () => api.getPrinterStatus(printerId),
+    refetchInterval: 10_000,
+  })
+
+  const entries = status
+    ? LIVE_KEYS.map(k => [k, status[k]] as [string, string | null]).filter(([, v]) => v != null && v !== '')
+    : []
+
+  if (entries.length === 0) return null
+
+  return (
+    <div className="mt-2 pt-2 border-t border-surface-3 flex flex-wrap gap-x-4 gap-y-0.5">
+      {entries.map(([key, val]) => (
+        <span key={key} className="text-xs text-gray-500">
+          {LIVE_LABELS[key]}: <span className="text-gray-300">{val}{LIVE_UNITS[key] ?? ''}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 // ── Print Row ─────────────────────────────────────────────────────────────────
 
-function PrintRow({ job, onEdit, onDelete, onLogUsage }: {
+function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
   job: PrintJob
+  printer: PrinterConfig | null
   onEdit: () => void
   onDelete: () => void
   onLogUsage: () => void
@@ -433,6 +482,11 @@ function PrintRow({ job, onEdit, onDelete, onLogUsage }: {
         </div>
       </div>
 
+      {/* Live status — always visible for active (open) jobs that have a known printer */}
+      {!job.finished_at && printer && (
+        <LivePrintStatus printerId={printer.id} />
+      )}
+
       {expanded && job.usages.length > 0 && (
         <div className="mt-3 pt-3 border-t border-surface-3 space-y-1">
           {job.usages.map(u => (
@@ -469,6 +523,7 @@ export default function Prints() {
   const [loggingUsage, setLoggingUsage] = useState<PrintJob | null>(null)
   const [page, setPage] = useState(0)
   const [shown, setShown] = useState<PrintJob[]>([])
+  const [search, setSearch] = useState('')
 
   const { data: total } = useQuery({
     queryKey: ['prints-count'],
@@ -494,6 +549,11 @@ export default function Prints() {
     queryFn: () => api.getSpools(),
   })
 
+  const { data: printers = [] } = useQuery<PrinterConfig[]>({
+    queryKey: ['printers'],
+    queryFn: api.getPrinters,
+  })
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['prints'] })
     qc.invalidateQueries({ queryKey: ['prints-count'] })
@@ -513,34 +573,65 @@ export default function Prints() {
   const totalCount = total?.total ?? 0
   const hasMore = shown.length < totalCount
 
-  const totalGrams = shown.reduce((s, j) => s + j.total_grams, 0)
-  const totalCost  = shown.reduce((s, j) => s + j.total_cost, 0)
+  const needle = search.trim().toLowerCase()
+  const filtered = needle
+    ? shown.filter(j => {
+        if (j.name.toLowerCase().includes(needle)) return true
+        if (j.printer_name?.toLowerCase().includes(needle)) return true
+        if (j.usages.some(u =>
+          u.spool && (
+            `${u.spool.brand} ${u.spool.material}`.toLowerCase().includes(needle) ||
+            u.spool.color_name.toLowerCase().includes(needle)
+          )
+        )) return true
+        return false
+      })
+    : shown
+
+  const totalGrams = filtered.reduce((s, j) => s + j.total_grams, 0)
+  const totalCost  = filtered.reduce((s, j) => s + j.total_cost, 0)
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-bold">
-            {t('prints.history')} ({shown.length}{totalCount > shown.length ? ` of ${totalCount}` : ''})
+            {t('prints.history')} ({needle ? `${filtered.length} of ` : ''}{shown.length}{totalCount > shown.length ? ` of ${totalCount}` : ''})
           </h2>
-          {shown.length > 0 && (
+          {filtered.length > 0 && (
             <p className="text-xs text-gray-500">
               {totalGrams.toFixed(0)}g · €{totalCost.toFixed(2)}
             </p>
           )}
         </div>
-        <button className="btn-primary flex items-center gap-1.5" onClick={() => setShowForm(true)}>
-          <Plus size={14} /> {t('prints.logPrint')}
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            <input
+              className="input pl-7 py-1.5 text-sm w-48"
+              placeholder={t('prints.search')}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <button className="btn-primary flex items-center gap-1.5" onClick={() => setShowForm(true)}>
+            <Plus size={14} /> {t('prints.logPrint')}
+          </button>
+        </div>
       </div>
 
       {isLoading && shown.length === 0 && <p className="text-gray-500 text-sm">{t('common.loading')}</p>}
 
+      {needle && filtered.length === 0 && shown.length > 0 && (
+        <p className="text-sm text-gray-500">{t('prints.noResults')}</p>
+      )}
+
       <div className="space-y-2">
-        {shown.map(job => (
+        {filtered.map(job => (
           <PrintRow
             key={job.id}
             job={job}
+            printer={printers.find(p => p.name === job.printer_name) ?? null}
             onEdit={() => setEditing(job)}
             onDelete={() => { if (confirm(t('prints.confirmDelete', { name: job.name }))) deleteMut.mutate(job.id) }}
             onLogUsage={() => setLoggingUsage(job)}

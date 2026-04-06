@@ -13,15 +13,33 @@ router = APIRouter(prefix="/api/printers", tags=["printers"])
 
 # ── Schemas (inline — simpler than a separate file for this small resource) ───
 
+_HA_ONLY_FIELDS = (
+    "ams_device_slug",
+    "ams_unit_count",
+    "sensor_print_stage",
+    "sensor_print_progress",
+    "sensor_remaining_time",
+    "sensor_nozzle_temp",
+    "sensor_bed_temp",
+    "sensor_current_file",
+    "sensor_print_weight",
+    "sensor_active_tray",
+    "sensor_ams_active",
+    "ams_tray_pattern",
+)
+
+
 class PrinterIn(BaseModel):
     name: str
-    device_slug: str
+    # HA-only: device slug is required for HA printers; ignored for cloud printers
+    device_slug: str = ""
     ams_device_slug: str | None = None
     ams_unit_count: int = 1
     is_active: bool = True
+    auto_deduct: bool = False
     bambu_serial: str | None = None
     bambu_source: str = "ha"
-    # Per-printer sensor entity ID overrides (empty string = use default)
+    # Per-printer sensor entity ID overrides — HA only, ignored for cloud
     sensor_print_stage:    str | None = None
     sensor_print_progress: str | None = None
     sensor_remaining_time: str | None = None
@@ -29,18 +47,17 @@ class PrinterIn(BaseModel):
     sensor_bed_temp:       str | None = None
     sensor_current_file:   str | None = None
     sensor_print_weight:   str | None = None
-    # AMS entity pattern/suffix overrides
+    sensor_active_tray:    str | None = None  # sensor.{slug}_active_tray override
+    sensor_ams_active:     str | None = None  # binary_sensor.{slug}_ams_1_active override
+    # AMS entity overrides — HA only, ignored for cloud
     ams_tray_pattern:  str | None = None
-    ams_suffix_type:   str | None = None
-    ams_suffix_color:  str | None = None
-    ams_suffix_remain: str | None = None
 
     def model_post_init(self, __context) -> None:
         # Normalise empty strings to None so they're not stored as overrides
         for field in ("sensor_print_stage", "sensor_print_progress", "sensor_remaining_time",
                       "sensor_nozzle_temp", "sensor_bed_temp", "sensor_current_file",
-                      "sensor_print_weight",
-                      "ams_tray_pattern", "ams_suffix_type", "ams_suffix_color", "ams_suffix_remain"):
+                      "sensor_print_weight", "sensor_active_tray", "sensor_ams_active",
+                      "ams_tray_pattern"):
             if isinstance(getattr(self, field), str) and not getattr(self, field).strip():
                 setattr(self, field, None)
 
@@ -52,6 +69,7 @@ class PrinterOut(BaseModel):
     ams_device_slug: str | None
     ams_unit_count: int
     is_active: bool
+    auto_deduct: bool
     bambu_serial: str | None
     bambu_source: str
     sensor_print_stage:    str | None
@@ -61,10 +79,9 @@ class PrinterOut(BaseModel):
     sensor_bed_temp:       str | None
     sensor_current_file:   str | None
     sensor_print_weight:   str | None
+    sensor_active_tray:    str | None
+    sensor_ams_active:     str | None
     ams_tray_pattern:  str | None
-    ams_suffix_type:   str | None
-    ams_suffix_color:  str | None
-    ams_suffix_remain: str | None
 
     class Config:
         from_attributes = True
@@ -473,7 +490,13 @@ def list_printers(db: Session = Depends(get_db)):
 @router.post("", response_model=PrinterOut, status_code=201)
 def create_printer(body: PrinterIn, db: Session = Depends(get_db)):
     from .. import bambu_cloud_client
-    p = PrinterConfig(**body.model_dump())
+    data = body.model_dump()
+    if data.get("bambu_source") == "cloud":
+        # Cloud printers have no HA entities — null out all HA-only fields
+        for field in _HA_ONLY_FIELDS:
+            data[field] = None if field != "ams_unit_count" else 1
+        data["device_slug"] = ""  # NOT NULL column — keep empty string
+    p = PrinterConfig(**data)
     db.add(p)
     db.commit()
     db.refresh(p)
@@ -497,7 +520,13 @@ def update_printer(printer_id: int, body: PrinterIn, db: Session = Depends(get_d
     p = db.get(PrinterConfig, printer_id)
     if not p:
         raise HTTPException(404, "Printer not found")
-    for k, v in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    if data.get("bambu_source", p.bambu_source) == "cloud":
+        # Strip any HA-only fields that may have been sent — they have no meaning for cloud printers
+        for field in _HA_ONLY_FIELDS:
+            data.pop(field, None)
+        data["device_slug"] = ""
+    for k, v in data.items():
         setattr(p, k, v)
     p.updated_at = datetime.utcnow()
     db.commit()
@@ -526,6 +555,17 @@ async def get_printer_status(printer_id: int, db: Session = Depends(get_db)):
     if getattr(p, "bambu_source", "ha") == "cloud":
         from .. import bambu_cloud_client
         raw = bambu_cloud_client.get_printer_cloud_status(p.bambu_serial)
+        # active_tray: convert 0-based tray_now index → slot key (e.g. ams1_tray2)
+        active_tray = None
+        tray_now = raw.get("tray_now")
+        if tray_now is not None:
+            try:
+                idx = int(tray_now)
+                active_tray = bambu_cloud_client._ams_index_to_slot_key(
+                    idx, bambu_cloud_client.get_ams_unit_tray_counts(p.bambu_serial)
+                )
+            except (ValueError, TypeError):
+                pass
         return {
             "print_stage":    raw.get("gcode_state"),
             "print_progress": str(raw["mc_percent"]) if raw.get("mc_percent") is not None else None,
@@ -533,6 +573,9 @@ async def get_printer_status(printer_id: int, db: Session = Depends(get_db)):
             "nozzle_temp":    str(raw["nozzle_temper"]) if raw.get("nozzle_temper") is not None else None,
             "bed_temp":       str(raw["bed_temper"]) if raw.get("bed_temper") is not None else None,
             "current_file":   raw.get("subtask_name"),
+            "print_weight":   str(raw["gcode_file_weight"]) if raw.get("gcode_file_weight") is not None else None,
+            "ams_active":     None,  # HA binary_sensor concept; not available directly in MQTT
+            "active_tray":    active_tray,
         }
 
     entities = await ha_client.resolve_printer_entity_ids(

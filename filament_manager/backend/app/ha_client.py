@@ -10,7 +10,7 @@ _TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 
 # Entity suffixes used by the greghesp Bambu Lab HA integration (English defaults).
 # Used as the last-resort fallback when neither the entity registry nor manual overrides
-# resolve an entity ID.
+# resolve an entity ID.  All produce sensor.{slug}_{suffix} entity IDs.
 _PRINTER_SUFFIXES = {
     "print_stage":    "current_stage",
     "print_progress": "print_progress",
@@ -19,6 +19,12 @@ _PRINTER_SUFFIXES = {
     "bed_temp":       "bed_temperature",
     "current_file":   "task_name",
     "print_weight":   "print_weight",
+    "active_tray":    "active_tray",    # sensor.{slug}_active_tray — currently loaded tray slot
+}
+
+# Binary sensor suffixes — produce binary_sensor.{slug}_{suffix} entity IDs.
+_PRINTER_BINARY_SUFFIXES = {
+    "ams_active": "ams_1_active",   # binary_sensor.{slug}_ams_1_active — Running/Not running (AMS unit 1 in use)
 }
 
 # Maps ha-bambulab sensor `key` (in definitions.py / unique_id suffix) → our internal key.
@@ -53,12 +59,13 @@ def slugify(name: str) -> str:
 
 def get_printer_entity_ids(device_slug: str, sensor_overrides: dict | None = None) -> dict[str, str]:
     """
-    Return the effective entity_id for each printer sensor.
+    Return the effective entity_id for each printer sensor / binary sensor.
     Any key present in sensor_overrides replaces the auto-computed default,
     allowing users with non-English HA installations (or renamed entities) to
     specify their actual entity IDs.
     """
     result = {k: f"sensor.{device_slug}_{v}" for k, v in _PRINTER_SUFFIXES.items()}
+    result.update({k: f"binary_sensor.{device_slug}_{v}" for k, v in _PRINTER_BINARY_SUFFIXES.items()})
     if sensor_overrides:
         for k, v in sensor_overrides.items():
             if v and v.strip():
@@ -143,10 +150,7 @@ def get_ams_config(
     Use {u} and {t} as unit/tray placeholders inside tray_pattern.
     """
     ov = ams_overrides or {}
-    tray_pattern  = ov.get("tray_pattern") or "tray_{t}"
-    suffix_type   = ov.get("suffix_type")   or "_type"
-    suffix_color  = ov.get("suffix_color")  or "_color"
-    suffix_remain = ov.get("suffix_remain") or "_remain"
+    tray_pattern = ov.get("tray_pattern") or "tray_{t}"
 
     units = []
     for u in range(1, ams_unit_count + 1):
