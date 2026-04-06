@@ -8,7 +8,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { enUS, de, es, type Locale } from 'date-fns/locale'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, Legend,
+  PieChart, Pie, Legend, CartesianGrid,
 } from 'recharts'
 
 const LOCALE_MAP: Record<string, Locale> = { en: enUS, de, es }
@@ -192,7 +192,7 @@ function PrintRow({ job }: { job: PrintJob }) {
 
 // ── Chart section ─────────────────────────────────────────────────────────────
 
-type ChartTab = 'materials' | 'cost' | 'weight' | 'location'
+type ChartTab = 'materials' | 'cost' | 'weight' | 'location' | 'timeline'
 
 function ChartSection({ stats }: { stats: DashboardStats }) {
   const { t } = useTranslation()
@@ -203,6 +203,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
     { key: 'cost',      label: t('dashboard.tabs.cost') },
     { key: 'weight',    label: t('dashboard.tabs.weight') },
     { key: 'location',  label: t('dashboard.tabs.location') },
+    { key: 'timeline',  label: t('dashboard.tabs.timeline') },
   ]
 
   const pieData = stats.material_breakdown.map((m, i) => ({
@@ -335,6 +336,65 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
               </BarChart>
             </ResponsiveContainer>
       )}
+
+      {tab === 'timeline' && (
+        stats.prints_per_day.length === 0
+          ? <p className="text-sm text-gray-500">{t('dashboard.noPrints')}</p>
+          : (() => {
+              const data = stats.prints_per_day
+              const total = data.length
+              const minGap = Math.max(1, Math.floor(total / 24))
+              let lastMonth = ''
+              const tickFormatter = (dateStr: string, index: number) => {
+                if (index % minGap !== 0) return ''
+                const month = dateStr.slice(0, 7)
+                if (month === lastMonth) return ''
+                lastMonth = month
+                const d = new Date(dateStr + 'T00:00:00')
+                return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })
+              }
+              return (
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={data} barSize={total > 180 ? 2 : total > 60 ? 4 : 8} barCategoryGap={1}>
+                    <CartesianGrid vertical={false} stroke="#2c2c2e" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: '#9ca3af', fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={tickFormatter}
+                      interval={0}
+                    />
+                    <YAxis
+                      tick={{ fill: '#9ca3af', fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      allowDecimals={false}
+                      width={24}
+                    />
+                    <Tooltip
+                      contentStyle={TT_STYLE}
+                      labelStyle={TT_LABEL}
+                      itemStyle={TT_ITEM}
+                      labelFormatter={(label: string) =>
+                        new Date(label + 'T00:00:00').toLocaleDateString(undefined, {
+                          weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+                        })
+                      }
+                      formatter={(v: number) => [v === 1 ? '1 print' : `${v} prints`, '']}
+                      separator=""
+                    />
+                    <Bar dataKey="count" radius={[2, 2, 0, 0]}>
+                      {data.map((entry, i) => (
+                        <Cell key={i} fill={entry.count === 0 ? '#1e293b' : '#3b82f6'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )
+            })()
+      )}
+
     </div>
   )
 }

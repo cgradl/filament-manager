@@ -61,7 +61,8 @@
       "cost": "Coste (€)",
       "weight": "Filamento (kg)",
       "location": "Precio medio / Lugar",
-      "printers": "Horas / Impresora"
+      "printers": "Horas / Impresora",
+      "timeline": "Impresiones / Día"
     },
     "chart": {
       "purchased": "Comprado",

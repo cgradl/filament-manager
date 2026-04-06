@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.29
+
+- Dashboard: added "Prints / Day" timeline chart tab showing a bar per day from first print to today; days with no prints show as dark zero bars; month labels auto-space to avoid overlap
+
 ## 0.10.28
 
 - Settings: "Import from Bambu Cloud" button is now always visible in the Export/Import tab; disabled (greyed out) when not connected to Bambu Cloud instead of hidden

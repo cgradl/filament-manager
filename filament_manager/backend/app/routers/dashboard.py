@@ -1,10 +1,11 @@
 from collections import defaultdict
+from datetime import date, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..models import Spool, PrintJob, PrintUsage, PrinterConfig
-from ..schemas import DashboardStats, MaterialBreakdown, PriceByLocation, PrinterHours, PrintJobOut, SpoolOut
+from ..schemas import DashboardStats, MaterialBreakdown, PriceByLocation, PrinterHours, PrintJobOut, SpoolOut, PrintsPerDay
 from .. import ha_client
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -110,6 +111,19 @@ async def get_dashboard(db: Session = Depends(get_db)):
     # Running job: most recent open print (no finished_at)
     running_job = next((j for j in jobs if j.finished_at is None), None)
 
+    # Prints per day: from first job date to today, filling gaps with 0
+    prints_per_day: list[PrintsPerDay] = []
+    if jobs:
+        day_counts: dict[date, int] = defaultdict(int)
+        for j in jobs:
+            day_counts[j.started_at.date()] += 1
+        first_date = min(day_counts.keys())
+        today = date.today()
+        current = first_date
+        while current <= today:
+            prints_per_day.append(PrintsPerDay(date=current.isoformat(), count=day_counts.get(current, 0)))
+            current += timedelta(days=1)
+
     return DashboardStats(
         total_spools=len(spools),
         active_spools=len(active_spools),
@@ -128,6 +142,7 @@ async def get_dashboard(db: Session = Depends(get_db)):
         recent_prints=jobs[:5],
         low_stock=sorted(low_stock, key=lambda s: s.remaining_pct),
         running_job=running_job,
+        prints_per_day=prints_per_day,
     )
 
 

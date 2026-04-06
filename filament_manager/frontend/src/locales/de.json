@@ -61,7 +61,8 @@
       "cost": "Kosten (€)",
       "weight": "Filament (kg)",
       "location": "Ø Preis / Ort",
-      "printers": "Stunden / Drucker"
+      "printers": "Stunden / Drucker",
+      "timeline": "Drucke / Tag"
     },
     "chart": {
       "purchased": "Gekauft",

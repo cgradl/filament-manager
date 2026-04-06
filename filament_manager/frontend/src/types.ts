@@ -174,6 +174,7 @@ export interface DashboardStats {
   recent_prints: PrintJob[]
   low_stock: Spool[]
   running_job: PrintJob | null
+  prints_per_day: { date: string; count: number }[]
 }
 
 export interface HAEntity {

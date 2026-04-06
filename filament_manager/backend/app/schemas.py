@@ -153,6 +153,11 @@ class PrinterHours(BaseModel):
     hours: float
 
 
+class PrintsPerDay(BaseModel):
+    date: str   # "YYYY-MM-DD"
+    count: int
+
+
 class DashboardStats(BaseModel):
     total_spools: int
     active_spools: int
@@ -176,6 +181,7 @@ class DashboardStats(BaseModel):
     recent_prints: list[PrintJobOut] = []
     low_stock: list[SpoolOut] = []
     running_job: PrintJobOut | None = None
+    prints_per_day: list[PrintsPerDay] = []
 
 
 class BrandSpoolWeightOut(BaseModel):
