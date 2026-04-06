@@ -173,6 +173,7 @@ export interface DashboardStats {
   printer_hours: PrinterHours[]
   recent_prints: PrintJob[]
   low_stock: Spool[]
+  running_job: PrintJob | null
 }
 
 export interface HAEntity {

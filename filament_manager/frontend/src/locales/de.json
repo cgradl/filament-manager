@@ -36,12 +36,17 @@
     "costGroup": "Kosten (€)",
     "filamentGroup": "Filament (kg)",
     "spoolsGroup": "Spulen",
+    "inventoryGroup": "Inventar",
     "totalPurchased": "Gesamt gekauft",
     "printedSpent": "Gedruckt / verbraucht",
     "available": "Verfügbar",
     "totalSpools": "Spulen gesamt",
+    "activeSpools": "Aktive Spulen",
+    "emptySpools": "Leere Spulen",
     "lowStock": "Wenig vorrätig",
     "totalPrints": "Drucke gesamt",
+    "runningJob": "Laufender Druck",
+    "runningFor": "Läuft seit",
     "recentPrints": "Letzte Drucke",
     "lowStockAlerts": "Niedrigbestand",
     "noPrints": "Noch keine Drucke erfasst.",
@@ -346,7 +351,11 @@
       "importNote": "Der Import ist additiv — vorhandene Daten werden nie gelöscht. Doppelte Spulen werden als neue Einträge hinzugefügt. Druckerkonfigurationen mit demselben Geräte-Slug werden übersprungen.",
       "exportSpoolmanBtn": "Für Spoolman exportieren",
       "exportSpoolmanHint": "Lädt ein Spoolman-kompatibles JSON mit Filamenttypen und Spulenbestand herunter.",
-      "experimental": "Experimentell"
+      "experimental": "Experimentell",
+      "importCloudBtn": "Von Bambu Cloud importieren",
+      "importingCloud": "Importiere…",
+      "importCloudResult": "{{imported}} von {{total}} Cloud-Drucken importiert ({{skipped}} bereits vorhanden).",
+      "importCloudError": "Cloud-Import fehlgeschlagen: {{error}}"
     }
   }
 }

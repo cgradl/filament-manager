@@ -36,12 +36,17 @@
     "costGroup": "Cost (€)",
     "filamentGroup": "Filament (kg)",
     "spoolsGroup": "Spools",
+    "inventoryGroup": "Inventory",
     "totalPurchased": "Total purchased",
     "printedSpent": "Printed / spent",
     "available": "Available",
     "totalSpools": "Total spools",
+    "activeSpools": "Active spools",
+    "emptySpools": "Empty spools",
     "lowStock": "Low stock",
     "totalPrints": "Total prints",
+    "runningJob": "Running Job",
+    "runningFor": "Running for",
     "recentPrints": "Recent Prints",
     "lowStockAlerts": "Low Stock Alerts",
     "noPrints": "No prints logged yet.",
@@ -346,7 +351,11 @@
       "importNote": "Import is additive — existing data is never deleted. Duplicate spools will be added as new entries. Printer configs with the same device slug are skipped.",
       "exportSpoolmanBtn": "Export for Spoolman",
       "exportSpoolmanHint": "Downloads a Spoolman-compatible JSON with your filament types and spool inventory.",
-      "experimental": "Experimental"
+      "experimental": "Experimental",
+      "importCloudBtn": "Import from Bambu Cloud",
+      "importingCloud": "Importing…",
+      "importCloudResult": "Imported {{imported}} of {{total}} cloud jobs ({{skipped}} already existed).",
+      "importCloudError": "Cloud import failed: {{error}}"
     }
   }
 }

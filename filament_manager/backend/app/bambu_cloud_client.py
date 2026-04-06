@@ -297,6 +297,44 @@ async def get_task_data_for_serial(serial: str) -> dict:
     return await loop.run_in_executor(None, lambda: _http_get_task_data(serial, creds["token"]))
 
 
+def _http_get_all_tasks(token: str) -> list[dict]:
+    """Fetch all tasks for all printers from the Bambu Cloud task API (paginated)."""
+    headers = {"Authorization": f"Bearer {token}"}
+    tasks: list[dict] = []
+    limit = 50
+    offset = 0
+    while True:
+        try:
+            resp = requests.get(
+                "https://api.bambulab.com/v1/user-service/my/tasks",
+                params={"limit": limit, "offset": offset},
+                headers=headers,
+                timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            log.warning("Bambu Cloud: task list fetch failed at offset %d: %s", offset, exc)
+            break
+        hits = data.get("hits") or []
+        tasks.extend(hits)
+        total = int(data.get("total") or 0)
+        offset += len(hits)
+        if not hits or offset >= total:
+            break
+    log.info("Bambu Cloud: fetched %d total tasks", len(tasks))
+    return tasks
+
+
+async def get_all_tasks() -> list[dict]:
+    """Async: fetch all cloud print tasks. Returns empty list if not connected."""
+    creds = _load_credentials()
+    if not creds or not creds.get("token"):
+        return []
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: _http_get_all_tasks(creds["token"]))
+
+
 def _http_get_uid(token: str) -> str:
     """Fetch the user's uid from the Bambu profile endpoint.
 

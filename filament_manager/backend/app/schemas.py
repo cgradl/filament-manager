@@ -175,6 +175,7 @@ class DashboardStats(BaseModel):
     printer_hours: list[PrinterHours] = []
     recent_prints: list[PrintJobOut] = []
     low_stock: list[SpoolOut] = []
+    running_job: PrintJobOut | None = None
 
 
 class BrandSpoolWeightOut(BaseModel):

@@ -151,6 +151,8 @@ export const api = {
     }>('bambu-cloud/debug'),
   bambuCloudReconnect: () =>
     request<{ ok: boolean; error?: string }>('bambu-cloud/reconnect', { method: 'POST' }),
+  bambuCloudImportPrints: () =>
+    request<{ ok: boolean; imported: number; skipped: number; total: number }>('bambu-cloud/import-prints', { method: 'POST' }),
   getBambuCloudPrinterAMS: (serial: string) =>
     request<{ slot_key: string; ha_material: string | null; ha_color_hex: string | null; ha_remaining: string | null }[]>(`bambu-cloud/printer/${serial}/ams`),
 

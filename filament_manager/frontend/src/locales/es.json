@@ -36,12 +36,17 @@
     "costGroup": "Coste (€)",
     "filamentGroup": "Filamento (kg)",
     "spoolsGroup": "Bobinas",
+    "inventoryGroup": "Inventario",
     "totalPurchased": "Total comprado",
     "printedSpent": "Impreso / gastado",
     "available": "Disponible",
     "totalSpools": "Bobinas totales",
+    "activeSpools": "Bobinas activas",
+    "emptySpools": "Bobinas vacías",
     "lowStock": "Poco stock",
     "totalPrints": "Impresiones totales",
+    "runningJob": "Trabajo en curso",
+    "runningFor": "En marcha desde",
     "recentPrints": "Impresiones recientes",
     "lowStockAlerts": "Alertas de stock bajo",
     "noPrints": "No hay impresiones registradas aún.",
@@ -346,7 +351,11 @@
       "importNote": "La importación es aditiva — los datos existentes nunca se eliminan. Las bobinas duplicadas se añaden como nuevas entradas. Las configuraciones de impresoras con el mismo slug de dispositivo se omiten.",
       "exportSpoolmanBtn": "Exportar para Spoolman",
       "exportSpoolmanHint": "Descarga un JSON compatible con Spoolman con los tipos de filamento y el inventario de bobinas.",
-      "experimental": "Experimental"
+      "experimental": "Experimental",
+      "importCloudBtn": "Importar desde Bambu Cloud",
+      "importingCloud": "Importando…",
+      "importCloudResult": "{{imported}} de {{total}} trabajos importados ({{skipped}} ya existían).",
+      "importCloudError": "Error al importar desde la nube: {{error}}"
     }
   }
 }

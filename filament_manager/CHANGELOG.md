@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.10.28
+
+- Settings: "Import from Bambu Cloud" button is now always visible in the Export/Import tab; disabled (greyed out) when not connected to Bambu Cloud instead of hidden
+
+## 0.10.27
+
+- Dashboard: merged cost, filament and spool metric cards into one combined Inventory card
+- Dashboard: spool stats now show Active spools and Empty spools (replacing low stock count and total prints)
+- Dashboard: new Running Job card appears at the top when a print is active, showing live stage/progress/remaining/weight/tray; hidden when no print is running
+
+## 0.10.26
+
+- Data Import: added "Import from Bambu Cloud" button (visible when cloud is connected) — fetches all historical print jobs from the Bambu Cloud task API; deduplicates by task ID; stores per-tray weight data as suggested usages for manual spool assignment
+
 ## 0.10.25
 
 - Settings: removed region dropdown from Bambu Cloud login form (all regions use the same login endpoint)

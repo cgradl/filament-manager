@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { DashboardStats, PrintJob } from '../types'
-import { AlertTriangle, Printer } from 'lucide-react'
+import type { DashboardStats, PrintJob, PrinterConfig, PrinterStatus } from '../types'
+import { AlertTriangle, Printer, Zap } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { enUS, de, es, type Locale } from 'date-fns/locale'
 import {
@@ -18,28 +18,155 @@ const PIE_COLORS = [
   '#06b6d4', '#f97316', '#84cc16', '#ec4899', '#6366f1',
 ]
 
-function MetricGroup({
-  title,
-  rows,
-}: {
-  title: string
-  rows: { label: string; value: string; sub?: string; dim?: boolean }[]
-}) {
+const TT_STYLE = { background: '#1c1c1e', border: '1px solid #48484a', borderRadius: 8, color: '#f5f5f7' }
+const TT_LABEL = { color: '#d1d5db' }
+const TT_ITEM  = { color: '#f5f5f7' }
+
+// ── Combined inventory card ───────────────────────────────────────────────────
+
+function InventoryCard({ stats }: { stats: DashboardStats }) {
+  const { t } = useTranslation()
+
+  const rows: { label: string; kg: string; eur: string; dim?: boolean; sub?: string }[] = [
+    {
+      label: t('dashboard.totalPurchased'),
+      kg:    `${stats.total_filament_kg.toFixed(2)} kg`,
+      eur:   `€${stats.total_filament_spent_eur.toFixed(2)}`,
+    },
+    {
+      label: t('dashboard.printedSpent'),
+      kg:    `${(stats.total_filament_kg - stats.total_available_kg).toFixed(2)} kg`,
+      eur:   `€${(stats.total_filament_spent_eur - stats.total_available_eur).toFixed(2)}`,
+      dim:   true,
+    },
+    {
+      label: t('dashboard.available'),
+      kg:    `${stats.total_available_kg.toFixed(2)} kg`,
+      eur:   `€${stats.total_available_eur.toFixed(2)}`,
+      sub:   t('common.est'),
+    },
+  ]
+
+  const spoolRows: { label: string; value: string; sub?: string; accent?: string }[] = [
+    {
+      label: t('dashboard.totalSpools'),
+      value: stats.total_spools.toString(),
+      sub:   `${stats.total_prints} ${t('dashboard.totalPrints').toLowerCase()}`,
+    },
+    {
+      label: t('dashboard.activeSpools'),
+      value: stats.active_spools.toString(),
+    },
+    {
+      label: t('dashboard.emptySpools'),
+      value: stats.empty_spools.toString(),
+      accent: stats.empty_spools > 0 ? 'text-gray-500' : undefined,
+    },
+  ]
+
   return (
-    <div className="card space-y-3">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{title}</p>
-      {rows.map(r => (
-        <div key={r.label} className="flex items-baseline justify-between">
-          <span className={`text-sm ${r.dim ? 'text-gray-500' : 'text-gray-300'}`}>{r.label}</span>
-          <div className="text-right">
-            <span className={`text-lg font-bold ${r.dim ? 'text-gray-500' : 'text-white'}`}>{r.value}</span>
-            {r.sub && <span className="text-xs text-gray-500 ml-1.5">{r.sub}</span>}
+    <div className="card">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        {t('dashboard.inventoryGroup')}
+      </p>
+
+      {/* Filament + cost rows */}
+      <div className="space-y-2 mb-4 pb-4 border-b border-surface-3">
+        {rows.map(r => (
+          <div key={r.label} className="flex items-baseline justify-between gap-4">
+            <span className={`text-sm ${r.dim ? 'text-gray-500' : 'text-gray-300'}`}>{r.label}</span>
+            <div className="flex items-baseline gap-3 shrink-0">
+              <span className={`text-sm font-semibold ${r.dim ? 'text-gray-500' : 'text-white'}`}>{r.kg}</span>
+              <span className={`text-sm ${r.dim ? 'text-gray-600' : 'text-gray-400'}`}>
+                {r.eur}{r.sub ? <span className="text-xs text-gray-600 ml-1">{r.sub}</span> : null}
+              </span>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+
+      {/* Spool rows */}
+      <div className="space-y-2">
+        {spoolRows.map(r => (
+          <div key={r.label} className="flex items-baseline justify-between">
+            <span className="text-sm text-gray-300">{r.label}</span>
+            <div className="text-right">
+              <span className={`text-lg font-bold ${r.accent ?? 'text-white'}`}>{r.value}</span>
+              {r.sub && <span className="text-xs text-gray-500 ml-1.5">{r.sub}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
+
+// ── Running job card ──────────────────────────────────────────────────────────
+
+const LIVE_LABELS: Record<string, string> = {
+  print_stage:    'Stage',
+  print_progress: 'Progress',
+  remaining_time: 'Remaining',
+  print_weight:   'Weight',
+  ams_active:     'AMS active',
+  active_tray:    'Tray',
+}
+const LIVE_UNITS: Record<string, string> = {
+  print_progress: '%',
+  remaining_time: ' min',
+  print_weight:   'g',
+}
+const LIVE_KEYS = ['print_stage', 'print_progress', 'remaining_time', 'print_weight', 'ams_active', 'active_tray'] as const
+
+function RunningJobCard({ job, printers }: { job: PrintJob; printers: PrinterConfig[] }) {
+  const { t, i18n } = useTranslation()
+  const locale = LOCALE_MAP[i18n.resolvedLanguage ?? 'en'] ?? enUS
+
+  const printer = printers.find(p => p.name === job.printer_name) ?? null
+
+  const { data: status } = useQuery<PrinterStatus>({
+    queryKey: ['printer-status-live', printer?.id],
+    queryFn: () => api.getPrinterStatus(printer!.id),
+    enabled: !!printer,
+    refetchInterval: 10_000,
+  })
+
+  const liveEntries = status
+    ? LIVE_KEYS.map(k => [k, status[k]] as [string, string | null]).filter(([, v]) => v != null && v !== '')
+    : []
+
+  return (
+    <div className="card border border-blue-800/60 bg-blue-950/20">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Zap size={15} className="text-blue-400 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{job.name}</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {job.printer_name && <span>{job.printer_name} · </span>}
+              {t('dashboard.runningFor')} {formatDistanceToNow(new Date(job.started_at), { locale })}
+            </p>
+          </div>
+        </div>
+        <span className="text-xs bg-blue-900 text-blue-300 px-2 py-0.5 rounded-full shrink-0">
+          {t('dashboard.runningJob')}
+        </span>
+      </div>
+
+      {liveEntries.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-blue-800/40 flex flex-wrap gap-x-5 gap-y-1">
+          {liveEntries.map(([key, val]) => (
+            <span key={key} className="text-xs text-gray-500">
+              {LIVE_LABELS[key]}: <span className="text-gray-200 font-medium">{val}{LIVE_UNITS[key] ?? ''}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Recent print row ──────────────────────────────────────────────────────────
 
 function PrintRow({ job }: { job: PrintJob }) {
   const { i18n } = useTranslation()
@@ -63,9 +190,7 @@ function PrintRow({ job }: { job: PrintJob }) {
   )
 }
 
-const TT_STYLE = { background: '#1c1c1e', border: '1px solid #48484a', borderRadius: 8, color: '#f5f5f7' }
-const TT_LABEL = { color: '#d1d5db' }
-const TT_ITEM  = { color: '#f5f5f7' }
+// ── Chart section ─────────────────────────────────────────────────────────────
 
 type ChartTab = 'materials' | 'cost' | 'weight' | 'location'
 
@@ -210,10 +335,11 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
               </BarChart>
             </ResponsiveContainer>
       )}
-
     </div>
   )
 }
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const { t } = useTranslation()
@@ -221,13 +347,18 @@ export default function Dashboard() {
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ['dashboard'],
     queryFn: api.getDashboard,
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   })
 
   const { data: haStatus } = useQuery({
     queryKey: ['ha-status'],
     queryFn: api.getHAStatus,
     refetchInterval: 30_000,
+  })
+
+  const { data: printers = [] } = useQuery<PrinterConfig[]>({
+    queryKey: ['printers'],
+    queryFn: api.getPrinters,
   })
 
   if (isLoading) return <div className="text-gray-500 text-sm">{t('common.loading')}</div>
@@ -244,32 +375,13 @@ export default function Dashboard() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-        <MetricGroup
-          title={t('dashboard.costGroup')}
-          rows={[
-            { label: t('dashboard.totalPurchased'), value: `€${stats.total_filament_spent_eur.toFixed(2)}` },
-            { label: t('dashboard.printedSpent'),   value: `€${(stats.total_filament_spent_eur - stats.total_available_eur).toFixed(2)}`, dim: true },
-            { label: t('dashboard.available'),      value: `€${stats.total_available_eur.toFixed(2)}`, sub: t('common.est') },
-          ]}
-        />
-        <MetricGroup
-          title={t('dashboard.filamentGroup')}
-          rows={[
-            { label: t('dashboard.totalPurchased'), value: `${stats.total_filament_kg.toFixed(2)} kg` },
-            { label: t('dashboard.printedSpent'),   value: `${(stats.total_filament_kg - stats.total_available_kg).toFixed(2)} kg`, dim: true },
-            { label: t('dashboard.available'),      value: `${stats.total_available_kg.toFixed(2)} kg` },
-          ]}
-        />
-        <MetricGroup
-          title={t('dashboard.spoolsGroup')}
-          rows={[
-            { label: t('dashboard.totalSpools'), value: stats.total_spools.toString(), sub: `${stats.active_spools} ${t('common.active')}` },
-            { label: t('dashboard.lowStock'),    value: stats.low_stock_spools.toString(), dim: stats.low_stock_spools === 0 },
-            { label: t('dashboard.totalPrints'), value: stats.total_prints.toString() },
-          ]}
-        />
-      </div>
+      {/* Running job — only shown when a print is active */}
+      {stats.running_job && (
+        <RunningJobCard job={stats.running_job} printers={printers} />
+      )}
+
+      {/* Combined inventory metrics */}
+      <InventoryCard stats={stats} />
 
       <ChartSection stats={stats} />
 

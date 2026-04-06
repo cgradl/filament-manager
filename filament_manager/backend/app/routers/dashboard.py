@@ -107,6 +107,9 @@ async def get_dashboard(db: Session = Depends(get_db)):
         key=lambda x: x.printer,
     )
 
+    # Running job: most recent open print (no finished_at)
+    running_job = next((j for j in jobs if j.finished_at is None), None)
+
     return DashboardStats(
         total_spools=len(spools),
         active_spools=len(active_spools),
@@ -124,6 +127,7 @@ async def get_dashboard(db: Session = Depends(get_db)):
         printer_hours=printer_hours,
         recent_prints=jobs[:5],
         low_stock=sorted(low_stock, key=lambda s: s.remaining_pct),
+        running_job=running_job,
     )
 
 

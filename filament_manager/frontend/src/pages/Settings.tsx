@@ -1126,6 +1126,15 @@ function DataTransferSection() {
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<Record<string, number> | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  const [importingCloud, setImportingCloud] = useState(false)
+  const [cloudImportResult, setCloudImportResult] = useState<{ imported: number; skipped: number; total: number } | null>(null)
+  const [cloudImportError, setCloudImportError] = useState<string | null>(null)
+
+  const { data: cloudStatus } = useQuery({
+    queryKey: ['bambu-cloud-status'],
+    queryFn: api.getBambuCloudStatus,
+  })
+  const cloudConnected = cloudStatus?.status === 'connected'
 
   const handleExport = async () => {
     setExporting(true)
@@ -1181,6 +1190,23 @@ function DataTransferSection() {
     }
   }
 
+  const handleCloudImport = async () => {
+    setImportingCloud(true)
+    setCloudImportResult(null)
+    setCloudImportError(null)
+    try {
+      const result = await api.bambuCloudImportPrints()
+      setCloudImportResult({ imported: result.imported, skipped: result.skipped, total: result.total })
+      qc.invalidateQueries({ queryKey: ['prints'] })
+      qc.invalidateQueries({ queryKey: ['prints-count'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+    } catch (e: unknown) {
+      setCloudImportError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setImportingCloud(false)
+    }
+  }
+
   return (
     <div className="card">
       <h3 className="text-sm font-semibold text-gray-300 mb-1">{t('settings.dataTransfer.title')}</h3>
@@ -1205,7 +1231,31 @@ function DataTransferSection() {
           {importing ? t('settings.dataTransfer.importing') : t('settings.dataTransfer.importBtn')}
           <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} disabled={importing} />
         </label>
+
+        <button
+          onClick={handleCloudImport}
+          disabled={importingCloud || !cloudConnected}
+          title={!cloudConnected ? 'Connect to Bambu Cloud first (Settings → Bambu Cloud)' : undefined}
+          className="btn-ghost flex items-center gap-2 disabled:opacity-40"
+        >
+          <Download size={14} />
+          {importingCloud ? t('settings.dataTransfer.importingCloud') : t('settings.dataTransfer.importCloudBtn')}
+        </button>
       </div>
+
+      {cloudImportResult && (
+        <div className="rounded-lg bg-green-900/30 border border-green-700 p-3 text-sm text-green-300 mb-3">
+          <CheckCircle size={14} className="inline mr-1.5 mb-0.5" />
+          {t('settings.dataTransfer.importCloudResult', cloudImportResult)}
+        </div>
+      )}
+
+      {cloudImportError && (
+        <div className="rounded-lg bg-red-900/30 border border-red-700 p-3 text-sm text-red-300 flex items-start gap-2 mb-3">
+          <AlertCircle size={14} className="mt-0.5 shrink-0" />
+          <span>{t('settings.dataTransfer.importCloudError', { error: cloudImportError })}</span>
+        </div>
+      )}
 
       {importResult && (
         <div className="rounded-lg bg-green-900/30 border border-green-700 p-4 text-sm text-green-300 mb-3">
