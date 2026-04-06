@@ -206,11 +206,6 @@ function HAprinterFormContent({
           {t('settings.printers.monitorPrinter')}
         </label>
 
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="checkbox" checked={autoDeduct} onChange={e => setAutoDeduct(e.target.checked)} />
-          {t('settings.printers.autoDeduct')}
-        </label>
-
         {/* Custom sensor entity ID overrides */}
         <div>
           <button
@@ -443,11 +438,6 @@ function CloudPrinterFormContent({
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
               {t('settings.printers.monitorPrinter')}
-            </label>
-
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={autoDeduct} onChange={e => setAutoDeduct(e.target.checked)} />
-              {t('settings.printers.autoDeduct')}
             </label>
 
             {/* Live preview when a device is selected */}

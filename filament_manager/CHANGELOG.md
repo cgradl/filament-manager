@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.30
+
+- Settings: removed "Auto-deduct filament on print completion" checkbox from both HA and Cloud printer forms
+
 ## 0.10.29
 
 - Dashboard: added "Prints / Day" timeline chart tab showing a bar per day from first print to today; days with no prints show as dark zero bars; month labels auto-space to avoid overlap
