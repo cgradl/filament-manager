@@ -2,7 +2,7 @@
 
 A Home Assistant app for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via the [greghesp Bambu Lab integration](https://github.com/greghesp/ha-bambulab).
 
-![Version](https://img.shields.io/badge/version-0.10.24-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.10.25-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -20,9 +20,7 @@ A Home Assistant app for tracking 3D printer filament inventory, monitoring prin
 - **EN / DE / ES interface** — full translations with in-app language switcher; inherits language from your HA instance by default
 - **Data export / import** — back up and restore all spools, prints, and settings as a single JSON bundle
 - **Spoolman export** *(experimental)* — export your spool inventory in [Spoolman](https://github.com/Donkie/Spoolman)-compatible format
-- **Bambu Lab Cloud** *(experimental)* — direct MQTT connection to Bambu Lab Cloud (US / EU / CN regions) for real-time print monitoring; HA integration and Cloud mode coexist per-printer; live MQTT connection indicator with one-click reconnect
-- **Custom sensor entity IDs** — per-printer overrides for all HA sensor entity IDs, for users whose HA installation is in a different language or with renamed entities
-- **Print weight tracking** — total filament weight (g) per print job, fetched automatically from the Bambu Cloud task API (cloud printers) or the `print_weight` HA sensor (HA printers)
+- **Bambu Lab Cloud** *(experimental)* — direct MQTT connection to Bambu Lab Cloud for real-time print monitoring; HA integration and Cloud mode coexist per-printer; live MQTT connection indicator with one-click reconnect
 
 ---
 

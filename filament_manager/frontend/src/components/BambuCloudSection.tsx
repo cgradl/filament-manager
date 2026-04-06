@@ -12,7 +12,6 @@ export default function BambuCloudSection() {
   const [step, setStep] = useState<'form' | '2fa'>('form')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [region, setRegion] = useState('us')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +43,7 @@ export default function BambuCloudSection() {
     setError(null)
     setBusy(true)
     try {
-      const res = await api.bambuCloudLogin(email, password, region)
+      const res = await api.bambuCloudLogin(email, password, 'us')
       if (res.requires_2fa) {
         setStep('2fa')
         refetchStatus()
@@ -102,9 +101,7 @@ export default function BambuCloudSection() {
             <div className="flex items-center gap-2 text-sm text-green-400">
               <Wifi size={15} />
               <span>{t('settings.bambuCloud.connectedAs', { email: cloudStatus?.email })}</span>
-              {cloudStatus?.region && cloudStatus.region !== 'us' && (
-                <span className="text-[10px] font-mono text-gray-500 uppercase">{cloudStatus.region}</span>
-              )}
+
             </div>
             <button
               onClick={handleLogout}
@@ -215,14 +212,6 @@ export default function BambuCloudSection() {
               required
               autoComplete="current-password"
             />
-          </div>
-          <div>
-            <label className="label">{t('settings.bambuCloud.region')}</label>
-            <select className="input" value={region} onChange={e => setRegion(e.target.value)}>
-              <option value="us">{t('settings.bambuCloud.regionUS')}</option>
-              <option value="eu">{t('settings.bambuCloud.regionEU')}</option>
-              <option value="cn">{t('settings.bambuCloud.regionCN')}</option>
-            </select>
           </div>
           {error && (
             <div className="flex items-start gap-2 text-xs text-red-400">

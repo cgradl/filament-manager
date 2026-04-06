@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.25
+
+- Settings: removed region dropdown from Bambu Cloud login form (all regions use the same login endpoint)
+
 ## 0.10.24
 
 - Print History: added search box to filter jobs by name, printer, or spool material/color
