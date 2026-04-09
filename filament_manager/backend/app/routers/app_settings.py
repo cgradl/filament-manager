@@ -31,21 +31,22 @@ _SUPPORTED_LANGS = {"en", "de", "es"}
 
 @router.get("/ha-locale")
 async def get_ha_locale():
-    """Return the HA instance language, mapped to a supported locale (en/de/es)."""
+    """Return the HA instance language and timezone."""
     from ..ha_client import _headers
     import httpx, re
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             r = await client.get("http://supervisor/core/api/config", headers=_headers())
             r.raise_for_status()
-            lang: str = r.json().get("language", "en")
-            # HA uses codes like "de", "en", "es-419" — take first two chars
+            data = r.json()
+            lang: str = data.get("language", "en")
+            time_zone: str = data.get("time_zone", "UTC")
             code = re.match(r"[a-z]{2}", lang.lower())
-            if code and code.group() in _SUPPORTED_LANGS:
-                return {"language": code.group()}
+            language = code.group() if code and code.group() in _SUPPORTED_LANGS else "en"
+            return {"language": language, "time_zone": time_zone}
     except Exception:
         pass
-    return {"language": "en"}
+    return {"language": "en", "time_zone": "UTC"}
 
 
 class BrandWeightIn(BaseModel):

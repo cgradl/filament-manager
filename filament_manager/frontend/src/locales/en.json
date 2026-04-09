@@ -190,7 +190,19 @@
     "gramsHint": "Enter grams used per tray. Inventory will be updated on save.",
     "cloudSuggestion": "Values pre-filled from printer data — verify and adjust before saving.",
     "search": "Search prints…",
-    "noResults": "No prints match your search."
+    "noResults": "No prints match your filters.",
+    "filter": {
+      "month": "Month",
+      "week": "Week",
+      "day": "Day",
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "thisWeek": "This week",
+      "lastWeek": "Last week",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "clear": "Clear date filter"
+    }
   },
   "settings": {
     "title": "Settings",

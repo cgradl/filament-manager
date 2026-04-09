@@ -2,7 +2,7 @@
 
 A Home Assistant app for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via the [greghesp Bambu Lab integration](https://github.com/greghesp/ha-bambulab).
 
-![Version](https://img.shields.io/badge/version-0.10.30-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.12.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -15,9 +15,10 @@ A Home Assistant app for tracking 3D printer filament inventory, monitoring prin
 - **Spool inventory** — full CRUD for filament spools with brand, material, color, weight, and cost data
 - **Cost analytics** — per-print cost, price per kg, inventory value, and spend by purchase location
 - **Dashboard** — overview charts, low-stock alerts, and recent print history
-- **Print history search** — filter print jobs by name, printer, or spool material/color
+- **Print history search & date filter** — filter print jobs by name, printer, or spool material/color; filter by month, week, or day with quick presets (this/last) or a custom date picker
 - **Printer discovery** — scans Home Assistant for your Bambu Lab entities automatically
 - **EN / DE / ES interface** — full translations with in-app language switcher; inherits language from your HA instance by default
+- **HA day/night theme** — automatically follows Home Assistant's light/dark mode; mirrors HA's accent color; falls back to OS `prefers-color-scheme` when used standalone
 - **Data export / import** — back up and restore all spools, prints, and settings as a single JSON bundle; import historical print jobs directly from Bambu Lab Cloud
 - **Spoolman export** *(experimental)* — export your spool inventory in [Spoolman](https://github.com/Donkie/Spoolman)-compatible format
 - **Bambu Lab Cloud** *(experimental)* — direct MQTT connection to Bambu Lab Cloud for real-time print monitoring; HA integration and Cloud mode coexist per-printer; live MQTT connection indicator with one-click reconnect

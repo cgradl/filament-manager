@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.12.0
+
+- Theme: app now follows Home Assistant's day/night mode — surfaces, borders, and text automatically switch between dark and light based on HA's theme or the OS `prefers-color-scheme` setting
+- In HA: theme is detected from `--primary-background-color` CSS variable on the parent frame (same-origin ingress); HA's configured accent color is mirrored to the app's accent if set
+- Standalone / dev: theme tracks the OS dark/light preference and updates in real time
+- No flash of unstyled content — theme class is set synchronously before first paint via an inline script in `index.html`
+
+## 0.11.1
+
+- Prints: search and date filter now query the backend — results are complete regardless of how many pages have been loaded; search is debounced (300 ms); date boundaries are converted to UTC using the HA timezone so "today" correctly reflects the user's local time
+- Backend: `GET /api/prints` and `GET /api/prints/count` accept `search`, `date_from`, `date_to` (YYYY-MM-DD), and `timezone` query params; search matches print name, printer name, and linked spool brand/material/color via a subquery
+- Added `tzdata` Python package to requirements for IANA timezone support on Alpine Linux
+
+## 0.11.0
+
+- Prints: added date filter bar — filter by Month (this/last/custom month picker), Week (this/last/custom week, Mon–Sun), or Day (today/yesterday/custom date picker); all filtering is client-side on loaded prints; counts in the header update to reflect the active filter
+- Dashboard: fixed materials pie chart labels overflowing outside the chart container for small slices; counts are now shown in the legend
+
+## 0.10.31
+
+- Timestamps now display in the timezone configured in Home Assistant (from HA config API)
+- Backend: `GET /api/settings/ha-locale` now returns `time_zone` alongside `language`
+- Frontend: all backend timestamps (naive UTC) are correctly parsed as UTC before display
+- Prints page: job start times shown in HA timezone; print form "Started At" default is current time in HA timezone
+- Dashboard: relative times (formatDistanceToNow) use UTC-corrected dates; timeline chart day labels use UTC noon to avoid DST/timezone off-by-one
+- Spools page: purchase dates formatted directly from ISO date string (no TZ conversion needed for calendar dates)
+
 ## 0.10.30
 
 - Settings: removed "Auto-deduct filament on print completion" checkbox from both HA and Cloud printer forms

@@ -5,6 +5,7 @@ import { api } from '../api'
 import type { Spool, BrandSpoolWeight } from '../types'
 import { Plus, Pencil, Trash2, X, LayoutGrid, Table2, ChevronUp, ChevronDown, ChevronsUpDown, Copy } from 'lucide-react'
 import Modal from '../components/Modal'
+import { formatDateOnly } from '../utils/time'
 
 // ── Spool Form ────────────────────────────────────────────────────────────────
 
@@ -339,7 +340,7 @@ function SpoolCard({ spool, onEdit, onDuplicate, onDelete }: {
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 mt-3">
         {spool.price_per_kg != null && <span>€{spool.price_per_kg.toFixed(2)}/kg</span>}
         {spool.purchase_price != null && <span>€{spool.purchase_price.toFixed(2)}</span>}
-        {spool.purchased_at && <span>{new Date(spool.purchased_at).toLocaleDateString()}</span>}
+        {spool.purchased_at && <span>{formatDateOnly(spool.purchased_at)}</span>}
         {spool.ams_slot && <span className="text-blue-400">{spool.ams_slot}</span>}
       </div>
     </div>
@@ -530,7 +531,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                   {s.price_per_kg != null ? `€${s.price_per_kg.toFixed(2)}` : '—'}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap text-gray-400">
-                  {s.purchased_at ? new Date(s.purchased_at).toLocaleDateString() : '—'}
+                  {s.purchased_at ? formatDateOnly(s.purchased_at) : '—'}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   {s.purchase_location

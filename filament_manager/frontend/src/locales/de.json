@@ -190,7 +190,19 @@
     "gramsHint": "Gramm pro Fach eingeben. Lagerbestand wird beim Speichern aktualisiert.",
     "cloudSuggestion": "Werte vom Drucker vorausgefüllt — bitte prüfen und ggf. anpassen.",
     "search": "Drucke suchen…",
-    "noResults": "Keine Drucke entsprechen der Suche."
+    "noResults": "Keine Drucke entsprechen den Filtern.",
+    "filter": {
+      "month": "Monat",
+      "week": "Woche",
+      "day": "Tag",
+      "thisMonth": "Dieser Monat",
+      "lastMonth": "Letzter Monat",
+      "thisWeek": "Diese Woche",
+      "lastWeek": "Letzte Woche",
+      "today": "Heute",
+      "yesterday": "Gestern",
+      "clear": "Datumsfilter löschen"
+    }
   },
   "settings": {
     "title": "Einstellungen",

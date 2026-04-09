@@ -4,8 +4,44 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Filament Manager</title>
+    <!--
+      Theme bootstrap: runs synchronously before first paint to avoid FOUC.
+      1. Tries to read HA's --primary-background-color from the parent frame
+         (works because HA ingress panels are same-origin iframes).
+      2. Falls back to the OS prefers-color-scheme media query.
+      Default is dark (<html class="dark">); remove the class for light mode.
+    -->
+    <script>
+      (function () {
+        function luminance(hex) {
+          hex = hex.replace(/^#/, '');
+          if (hex.length === 3) hex = hex.split('').map(function (c) { return c + c; }).join('');
+          var r = parseInt(hex.slice(0, 2), 16);
+          var g = parseInt(hex.slice(2, 4), 16);
+          var b = parseInt(hex.slice(4, 6), 16);
+          return (r * 299 + g * 587 + b * 114) / 1000;
+        }
+        try {
+          if (window.parent !== window) {
+            var cs = window.parent.getComputedStyle(window.parent.document.documentElement);
+            var bg = cs.getPropertyValue('--primary-background-color').trim();
+            if (bg) {
+              // Light HA theme → remove dark class
+              if (luminance(bg) >= 128) {
+                document.documentElement.classList.remove('dark');
+              }
+              return;
+            }
+          }
+        } catch (e) { /* cross-origin or no parent */ }
+        // Fallback: OS preference
+        if (!window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
   </head>
-  <body class="bg-surface text-gray-100 min-h-screen">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

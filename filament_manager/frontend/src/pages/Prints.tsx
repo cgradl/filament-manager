@@ -3,11 +3,67 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { PrintJob, Spool, AMSTray, PrinterConfig, SuggestedUsage, PrinterStatus } from '../types'
-import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search, CalendarDays } from 'lucide-react'
 import Modal from '../components/Modal'
-import { format } from 'date-fns'
+import { useHATZ } from '../hooks/useHATZ'
+import { formatDateTimeTZ, nowInTZ } from '../utils/time'
 
 const PAGE_SIZE = 50
+
+// ── Date filter helpers ───────────────────────────────────────────────────────
+
+type FilterMode = 'month' | 'week' | 'day'
+
+interface DateFilter {
+  mode: FilterMode
+  preset: 'this' | 'last' | 'custom'
+  custom: string  // YYYY-MM for month; YYYY-MM-DD for week/day
+}
+
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T12:00:00Z')
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+function getMondayOf(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00Z')
+  const delta = (d.getUTCDay() + 6) % 7   // Mon=0 … Sun=6
+  return addDays(dateStr, -delta)
+}
+
+function resolveDateRange(f: DateFilter, today: string): { start: string; end: string } | null {
+  const { mode, preset, custom } = f
+  if (mode === 'month') {
+    let ym: string
+    if (preset === 'this') {
+      ym = today.slice(0, 7)
+    } else if (preset === 'last') {
+      const d = new Date(today + 'T12:00:00Z')
+      d.setUTCDate(1)
+      d.setUTCMonth(d.getUTCMonth() - 1)
+      ym = d.toISOString().slice(0, 7)
+    } else {
+      if (!custom) return null
+      ym = custom
+    }
+    const [y, m] = ym.split('-').map(Number)
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+    return { start: `${ym}-01`, end: `${ym}-${String(lastDay).padStart(2, '0')}` }
+  }
+  if (mode === 'week') {
+    const ref = preset === 'this' ? today : preset === 'last' ? addDays(today, -7) : custom
+    if (!ref) return null
+    const mon = getMondayOf(ref)
+    return { start: mon, end: addDays(mon, 6) }
+  }
+  if (mode === 'day') {
+    const day = preset === 'this' ? today : preset === 'last' ? addDays(today, -1) : custom
+    if (!day) return null
+    return { start: day, end: day }
+  }
+  return null
+}
 
 // ── Print Form ────────────────────────────────────────────────────────────────
 
@@ -25,7 +81,8 @@ function PrintForm({
   onCancel: () => void
 }) {
   const { t } = useTranslation()
-  const now = format(new Date(), "yyyy-MM-dd'T'HH:mm")
+  const tz = useHATZ()
+  const now = nowInTZ(tz)
   const [name, setName] = useState(initial?.name ?? '')
   const [modelName, setModelName] = useState(initial?.model_name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -431,6 +488,7 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
   onDelete: () => void
   onLogUsage: () => void
 }) {
+  const tz = useHATZ()
   const [expanded, setExpanded] = useState(false)
   const needsUsage = job.source === 'auto' && job.finished_at && job.total_grams === 0
   const showModel = job.model_name && job.model_name !== job.name
@@ -452,7 +510,7 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
             )}
           </div>
           <p className="text-xs text-gray-500">
-            {format(new Date(job.started_at), 'dd.MM.yyyy HH:mm')}
+            {formatDateTimeTZ(job.started_at, tz)}
             {job.printer_name && ` · ${job.printer_name}`}
             {job.duration_hours && ` · ${job.duration_hours}h`}
           </p>
@@ -518,21 +576,53 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
 export default function Prints() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const tz = useHATZ()
+  const today = nowInTZ(tz).slice(0, 10)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<PrintJob | null>(null)
   const [loggingUsage, setLoggingUsage] = useState<PrintJob | null>(null)
   const [page, setPage] = useState(0)
   const [shown, setShown] = useState<PrintJob[]>([])
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [dateFilter, setDateFilter] = useState<DateFilter | null>(null)
+
+  // Debounce search input — fire API call 300 ms after the user stops typing
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  const needle    = debouncedSearch.trim().toLowerCase()
+  const dateRange = dateFilter ? resolveDateRange(dateFilter, today) : null
+  const isFiltered = !!needle || !!dateRange
+
+  // Reset accumulated list whenever filters change
+  useEffect(() => {
+    setShown([])
+    setPage(0)
+  }, [debouncedSearch, dateFilter])
 
   const { data: total } = useQuery({
-    queryKey: ['prints-count'],
-    queryFn: api.getPrintsTotal,
+    queryKey: ['prints-count', needle, dateRange?.start, dateRange?.end, tz],
+    queryFn: () => api.getPrintsTotal(
+      needle || undefined,
+      dateRange?.start,
+      dateRange?.end,
+      tz,
+    ),
   })
 
   const { data: pagePrints = [], isLoading } = useQuery<PrintJob[]>({
-    queryKey: ['prints', page],
-    queryFn: () => api.getPrints(PAGE_SIZE, page * PAGE_SIZE),
+    queryKey: ['prints', page, needle, dateRange?.start, dateRange?.end, tz],
+    queryFn: () => api.getPrints(
+      PAGE_SIZE,
+      page * PAGE_SIZE,
+      needle || undefined,
+      dateRange?.start,
+      dateRange?.end,
+      tz,
+    ),
   })
 
   useEffect(() => {
@@ -573,20 +663,8 @@ export default function Prints() {
   const totalCount = total?.total ?? 0
   const hasMore = shown.length < totalCount
 
-  const needle = search.trim().toLowerCase()
-  const filtered = needle
-    ? shown.filter(j => {
-        if (j.name.toLowerCase().includes(needle)) return true
-        if (j.printer_name?.toLowerCase().includes(needle)) return true
-        if (j.usages.some(u =>
-          u.spool && (
-            `${u.spool.brand} ${u.spool.material}`.toLowerCase().includes(needle) ||
-            u.spool.color_name.toLowerCase().includes(needle)
-          )
-        )) return true
-        return false
-      })
-    : shown
+  // Filtering is handled server-side; shown contains only matching results
+  const filtered = shown
 
   const totalGrams = filtered.reduce((s, j) => s + j.total_grams, 0)
   const totalCost  = filtered.reduce((s, j) => s + j.total_cost, 0)
@@ -596,7 +674,7 @@ export default function Prints() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-bold">
-            {t('prints.history')} ({needle ? `${filtered.length} of ` : ''}{shown.length}{totalCount > shown.length ? ` of ${totalCount}` : ''})
+            {t('prints.history')} ({isFiltered ? `${filtered.length} of ` : ''}{shown.length}{totalCount > shown.length ? ` of ${totalCount}` : ''})
           </h2>
           {filtered.length > 0 && (
             <p className="text-xs text-gray-500">
@@ -620,9 +698,73 @@ export default function Prints() {
         </div>
       </div>
 
+      {/* Date filter bar */}
+      <div className="card py-2.5 px-3 flex items-center gap-2 flex-wrap">
+        <CalendarDays size={13} className="text-gray-500 shrink-0" />
+
+        {(['month', 'week', 'day'] as FilterMode[]).map(m => (
+          <button
+            key={m}
+            onClick={() => setDateFilter(f =>
+              f?.mode === m ? null : { mode: m, preset: 'this', custom: '' }
+            )}
+            className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
+              dateFilter?.mode === m
+                ? 'bg-blue-900 text-blue-200'
+                : 'text-gray-400 hover:text-white hover:bg-surface-3 border border-surface-3'
+            }`}
+          >
+            {t(`prints.filter.${m}`)}
+          </button>
+        ))}
+
+        {dateFilter && (
+          <>
+            <div className="w-px h-4 bg-surface-3 mx-0.5" />
+
+            {(['this', 'last'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setDateFilter(f => f ? { ...f, preset: p, custom: '' } : null)}
+                className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
+                  dateFilter.preset === p
+                    ? 'bg-surface-3 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-surface-3'
+                }`}
+              >
+                {dateFilter.mode === 'month'
+                  ? (p === 'this' ? t('prints.filter.thisMonth') : t('prints.filter.lastMonth'))
+                  : dateFilter.mode === 'week'
+                  ? (p === 'this' ? t('prints.filter.thisWeek') : t('prints.filter.lastWeek'))
+                  : (p === 'this' ? t('prints.filter.today') : t('prints.filter.yesterday'))}
+              </button>
+            ))}
+
+            <input
+              type={dateFilter.mode === 'month' ? 'month' : 'date'}
+              className={`input py-0.5 text-xs ${dateFilter.preset === 'custom' ? 'ring-1 ring-blue-600' : ''}`}
+              style={{ width: 132 }}
+              value={dateFilter.preset === 'custom' ? dateFilter.custom : ''}
+              onChange={e => {
+                if (e.target.value)
+                  setDateFilter(f => f ? { ...f, preset: 'custom', custom: e.target.value } : null)
+              }}
+            />
+
+            <button
+              onClick={() => setDateFilter(null)}
+              className="text-gray-500 hover:text-white ml-0.5"
+              title={t('prints.filter.clear')}
+            >
+              <X size={13} />
+            </button>
+          </>
+        )}
+      </div>
+
       {isLoading && shown.length === 0 && <p className="text-gray-500 text-sm">{t('common.loading')}</p>}
 
-      {needle && filtered.length === 0 && shown.length > 0 && (
+      {isFiltered && filtered.length === 0 && shown.length > 0 && (
         <p className="text-sm text-gray-500">{t('prints.noResults')}</p>
       )}
 

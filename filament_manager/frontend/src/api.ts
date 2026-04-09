@@ -31,9 +31,23 @@ export const api = {
   getSubtypes: () => request<string[]>('spools/subtypes/list'),
 
   // Prints
-  getPrints: (limit = 50, offset = 0) =>
-    request<PrintJob[]>(`prints?limit=${limit}&offset=${offset}`),
-  getPrintsTotal: () => request<{ total: number }>('prints/count'),
+  getPrints: (limit = 50, offset = 0, search?: string, dateFrom?: string, dateTo?: string, tz?: string) => {
+    const p = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+    if (search) p.set('search', search)
+    if (dateFrom) p.set('date_from', dateFrom)
+    if (dateTo) p.set('date_to', dateTo)
+    if (tz) p.set('timezone', tz)
+    return request<PrintJob[]>(`prints?${p}`)
+  },
+  getPrintsTotal: (search?: string, dateFrom?: string, dateTo?: string, tz?: string) => {
+    const p = new URLSearchParams()
+    if (search) p.set('search', search)
+    if (dateFrom) p.set('date_from', dateFrom)
+    if (dateTo) p.set('date_to', dateTo)
+    if (tz) p.set('timezone', tz)
+    const qs = p.toString()
+    return request<{ total: number }>(`prints/count${qs ? `?${qs}` : ''}`)
+  },
   getPrint: (id: number) => request<PrintJob>(`prints/${id}`),
   createPrint: (data: unknown) =>
     request<PrintJob>('prints', { method: 'POST', body: JSON.stringify(data) }),
@@ -120,7 +134,7 @@ export const api = {
 
   // Version
   getVersion: () => request<{ version: string }>('settings/version'),
-  getHALocale: () => request<{ language: string }>('settings/ha-locale'),
+  getHALocale: () => request<{ language: string; time_zone: string }>('settings/ha-locale'),
 
   // Bambu Cloud
   getBambuCloudStatus: () =>

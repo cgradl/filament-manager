@@ -6,6 +6,8 @@ import type { DashboardStats, PrintJob, PrinterConfig, PrinterStatus } from '../
 import { AlertTriangle, Printer, Zap } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { enUS, de, es, type Locale } from 'date-fns/locale'
+import { useHATZ } from '../hooks/useHATZ'
+import { parseUTC } from '../utils/time'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend, CartesianGrid,
@@ -121,6 +123,7 @@ const LIVE_KEYS = ['print_stage', 'print_progress', 'remaining_time', 'print_wei
 function RunningJobCard({ job, printers }: { job: PrintJob; printers: PrinterConfig[] }) {
   const { t, i18n } = useTranslation()
   const locale = LOCALE_MAP[i18n.resolvedLanguage ?? 'en'] ?? enUS
+  const tz = useHATZ()
 
   const printer = printers.find(p => p.name === job.printer_name) ?? null
 
@@ -144,7 +147,7 @@ function RunningJobCard({ job, printers }: { job: PrintJob; printers: PrinterCon
             <p className="text-sm font-semibold text-white truncate">{job.name}</p>
             <p className="text-xs text-gray-500 mt-0.5">
               {job.printer_name && <span>{job.printer_name} · </span>}
-              {t('dashboard.runningFor')} {formatDistanceToNow(new Date(job.started_at), { locale })}
+              {t('dashboard.runningFor')} {formatDistanceToNow(parseUTC(job.started_at), { locale })}
             </p>
           </div>
         </div>
@@ -176,7 +179,7 @@ function PrintRow({ job }: { job: PrintJob }) {
       <div className="min-w-0">
         <p className="text-sm font-medium text-white truncate">{job.name}</p>
         <p className="text-xs text-gray-500">
-          {formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale })}
+          {formatDistanceToNow(parseUTC(job.started_at), { addSuffix: true, locale })}
           {job.printer_name && ` · ${job.printer_name}`}
         </p>
       </div>
@@ -262,8 +265,6 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                   cx="50%"
                   cy="50%"
                   outerRadius={90}
-                  label={({ name, value }) => `${name} (${value})`}
-                  labelLine={false}
                 >
                   {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Pie>
@@ -275,7 +276,11 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                     `${value} ${value === 1 ? t('dashboard.chart.spool') : t('dashboard.chart.spools')} · ${props.payload.kg.toFixed(2)} kg`, name,
                   ]}
                 />
-                <Legend formatter={(v) => <span style={{ color: '#9ca3af', fontSize: 12 }}>{v}</span>} />
+                <Legend formatter={(v, entry: any) => (
+                  <span style={{ color: '#9ca3af', fontSize: 12 }}>
+                    {v}{entry?.payload?.value != null ? ` (${entry.payload.value})` : ''}
+                  </span>
+                )} />
               </PieChart>
             </ResponsiveContainer>
       )}
@@ -350,7 +355,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                 const month = dateStr.slice(0, 7)
                 if (month === lastMonth) return ''
                 lastMonth = month
-                const d = new Date(dateStr + 'T00:00:00')
+                const d = new Date(dateStr + 'T12:00:00Z')
                 return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })
               }
               return (
@@ -377,7 +382,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                       labelStyle={TT_LABEL}
                       itemStyle={TT_ITEM}
                       labelFormatter={(label: string) =>
-                        new Date(label + 'T00:00:00').toLocaleDateString(undefined, {
+                        new Date(label + 'T12:00:00Z').toLocaleDateString(undefined, {
                           weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
                         })
                       }

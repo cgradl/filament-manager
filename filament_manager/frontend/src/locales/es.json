@@ -190,7 +190,19 @@
     "gramsHint": "Introduce los gramos usados por bandeja. El inventario se actualizará al guardar.",
     "cloudSuggestion": "Valores prellenados desde la impresora — verifica y ajusta antes de guardar.",
     "search": "Buscar impresiones…",
-    "noResults": "No hay impresiones que coincidan con la búsqueda."
+    "noResults": "No hay impresiones que coincidan con los filtros.",
+    "filter": {
+      "month": "Mes",
+      "week": "Semana",
+      "day": "Día",
+      "thisMonth": "Este mes",
+      "lastMonth": "Mes pasado",
+      "thisWeek": "Esta semana",
+      "lastWeek": "Semana pasada",
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "clear": "Borrar filtro de fecha"
+    }
   },
   "settings": {
     "title": "Ajustes",

@@ -1,4 +1,8 @@
+from datetime import datetime, date as date_t
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_, func, select as sa_select
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
@@ -22,22 +26,81 @@ def _load_job(db: Session, job_id: int) -> PrintJob:
     return job
 
 
+def _apply_filters(
+    q,
+    search: str | None,
+    date_from: str | None,
+    date_to: str | None,
+    timezone: str,
+):
+    """Apply optional search / date-range filters to a PrintJob query."""
+    if search:
+        s = f"%{search.lower()}%"
+        # Subquery: print job IDs whose spools match the search term
+        spool_subq = (
+            sa_select(PrintUsage.print_job_id)
+            .join(Spool, PrintUsage.spool_id == Spool.id)
+            .where(
+                or_(
+                    func.lower(func.coalesce(Spool.brand, "") + " " + func.coalesce(Spool.material, "")).like(s),
+                    func.lower(func.coalesce(Spool.color_name, "")).like(s),
+                )
+            )
+            .scalar_subquery()
+        )
+        q = q.filter(
+            or_(
+                func.lower(func.coalesce(PrintJob.name, "")).like(s),
+                func.lower(func.coalesce(PrintJob.printer_name, "")).like(s),
+                PrintJob.id.in_(spool_subq),
+            )
+        )
+
+    if date_from or date_to:
+        try:
+            tz = ZoneInfo(timezone)
+        except Exception:
+            tz = ZoneInfo("UTC")
+        utc = ZoneInfo("UTC")
+
+        if date_from:
+            d = date_t.fromisoformat(date_from)
+            utc_start = datetime(d.year, d.month, d.day, 0, 0, 0, tzinfo=tz).astimezone(utc).replace(tzinfo=None)
+            q = q.filter(PrintJob.started_at >= utc_start)
+
+        if date_to:
+            d = date_t.fromisoformat(date_to)
+            utc_end = datetime(d.year, d.month, d.day, 23, 59, 59, 999999, tzinfo=tz).astimezone(utc).replace(tzinfo=None)
+            q = q.filter(PrintJob.started_at <= utc_end)
+
+    return q
+
+
 @router.get("/count")
-def count_prints(db: Session = Depends(get_db)):
-    return {"total": db.query(PrintJob).count()}
+def count_prints(
+    search: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    timezone: str = "UTC",
+    db: Session = Depends(get_db),
+):
+    q = _apply_filters(db.query(PrintJob), search, date_from, date_to, timezone)
+    return {"total": q.count()}
 
 
 @router.get("", response_model=list[PrintJobOut])
 def list_prints(
     limit: int = 50,
     offset: int = 0,
+    search: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    timezone: str = "UTC",
     db: Session = Depends(get_db),
 ):
+    q = _apply_filters(db.query(PrintJob), search, date_from, date_to, timezone)
     jobs = (
-        db.query(PrintJob)
-        .options(
-            joinedload(PrintJob.usages).joinedload(PrintUsage.spool)
-        )
+        q.options(joinedload(PrintJob.usages).joinedload(PrintUsage.spool))
         .order_by(PrintJob.started_at.desc())
         .offset(offset)
         .limit(limit)

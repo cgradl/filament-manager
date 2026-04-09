@@ -2,11 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme variables ─────────────────────────────────────────────────────────
+   Surface colors are RGB triplets so Tailwind's opacity modifiers work:
+     bg-surface-2/50  →  rgb(var(--fm-surface-2) / 0.5)
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Dark theme defaults */
+  --fm-surface:       28 28 30;    /* #1c1c1e */
+  --fm-surface-2:     44 44 46;    /* #2c2c2e */
+  --fm-surface-3:     58 58 60;    /* #3a3a3c */
+  --fm-accent:        59 130 246;  /* #3b82f6 */
+  --fm-accent-hover:  37 99 235;   /* #2563eb */
+  --fm-text-primary:  #f3f4f6;     /* gray-100 */
+}
+
+/* ── Light theme ─────────────────────────────────────────────────────────────
+   Applied when the .dark class is absent from <html>.
+   JS (index.html script + main.tsx) controls this class based on
+   HA's CSS variables or the OS prefers-color-scheme preference.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+html:not(.dark) {
+  --fm-surface:       242 242 247;  /* #f2f2f7 – page background */
+  --fm-surface-2:     255 255 255;  /* #ffffff – cards / sidebar */
+  --fm-surface-3:     229 229 234;  /* #e5e5ea – borders / inputs */
+  --fm-accent:        59 130 246;   /* keep blue */
+  --fm-accent-hover:  37 99 235;
+  --fm-text-primary:  #111827;      /* gray-900 */
+}
+
+/* ── Base styles ─────────────────────────────────────────────────────────────*/
+
 @layer base {
   body {
-    @apply bg-surface text-gray-100;
+    background-color: rgb(var(--fm-surface));
+    color: var(--fm-text-primary);
   }
 }
+
+/* ── Component layer ─────────────────────────────────────────────────────────*/
 
 @layer components {
   .card {
@@ -19,16 +54,64 @@
     @apply btn bg-accent hover:bg-accent-hover text-white;
   }
   .btn-ghost {
-    @apply btn text-gray-400 hover:text-white hover:bg-surface-3;
+    @apply btn hover:bg-surface-3;
   }
   .btn-danger {
     @apply btn bg-red-600 hover:bg-red-700 text-white;
   }
   .input {
-    @apply w-full bg-surface-3 border border-surface-3 rounded-lg px-3 py-2 text-sm text-gray-100
-           placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent;
+    @apply w-full bg-surface-3 border border-surface-3 rounded-lg px-3 py-2 text-sm
+           focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent;
   }
   .label {
-    @apply block text-xs text-gray-400 mb-1;
+    @apply block text-xs mb-1;
   }
 }
+
+/* ── Light-mode neutral text overrides ───────────────────────────────────────
+   In dark mode the app uses light grays (text-white, text-gray-100 … 500).
+   When the dark class is removed those become invisible on the light surface.
+   These rules remap neutral grays to their dark-background equivalents so
+   every component adopts the right contrast without per-file dark: variants.
+
+   Specificity: html(1) + :not(.dark)(1 class) + .text-**(1 class) = (0,2,1)
+   which beats Tailwind utilities at (0,1,0) – no !important needed.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+html:not(.dark) .text-white,
+html:not(.dark) .text-gray-100 { color: #111827; }   /* → gray-900 */
+html:not(.dark) .text-gray-200  { color: #1f2937; }  /* → gray-800 */
+html:not(.dark) .text-gray-300  { color: #374151; }  /* → gray-700 */
+html:not(.dark) .text-gray-400  { color: #6b7280; }  /* → gray-500 */
+html:not(.dark) .text-gray-500  { color: #9ca3af; }  /* → gray-400 */
+html:not(.dark) .text-gray-600  { color: #d1d5db; }  /* → gray-300 */
+
+/* Inputs: placeholder stays readable in light mode */
+html:not(.dark) .placeholder-gray-500::placeholder { color: #9ca3af; }
+
+/* ── Restore white text on coloured surfaces (buttons, active nav, badges) ───
+   These come AFTER the overrides above; same specificity = last-declared wins.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Primary / danger buttons keep white text on their coloured background */
+html:not(.dark) .btn-primary,
+html:not(.dark) .btn-danger { color: white; }
+
+/* Any element that carries an explicit bg-accent class (e.g. active NavLink) */
+html:not(.dark) .bg-accent { color: white; }
+
+/* Status badges */
+html:not(.dark) .bg-green-900,
+html:not(.dark) .bg-red-900,
+html:not(.dark) .bg-blue-900 { color: white; }
+
+/* btn-ghost: in light mode use dark text / accent hover */
+html:not(.dark) .btn-ghost         { color: #374151; }
+html:not(.dark) .btn-ghost:hover   { color: #111827; }
+
+/* input text */
+html:not(.dark) .input { color: #111827; }
+html:not(.dark) .input::placeholder { color: #9ca3af; }
+
+/* label */
+html:not(.dark) .label { color: #6b7280; }
