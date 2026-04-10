@@ -19,6 +19,7 @@ class SpoolBase(BaseModel):
     purchase_price: float | None = None
     purchased_at: datetime | None = None
     purchase_location: str | None = None
+    storage_location: str | None = None
     ams_slot: str | None = None
     notes: str | None = None
 
@@ -42,6 +43,7 @@ class SpoolUpdate(BaseModel):
     purchase_price: float | None = None
     purchased_at: datetime | None = None
     purchase_location: str | None = None
+    storage_location: str | None = None
     ams_slot: str | None = None
     notes: str | None = None
 

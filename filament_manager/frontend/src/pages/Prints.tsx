@@ -6,7 +6,7 @@ import type { PrintJob, Spool, AMSTray, PrinterConfig, SuggestedUsage, PrinterSt
 import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search, CalendarDays } from 'lucide-react'
 import Modal from '../components/Modal'
 import { useHATZ } from '../hooks/useHATZ'
-import { formatDateTimeTZ, nowInTZ } from '../utils/time'
+import { formatDateTimeTZ, nowInTZ, utcToLocalInput, localInputToUTC } from '../utils/time'
 
 const PAGE_SIZE = 50
 
@@ -30,6 +30,28 @@ function getMondayOf(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00Z')
   const delta = (d.getUTCDay() + 6) % 7   // Mon=0 … Sun=6
   return addDays(dateStr, -delta)
+}
+
+/** Return the default date/month string for a mode+preset combination. */
+function presetToCustom(mode: FilterMode, preset: 'this' | 'last', today: string): string {
+  if (mode === 'month') {
+    if (preset === 'this') return today.slice(0, 7)
+    const d = new Date(today + 'T12:00:00Z')
+    d.setUTCDate(1)
+    d.setUTCMonth(d.getUTCMonth() - 1)
+    return d.toISOString().slice(0, 7)
+  }
+  if (mode === 'week') {
+    const ref = preset === 'this' ? today : addDays(today, -7)
+    return getMondayOf(ref)
+  }
+  return preset === 'this' ? today : addDays(today, -1)
+}
+
+/** Format "YYYY-MM-DD" as "DD.MM." for compact range labels. */
+function fmtShort(dateStr: string): string {
+  const [, m, d] = dateStr.split('-')
+  return `${d}.${m}.`
 }
 
 function resolveDateRange(f: DateFilter, today: string): { start: string; end: string } | null {
@@ -87,10 +109,10 @@ function PrintForm({
   const [modelName, setModelName] = useState(initial?.model_name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [startedAt, setStartedAt] = useState(
-    initial?.started_at ? initial.started_at.slice(0, 16) : now
+    initial?.started_at ? utcToLocalInput(initial.started_at, tz) : now
   )
   const [finishedAt, setFinishedAt] = useState(
-    initial?.finished_at ? initial.finished_at.slice(0, 16) : ''
+    initial?.finished_at ? utcToLocalInput(initial.finished_at, tz) : ''
   )
   const [durationH, setDurationH] = useState(
     initial?.duration_hours?.toString() ?? ''
@@ -163,8 +185,8 @@ function PrintForm({
       name,
       model_name: modelName || null,
       description: description || null,
-      started_at: startedAt,
-      finished_at: finishedAt || null,
+      started_at: localInputToUTC(startedAt, tz),
+      finished_at: finishedAt ? localInputToUTC(finishedAt, tz) : null,
       duration_seconds: durationH ? Math.round(parseFloat(durationH) * 3600) : null,
       success,
       notes: notes || null,
@@ -706,7 +728,7 @@ export default function Prints() {
           <button
             key={m}
             onClick={() => setDateFilter(f =>
-              f?.mode === m ? null : { mode: m, preset: 'this', custom: '' }
+              f?.mode === m ? null : { mode: m, preset: 'this', custom: presetToCustom(m, 'this', today) }
             )}
             className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
               dateFilter?.mode === m
@@ -725,7 +747,7 @@ export default function Prints() {
             {(['this', 'last'] as const).map(p => (
               <button
                 key={p}
-                onClick={() => setDateFilter(f => f ? { ...f, preset: p, custom: '' } : null)}
+                onClick={() => setDateFilter(f => f ? { ...f, preset: p, custom: presetToCustom(f.mode, p, today) } : null)}
                 className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
                   dateFilter.preset === p
                     ? 'bg-surface-3 text-white'
@@ -742,14 +764,25 @@ export default function Prints() {
 
             <input
               type={dateFilter.mode === 'month' ? 'month' : 'date'}
-              className={`input py-0.5 text-xs ${dateFilter.preset === 'custom' ? 'ring-1 ring-blue-600' : ''}`}
+              className="input py-0.5 text-xs"
               style={{ width: 132 }}
-              value={dateFilter.preset === 'custom' ? dateFilter.custom : ''}
+              value={dateFilter.custom}
               onChange={e => {
-                if (e.target.value)
+                if (!e.target.value) return
+                if (dateFilter.mode === 'week') {
+                  // Snap to Monday of the selected week
+                  const monday = getMondayOf(e.target.value)
+                  setDateFilter(f => f ? { ...f, preset: 'custom', custom: monday } : null)
+                } else {
                   setDateFilter(f => f ? { ...f, preset: 'custom', custom: e.target.value } : null)
+                }
               }}
             />
+            {dateFilter.mode === 'week' && dateFilter.custom && (
+              <span className="text-xs text-gray-400 whitespace-nowrap">
+                {fmtShort(dateFilter.custom)} – {fmtShort(addDays(dateFilter.custom, 6))}
+              </span>
+            )}
 
             <button
               onClick={() => setDateFilter(null)}

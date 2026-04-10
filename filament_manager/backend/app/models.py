@@ -42,6 +42,7 @@ class Spool(Base):
     # purchase_url kept in DB but no longer exposed (orphaned column)
 
     purchase_location = Column(String)
+    storage_location = Column(String)
     ams_slot = Column(String)
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -178,6 +179,15 @@ class FilamentBrand(Base):
 class PurchaseLocation(Base):
     """User-managed list of purchase locations (shops/stores)."""
     __tablename__ = "purchase_locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class StorageLocation(Base):
+    """User-managed list of physical storage locations (shelves, boxes, etc.)."""
+    __tablename__ = "storage_locations"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)

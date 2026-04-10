@@ -21,7 +21,7 @@ from ..database import get_db
 from ..models import (
     Spool, PrintJob, PrintUsage,
     BrandSpoolWeight, FilamentMaterial, FilamentSubtype, FilamentBrand,
-    PurchaseLocation, PrinterConfig, MATERIAL_DENSITY,
+    PurchaseLocation, StorageLocation, PrinterConfig, MATERIAL_DENSITY,
 )
 
 router = APIRouter(prefix="/api/data", tags=["data-transfer"])
@@ -37,6 +37,7 @@ def _dt(v) -> str | None:
 def _spool_dict(s: Spool) -> dict:
     return {
         "id": s.id,
+        "custom_id": s.custom_id,
         "brand": s.brand,
         "material": s.material,
         "subtype": s.subtype,
@@ -50,6 +51,7 @@ def _spool_dict(s: Spool) -> dict:
         "purchase_price": s.purchase_price,
         "purchased_at": _dt(s.purchased_at),
         "purchase_location": s.purchase_location,
+        "storage_location": s.storage_location,
         "ams_slot": s.ams_slot,
         "notes": s.notes,
         "created_at": _dt(s.created_at),
@@ -77,6 +79,16 @@ def _job_dict(j: PrintJob) -> dict:
         "printer_name": j.printer_name,
         "source": j.source,
         "ams_snapshot_start": j.ams_snapshot_start,
+        "task_id": j.task_id,
+        "project_id": j.project_id,
+        "total_layer_num": j.total_layer_num,
+        "layer_num": j.layer_num,
+        "nozzle_diameter": j.nozzle_diameter,
+        "nozzle_type": j.nozzle_type,
+        "print_type": j.print_type,
+        "error_code": j.error_code,
+        "print_weight_g": j.print_weight_g,
+        "suggested_usages": j.suggested_usages,
         "created_at": _dt(j.created_at),
         "usages": [_usage_dict(u) for u in j.usages],
     }
@@ -86,14 +98,15 @@ def _job_dict(j: PrintJob) -> dict:
 
 @router.get("/export")
 def export_data(db: Session = Depends(get_db)):
-    spools     = db.query(Spool).order_by(Spool.id).all()
-    jobs       = db.query(PrintJob).order_by(PrintJob.id).all()
-    printers   = db.query(PrinterConfig).order_by(PrinterConfig.id).all()
-    bw         = db.query(BrandSpoolWeight).order_by(BrandSpoolWeight.brand).all()
-    materials  = db.query(FilamentMaterial).order_by(FilamentMaterial.name).all()
-    subtypes   = db.query(FilamentSubtype).order_by(FilamentSubtype.name).all()
-    brands     = db.query(FilamentBrand).order_by(FilamentBrand.name).all()
-    locations  = db.query(PurchaseLocation).order_by(PurchaseLocation.name).all()
+    spools          = db.query(Spool).order_by(Spool.id).all()
+    jobs            = db.query(PrintJob).order_by(PrintJob.id).all()
+    printers        = db.query(PrinterConfig).order_by(PrinterConfig.id).all()
+    bw              = db.query(BrandSpoolWeight).order_by(BrandSpoolWeight.brand).all()
+    materials       = db.query(FilamentMaterial).order_by(FilamentMaterial.name).all()
+    subtypes        = db.query(FilamentSubtype).order_by(FilamentSubtype.name).all()
+    brands          = db.query(FilamentBrand).order_by(FilamentBrand.name).all()
+    locations       = db.query(PurchaseLocation).order_by(PurchaseLocation.name).all()
+    storage_locs    = db.query(StorageLocation).order_by(StorageLocation.name).all()
 
     bundle = {
         "version": EXPORT_VERSION,
@@ -107,15 +120,29 @@ def export_data(db: Session = Depends(get_db)):
                 "ams_device_slug": p.ams_device_slug,
                 "ams_unit_count": p.ams_unit_count,
                 "is_active": p.is_active,
+                "auto_deduct": p.auto_deduct,
+                "bambu_serial": p.bambu_serial,
+                "bambu_source": p.bambu_source,
+                "sensor_print_stage":    p.sensor_print_stage,
+                "sensor_print_progress": p.sensor_print_progress,
+                "sensor_remaining_time": p.sensor_remaining_time,
+                "sensor_nozzle_temp":    p.sensor_nozzle_temp,
+                "sensor_bed_temp":       p.sensor_bed_temp,
+                "sensor_current_file":   p.sensor_current_file,
+                "sensor_print_weight":   p.sensor_print_weight,
+                "sensor_active_tray":    p.sensor_active_tray,
+                "sensor_ams_active":     p.sensor_ams_active,
+                "ams_tray_pattern":      p.ams_tray_pattern,
             }
             for p in printers
         ],
         "settings": {
-            "brand_weights": [{"brand": b.brand, "spool_weight_g": b.spool_weight_g} for b in bw],
-            "materials":     [m.name for m in materials],
-            "subtypes":      [s.name for s in subtypes],
-            "brands":        [b.name for b in brands],
+            "brand_weights":      [{"brand": b.brand, "spool_weight_g": b.spool_weight_g} for b in bw],
+            "materials":          [m.name for m in materials],
+            "subtypes":           [s.name for s in subtypes],
+            "brands":             [b.name for b in brands],
             "purchase_locations": [l.name for l in locations],
+            "storage_locations":  [l.name for l in storage_locs],
         },
     }
 
@@ -266,6 +293,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
         "subtypes": 0,
         "brands": 0,
         "purchase_locations": 0,
+        "storage_locations": 0,
         "brand_weights": 0,
     }
 
@@ -296,6 +324,12 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             db.add(PurchaseLocation(name=name))
             stats["purchase_locations"] += 1
 
+    existing_sloc = {r.name for r in db.query(StorageLocation).all()}
+    for name in s.get("storage_locations", []):
+        if name and name not in existing_sloc:
+            db.add(StorageLocation(name=name))
+            stats["storage_locations"] += 1
+
     existing_bw = {r.brand for r in db.query(BrandSpoolWeight).all()}
     for bw in s.get("brand_weights", []):
         if bw.get("brand") and bw["brand"] not in existing_bw:
@@ -314,6 +348,19 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
                 ams_device_slug=p.get("ams_device_slug"),
                 ams_unit_count=p.get("ams_unit_count", 1),
                 is_active=p.get("is_active", True),
+                auto_deduct=p.get("auto_deduct", False),
+                bambu_serial=p.get("bambu_serial"),
+                bambu_source=p.get("bambu_source", "ha"),
+                sensor_print_stage=p.get("sensor_print_stage"),
+                sensor_print_progress=p.get("sensor_print_progress"),
+                sensor_remaining_time=p.get("sensor_remaining_time"),
+                sensor_nozzle_temp=p.get("sensor_nozzle_temp"),
+                sensor_bed_temp=p.get("sensor_bed_temp"),
+                sensor_current_file=p.get("sensor_current_file"),
+                sensor_print_weight=p.get("sensor_print_weight"),
+                sensor_active_tray=p.get("sensor_active_tray"),
+                sensor_ams_active=p.get("sensor_ams_active"),
+                ams_tray_pattern=p.get("ams_tray_pattern"),
             ))
             stats["printer_configs"] += 1
 
@@ -324,6 +371,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
     for sp in bundle.spools:
         old_id = sp.get("id")
         new_spool = Spool(
+            custom_id=sp.get("custom_id"),
             brand=sp.get("brand", "Unknown"),
             material=sp.get("material", "PLA"),
             subtype=sp.get("subtype"),
@@ -337,6 +385,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             purchase_price=sp.get("purchase_price"),
             purchased_at=_parse_dt(sp.get("purchased_at")),
             purchase_location=sp.get("purchase_location"),
+            storage_location=sp.get("storage_location"),
             ams_slot=sp.get("ams_slot"),
             notes=sp.get("notes"),
             created_at=_parse_dt(sp.get("created_at")) or datetime.utcnow(),
@@ -361,6 +410,16 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             printer_name=job_data.get("printer_name"),
             source=job_data.get("source", "imported"),
             ams_snapshot_start=job_data.get("ams_snapshot_start") or {},
+            task_id=job_data.get("task_id"),
+            project_id=job_data.get("project_id"),
+            total_layer_num=job_data.get("total_layer_num"),
+            layer_num=job_data.get("layer_num"),
+            nozzle_diameter=job_data.get("nozzle_diameter"),
+            nozzle_type=job_data.get("nozzle_type"),
+            print_type=job_data.get("print_type"),
+            error_code=job_data.get("error_code"),
+            print_weight_g=job_data.get("print_weight_g"),
+            suggested_usages=job_data.get("suggested_usages"),
             created_at=_parse_dt(job_data.get("created_at")) or datetime.utcnow(),
         )
         db.add(job)

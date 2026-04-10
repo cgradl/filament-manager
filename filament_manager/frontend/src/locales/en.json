@@ -36,6 +36,8 @@
     "costGroup": "Cost (€)",
     "filamentGroup": "Filament (kg)",
     "spoolsGroup": "Spools",
+    "colWeight": "Weight",
+    "colMoney": "Money",
     "inventoryGroup": "Inventory",
     "totalPurchased": "Total purchased",
     "printedSpent": "Printed / spent",
@@ -47,6 +49,8 @@
     "totalPrints": "Total prints",
     "runningJob": "Running Job",
     "runningFor": "Running for",
+    "forceFinish": "Mark as done",
+    "forceFinishConfirm": "Mark this print as finished?\n\nNo filament usage will be calculated automatically — you will need to adjust material usage manually in Print History.",
     "recentPrints": "Recent Prints",
     "lowStockAlerts": "Low Stock Alerts",
     "noPrints": "No prints logged yet.",
@@ -109,6 +113,7 @@
       "purchasePrice": "Purchase Price (€)",
       "purchaseDate": "Purchase Date",
       "purchaseLocation": "Purchase Location",
+      "storageLocation": "Storage Location",
       "amsSlot": "AMS Slot (e.g. ams1_tray2)",
       "notes": "Notes",
       "qty": "Qty",
@@ -128,6 +133,7 @@
       "pricePerKg": "€/kg",
       "purchaseDate": "Purchased",
       "location": "Location",
+      "storageLocation": "Storage",
       "amsSlot": "AMS Slot",
       "actions": "Actions"
     },
@@ -217,7 +223,8 @@
       "brands": "Brands",
       "materials": "Materials",
       "subtypes": "Subtypes",
-      "locations": "Locations"
+      "locations": "Locations",
+      "storageLocations": "Storage"
     },
     "bambuCloud": {
       "title": "Bambu Lab Cloud",
@@ -349,6 +356,12 @@
       "add": "Add Location",
       "noEntries": "No locations configured.",
       "placeholder": "e.g. Amazon, Aliexpress…"
+    },
+    "storageLocations": {
+      "title": "Storage Locations",
+      "add": "Add Location",
+      "noEntries": "No storage locations configured.",
+      "placeholder": "e.g. Shelf 1, Cupboard 2…"
     },
     "dataTransfer": {
       "title": "Export / Import",

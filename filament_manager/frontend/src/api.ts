@@ -132,9 +132,17 @@ export const api = {
   deletePurchaseLocation: (id: number) =>
     request<void>(`settings/purchase-locations/${id}`, { method: 'DELETE' }),
 
+  getStorageLocations: () => request<FilamentSubtype[]>('settings/storage-locations'),
+  createStorageLocation: (name: string) =>
+    request<FilamentSubtype>('settings/storage-locations', { method: 'POST', body: JSON.stringify({ name }) }),
+  updateStorageLocation: (id: number, name: string) =>
+    request<FilamentSubtype>(`settings/storage-locations/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+  deleteStorageLocation: (id: number) =>
+    request<void>(`settings/storage-locations/${id}`, { method: 'DELETE' }),
+
   // Version
   getVersion: () => request<{ version: string }>('settings/version'),
-  getHALocale: () => request<{ language: string; time_zone: string }>('settings/ha-locale'),
+  getHALocale: () => request<{ language: string; time_zone: string; country: string; currency: string }>('settings/ha-locale'),
 
   // Bambu Cloud
   getBambuCloudStatus: () =>

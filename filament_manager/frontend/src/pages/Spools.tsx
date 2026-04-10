@@ -13,7 +13,7 @@ const EMPTY_FORM = {
   custom_id: '',
   brand: '', material: 'PLA', subtype: '', subtype2: '', color_name: '', color_hex: '#888888',
   diameter_mm: 1.75, initial_weight_g: 1000, current_weight_g: 1000,
-  purchase_price: '', purchased_at: '', purchase_location: '',
+  purchase_price: '', purchased_at: '', purchase_location: '', storage_location: '',
   ams_slot: '', notes: '',
 }
 
@@ -37,6 +37,7 @@ function SpoolForm({
     purchase_price: initial?.purchase_price?.toString() ?? '',
     purchased_at: initial?.purchased_at ? initial.purchased_at.slice(0, 10) : '',
     purchase_location: initial?.purchase_location ?? '',
+    storage_location: initial?.storage_location ?? '',
     initial_weight_g: initial?.initial_weight_g ?? 1000,
     current_weight_g: initial?.current_weight_g ?? 1000,
   })
@@ -49,6 +50,7 @@ function SpoolForm({
   const { data: brandWeights = [] } = useQuery<BrandSpoolWeight[]>({ queryKey: ['brand-weights'], queryFn: api.getBrandWeights })
   const { data: brands = [] } = useQuery<{ id: number; name: string }[]>({ queryKey: ['filament-brands'], queryFn: api.getFilamentBrands })
   const { data: locations = [] } = useQuery<{ id: number; name: string }[]>({ queryKey: ['purchase-locations'], queryFn: api.getPurchaseLocations })
+  const { data: storageLocations = [] } = useQuery<{ id: number; name: string }[]>({ queryKey: ['storage-locations'], queryFn: api.getStorageLocations })
 
   const matchedBrand = brandWeights.find(b => b.brand.toLowerCase() === form.brand.toLowerCase())
   const tareG = matchedBrand?.spool_weight_g ?? 0
@@ -250,12 +252,21 @@ function SpoolForm({
             </div>
           </div>
 
-          <div>
-            <label className="label">{t('spools.form.purchaseLocation')}</label>
-            <select className="input" value={form.purchase_location} onChange={set('purchase_location')}>
-              <option value="">{t('common.select')}</option>
-              {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label">{t('spools.form.purchaseLocation')}</label>
+              <select className="input" value={form.purchase_location} onChange={set('purchase_location')}>
+                <option value="">{t('common.select')}</option>
+                {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">{t('spools.form.storageLocation')}</label>
+              <select className="input" value={form.storage_location} onChange={set('storage_location')}>
+                <option value="">{t('common.select')}</option>
+                {storageLocations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+              </select>
+            </div>
           </div>
 
           <div>
@@ -341,6 +352,7 @@ function SpoolCard({ spool, onEdit, onDuplicate, onDelete }: {
         {spool.price_per_kg != null && <span>€{spool.price_per_kg.toFixed(2)}/kg</span>}
         {spool.purchase_price != null && <span>€{spool.purchase_price.toFixed(2)}</span>}
         {spool.purchased_at && <span>{formatDateOnly(spool.purchased_at)}</span>}
+        {spool.storage_location && <span className="text-green-400">{spool.storage_location}</span>}
         {spool.ams_slot && <span className="text-blue-400">{spool.ams_slot}</span>}
       </div>
     </div>
@@ -351,7 +363,7 @@ function SpoolCard({ spool, onEdit, onDuplicate, onDelete }: {
 
 type SortKey = 'custom_id' | 'brand' | 'material' | 'subtype' | 'color_name' | 'remaining_pct' |
                'current_weight_g' | 'initial_weight_g' | 'purchase_price' |
-               'price_per_kg' | 'purchased_at' | 'purchase_location' | 'ams_slot'
+               'price_per_kg' | 'purchased_at' | 'purchase_location' | 'storage_location' | 'ams_slot'
 type SortDir = 'asc' | 'desc'
 
 function SortIcon({ col, sort }: { col: SortKey; sort: { key: SortKey; dir: SortDir } }) {
@@ -444,8 +456,9 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
     { key: 'purchase_price',   label: t('spools.table.price'),        width: 'w-20' },
     { key: 'price_per_kg',     label: t('spools.table.pricePerKg'),   width: 'w-20' },
     { key: 'purchased_at',     label: t('spools.table.purchaseDate'), width: 'w-24' },
-    { key: 'purchase_location',label: t('spools.table.location'),     width: 'w-24' },
-    { key: 'ams_slot',         label: t('spools.table.amsSlot'),      width: 'w-24' },
+    { key: 'purchase_location',label: t('spools.table.location'),        width: 'w-24' },
+    { key: 'storage_location', label: t('spools.table.storageLocation'), width: 'w-24' },
+    { key: 'ams_slot',         label: t('spools.table.amsSlot'),         width: 'w-24' },
   ]
 
   return (
@@ -453,6 +466,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
       <table className="w-full text-xs text-left">
         <thead>
           <tr className="border-b border-surface-3">
+            <th className="px-3 py-2 w-20" />
             {cols.map(c => (
               <th
                 key={c.key}
@@ -464,9 +478,17 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                 </span>
               </th>
             ))}
-            <th className="px-3 py-2 w-16" />
           </tr>
           <tr className="border-b border-surface-3 bg-surface-3/30">
+            <td className="px-2 py-1">
+              <button
+                className="text-xs text-gray-500 hover:text-white"
+                onClick={() => setFilters({})}
+                title="Clear all filters"
+              >
+                ✕
+              </button>
+            </td>
             {cols.map(c => (
               <td key={c.key} className="px-2 py-1">
                 <input
@@ -478,15 +500,6 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                 />
               </td>
             ))}
-            <td className="px-2 py-1">
-              <button
-                className="text-xs text-gray-500 hover:text-white"
-                onClick={() => setFilters({})}
-                title="Clear all filters"
-              >
-                ✕
-              </button>
-            </td>
           </tr>
         </thead>
         <tbody>
@@ -498,6 +511,13 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                 key={s.id}
                 className="border-b border-surface-3/50 hover:bg-surface-3/40 transition-colors"
               >
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <div className="flex gap-1">
+                    <button onClick={() => onEdit(s)} className="btn-ghost p-1" title={t('spools.actions.edit')}><Pencil size={12} /></button>
+                    <button onClick={() => onDuplicate(s)} className="btn-ghost p-1 text-blue-400" title={t('spools.actions.duplicate')}><Copy size={12} /></button>
+                    <button onClick={() => onDelete(s)} className="btn-ghost p-1 text-red-400" title={t('spools.actions.delete')}><Trash2 size={12} /></button>
+                  </div>
+                </td>
                 <td className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono">{s.custom_id ?? '—'}</td>
                 <td className="px-3 py-2 font-medium text-white whitespace-nowrap">{s.brand}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{s.material}</td>
@@ -539,15 +559,14 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                     : <span className="text-gray-600">—</span>
                   }
                 </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {s.storage_location
+                    ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-green-400">{s.storage_location}</span>
+                    : <span className="text-gray-600">—</span>
+                  }
+                </td>
                 <td className="px-3 py-2 whitespace-nowrap text-blue-400">
                   {s.ams_slot ?? '—'}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <div className="flex gap-1">
-                    <button onClick={() => onEdit(s)} className="btn-ghost p-1" title={t('spools.actions.edit')}><Pencil size={12} /></button>
-                    <button onClick={() => onDuplicate(s)} className="btn-ghost p-1 text-blue-400" title={t('spools.actions.duplicate')}><Copy size={12} /></button>
-                    <button onClick={() => onDelete(s)} className="btn-ghost p-1 text-red-400" title={t('spools.actions.delete')}><Trash2 size={12} /></button>
-                  </div>
                 </td>
               </tr>
             )
@@ -575,6 +594,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
           return (
             <tfoot>
               <tr className="border-t-2 border-surface-3 bg-surface-3/40 text-gray-300 font-medium">
+                <td />
                 <td className="px-3 py-2 text-xs text-gray-400" colSpan={4}>
                   {n} {n !== 1 ? t('dashboard.chart.spools') : t('dashboard.chart.spool')}
                 </td>
@@ -633,6 +653,7 @@ export default function Spools() {
     purchase_price: form.purchase_price ? parseFloat(form.purchase_price as string) : null,
     purchased_at: form.purchased_at || null,
     purchase_location: form.purchase_location || null,
+    storage_location: form.storage_location || null,
     subtype: form.subtype || null,
     subtype2: form.subtype2 || null,
     ams_slot: form.ams_slot || null,
@@ -740,6 +761,7 @@ export default function Spools() {
               purchase_price: null,
               purchased_at: null,
               purchase_location: null,
+              storage_location: null,
               ams_slot: null,
             }}
             onSave={handleSave}

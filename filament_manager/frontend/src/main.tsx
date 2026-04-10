@@ -4,7 +4,7 @@ import { HashRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './index.css'
-import './i18n'
+import i18n, { applyDocLang } from './i18n'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -63,6 +63,27 @@ function syncHATheme() {
     // Cross-origin or security error — leave theme as-is
   }
 }
+
+// ── HTML lang sync ───────────────────────────────────────────────────────────
+// applyDocLang (exported from i18n.ts) sets document.documentElement.lang to
+// "{language}-{COUNTRY}" so browsers use the correct regional format (24h time,
+// number separators) independently of the UI language.
+//
+// The HA locale fetch in i18n.ts sets it with the real country.  Here we handle
+// two edge cases:
+//   1. Initial load before the async HA fetch completes — use language only.
+//   2. In-app language switch — preserve the country already set by HA.
+
+applyDocLang(i18n.resolvedLanguage ?? 'en', '')
+
+i18n.on('languageChanged', (lng: string) => {
+  // Preserve the country part that may have been set by the HA locale fetch
+  const current = document.documentElement.lang
+  const country = current.includes('-') ? current.split('-')[1] : ''
+  applyDocLang(lng, country)
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Run once after mount, then keep in sync with any HA theme changes.
 syncHATheme()

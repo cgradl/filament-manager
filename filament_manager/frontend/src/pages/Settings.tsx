@@ -1278,7 +1278,7 @@ function DataTransferSection() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 type MainTab = 'printers' | 'data' | 'transfer' | 'experiments'
-type DataSubTab = 'brandWeights' | 'brands' | 'materials' | 'subtypes' | 'locations'
+type DataSubTab = 'brandWeights' | 'brands' | 'materials' | 'subtypes' | 'locations' | 'storageLocations'
 
 // ── Cloud printer live status (used in Experiments tab) ───────────────────────
 
@@ -1569,7 +1569,8 @@ export default function Settings() {
     { id: 'brands',       label: t('settings.dataTabs.brands') },
     { id: 'materials',    label: t('settings.dataTabs.materials') },
     { id: 'subtypes',     label: t('settings.dataTabs.subtypes') },
-    { id: 'locations',    label: t('settings.dataTabs.locations') },
+    { id: 'locations',        label: t('settings.dataTabs.locations') },
+    { id: 'storageLocations', label: t('settings.dataTabs.storageLocations') },
   ]
 
   // Experiments tab: all printers with a serial (regardless of source)
@@ -1718,6 +1719,18 @@ export default function Settings() {
               deleteFn={api.deletePurchaseLocation}
               placeholder={t('settings.purchaseLocations.placeholder')}
               noEntries={t('settings.purchaseLocations.noEntries')}
+            />
+          )}
+          {dataTab === 'storageLocations' && (
+            <NameListSection
+              title={t('settings.storageLocations.title')}
+              queryKey="storage-locations"
+              fetchFn={api.getStorageLocations}
+              createFn={api.createStorageLocation}
+              updateFn={api.updateStorageLocation}
+              deleteFn={api.deleteStorageLocation}
+              placeholder={t('settings.storageLocations.placeholder')}
+              noEntries={t('settings.storageLocations.noEntries')}
             />
           )}
         </div>

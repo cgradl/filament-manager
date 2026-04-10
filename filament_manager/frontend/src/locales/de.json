@@ -36,6 +36,8 @@
     "costGroup": "Kosten (€)",
     "filamentGroup": "Filament (kg)",
     "spoolsGroup": "Spulen",
+    "colWeight": "Gewicht",
+    "colMoney": "Betrag",
     "inventoryGroup": "Inventar",
     "totalPurchased": "Gesamt gekauft",
     "printedSpent": "Gedruckt / verbraucht",
@@ -47,6 +49,8 @@
     "totalPrints": "Drucke gesamt",
     "runningJob": "Laufender Druck",
     "runningFor": "Läuft seit",
+    "forceFinish": "Als fertig markieren",
+    "forceFinishConfirm": "Diesen Druck als abgeschlossen markieren?\n\nDer Materialverbrauch wird nicht automatisch berechnet — du musst ihn manuell im Druckverlauf anpassen.",
     "recentPrints": "Letzte Drucke",
     "lowStockAlerts": "Niedrigbestand",
     "noPrints": "Noch keine Drucke erfasst.",
@@ -109,6 +113,7 @@
       "purchasePrice": "Kaufpreis (€)",
       "purchaseDate": "Kaufdatum",
       "purchaseLocation": "Kaufort",
+      "storageLocation": "Lagerort",
       "amsSlot": "AMS-Fach (z.B. ams1_tray2)",
       "notes": "Notizen",
       "qty": "Anz.",
@@ -128,6 +133,7 @@
       "pricePerKg": "€/kg",
       "purchaseDate": "Gekauft",
       "location": "Kaufort",
+      "storageLocation": "Lagerort",
       "amsSlot": "AMS-Fach",
       "actions": "Aktionen"
     },
@@ -217,7 +223,8 @@
       "brands": "Marken",
       "materials": "Materialien",
       "subtypes": "Untertypen",
-      "locations": "Kauforte"
+      "locations": "Kauforte",
+      "storageLocations": "Lagerorte"
     },
     "bambuCloud": {
       "title": "Bambu Lab Cloud",
@@ -349,6 +356,12 @@
       "add": "Kaufort hinzufügen",
       "noEntries": "Keine Kauforte konfiguriert.",
       "placeholder": "z.B. Amazon, Aliexpress…"
+    },
+    "storageLocations": {
+      "title": "Lagerorte",
+      "add": "Lagerort hinzufügen",
+      "noEntries": "Keine Lagerorte konfiguriert.",
+      "placeholder": "z.B. Regal 1, Schrank 2…"
     },
     "dataTransfer": {
       "title": "Export / Import",

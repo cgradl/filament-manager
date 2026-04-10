@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.13.4
+
+- Spools table: action buttons (edit / duplicate / delete) moved to first column
+- Export / Import: fixed several missing fields — `custom_id`, `storage_location` on spools; all Bambu enrichment fields (`task_id`, `project_id`, `nozzle_*`, `print_weight_g`, `suggested_usages`, etc.) on print jobs; `auto_deduct`, `bambu_serial/source`, all sensor overrides on printer configs; `storage_locations` in settings
+
+## 0.13.3
+
+- Dashboard: "Mark as done" button on the running job card lets users force-close a stuck print; a confirmation dialog warns that filament usage will not be calculated automatically and must be adjusted manually in Print History
+
+## 0.13.2
+
+- Dashboard: currency in the inventory table now reads the ISO 4217 currency code from HA config (`/api/config` → `currency`) and formats with `Intl.NumberFormat` — no more hardcoded €; works for any HA-configured currency (USD, GBP, CHF…)
+- Backend `/api/settings/ha-locale` now also returns `currency`
+
+## 0.13.1
+
+- Dashboard: Inventory card redesigned as a 3×3 table (rows: Total purchased / Printed–spent / Available; columns: Spools / Weight / €) for a cleaner at-a-glance overview
+
+## 0.13.0
+
+- Spools: new **Storage Location** field — track physical storage (shelf, drawer, box…) per spool
+- Storage locations are configurable in Settings → Data → Storage tab (full CRUD, same pattern as Purchase Locations)
+- Storage location shown as a dropdown in the Add/Edit Spool form (next to Purchase Location)
+- Storage location column added to the Spools table and badge shown on Spool cards
+- Backend: `StorageLocation` model, `spools.storage_location` column, `/api/settings/storage-locations` CRUD endpoints; automatic DB migration on startup
+
+## 0.12.4
+
+- `GET /api/settings/ha-locale` now also returns `country` (ISO 3166-1, e.g. `"DE"`) from the HA core config
+- `document.documentElement.lang` is set to `{language}-{COUNTRY}` (e.g. `en-DE`) so that browser datetime/number formatting follows the HA regional setting independently of the UI language — fixes 12 h AM/PM in `datetime-local` inputs for users running English UI with a 24 h country locale
+
+## 0.12.2
+
+- Prints date filter: preset buttons (This Month / Last Month / This Week / Last Week / Today / Yesterday) now populate the date picker with the resolved date immediately, so the picker always shows the active period
+- Week picker: selecting any day of a week snaps the picker to that week's Monday; a "DD.MM. – DD.MM." range label shows the full Mon–Sun span
+- Switching filter mode (Month / Week / Day) also pre-fills the picker with the current period
+
+## 0.12.1
+
+- Prints: edit form now shows `started_at` and `finished_at` in the HA timezone instead of raw UTC — fixes "started after finish" display for auto-monitored prints in non-UTC timezones
+- `utcToLocalInput` / `localInputToUTC` helpers added to `utils/time.ts` to convert between UTC ISO strings and `datetime-local` input values in any IANA timezone; save path converts back to UTC before submitting to the backend
+
 ## 0.12.0
 
 - Theme: app now follows Home Assistant's day/night mode — surfaces, borders, and text automatically switch between dark and light based on HA's theme or the OS `prefers-color-scheme` setting

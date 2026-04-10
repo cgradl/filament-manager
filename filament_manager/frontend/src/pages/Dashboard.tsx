@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { DashboardStats, PrintJob, PrinterConfig, PrinterStatus } from '../types'
-import { AlertTriangle, Printer, Zap } from 'lucide-react'
+import { AlertTriangle, Printer, Zap, CheckCircle2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { enUS, de, es, type Locale } from 'date-fns/locale'
-import { useHATZ } from '../hooks/useHATZ'
+import { useHATZ, useCurrencyFormatter } from '../hooks/useHATZ'
 import { parseUTC } from '../utils/time'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -28,41 +28,30 @@ const TT_ITEM  = { color: '#f5f5f7' }
 
 function InventoryCard({ stats }: { stats: DashboardStats }) {
   const { t } = useTranslation()
+  const fmtCurrency = useCurrencyFormatter()
 
-  const rows: { label: string; kg: string; eur: string; dim?: boolean; sub?: string }[] = [
+  const rows = [
     {
-      label: t('dashboard.totalPurchased'),
-      kg:    `${stats.total_filament_kg.toFixed(2)} kg`,
-      eur:   `€${stats.total_filament_spent_eur.toFixed(2)}`,
+      label:  t('dashboard.totalPurchased'),
+      spools: stats.total_spools,
+      kg:     stats.total_filament_kg,
+      eur:    stats.total_filament_spent_eur,
+      dim:    false,
     },
     {
-      label: t('dashboard.printedSpent'),
-      kg:    `${(stats.total_filament_kg - stats.total_available_kg).toFixed(2)} kg`,
-      eur:   `€${(stats.total_filament_spent_eur - stats.total_available_eur).toFixed(2)}`,
-      dim:   true,
+      label:  t('dashboard.printedSpent'),
+      spools: stats.empty_spools,
+      kg:     stats.total_filament_kg - stats.total_available_kg,
+      eur:    stats.total_filament_spent_eur - stats.total_available_eur,
+      dim:    true,
     },
     {
-      label: t('dashboard.available'),
-      kg:    `${stats.total_available_kg.toFixed(2)} kg`,
-      eur:   `€${stats.total_available_eur.toFixed(2)}`,
-      sub:   t('common.est'),
-    },
-  ]
-
-  const spoolRows: { label: string; value: string; sub?: string; accent?: string }[] = [
-    {
-      label: t('dashboard.totalSpools'),
-      value: stats.total_spools.toString(),
-      sub:   `${stats.total_prints} ${t('dashboard.totalPrints').toLowerCase()}`,
-    },
-    {
-      label: t('dashboard.activeSpools'),
-      value: stats.active_spools.toString(),
-    },
-    {
-      label: t('dashboard.emptySpools'),
-      value: stats.empty_spools.toString(),
-      accent: stats.empty_spools > 0 ? 'text-gray-500' : undefined,
+      label:  t('dashboard.available'),
+      spools: stats.active_spools,
+      kg:     stats.total_available_kg,
+      eur:    stats.total_available_eur,
+      est:    true,
+      dim:    false,
     },
   ]
 
@@ -71,34 +60,38 @@ function InventoryCard({ stats }: { stats: DashboardStats }) {
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
         {t('dashboard.inventoryGroup')}
       </p>
-
-      {/* Filament + cost rows */}
-      <div className="space-y-2 mb-4 pb-4 border-b border-surface-3">
-        {rows.map(r => (
-          <div key={r.label} className="flex items-baseline justify-between gap-4">
-            <span className={`text-sm ${r.dim ? 'text-gray-500' : 'text-gray-300'}`}>{r.label}</span>
-            <div className="flex items-baseline gap-3 shrink-0">
-              <span className={`text-sm font-semibold ${r.dim ? 'text-gray-500' : 'text-white'}`}>{r.kg}</span>
-              <span className={`text-sm ${r.dim ? 'text-gray-600' : 'text-gray-400'}`}>
-                {r.eur}{r.sub ? <span className="text-xs text-gray-600 ml-1">{r.sub}</span> : null}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Spool rows */}
-      <div className="space-y-2">
-        {spoolRows.map(r => (
-          <div key={r.label} className="flex items-baseline justify-between">
-            <span className="text-sm text-gray-300">{r.label}</span>
-            <div className="text-right">
-              <span className={`text-lg font-bold ${r.accent ?? 'text-white'}`}>{r.value}</span>
-              {r.sub && <span className="text-xs text-gray-500 ml-1.5">{r.sub}</span>}
-            </div>
-          </div>
-        ))}
-      </div>
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-surface-3">
+            <th className="pb-2 text-left" />
+            <th className="pb-2 text-right text-xs font-medium text-gray-500 pl-5 whitespace-nowrap">
+              {t('dashboard.spoolsGroup')}
+            </th>
+            <th className="pb-2 text-right text-xs font-medium text-gray-500 pl-5 whitespace-nowrap">
+              {t('dashboard.colWeight')}
+            </th>
+            <th className="pb-2 text-right text-xs font-medium text-gray-500 pl-5 whitespace-nowrap">
+              {t('dashboard.colMoney')}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.label} className="border-b border-surface-3/40 last:border-0">
+              <td className={`py-2.5 pr-4 text-sm ${r.dim ? 'text-gray-500' : 'text-gray-300'}`}>{r.label}</td>
+              <td className={`py-2.5 pl-5 text-right text-sm font-semibold tabular-nums ${r.dim ? 'text-gray-500' : 'text-white'}`}>
+                {r.spools}
+              </td>
+              <td className={`py-2.5 pl-5 text-right text-sm font-semibold tabular-nums whitespace-nowrap ${r.dim ? 'text-gray-500' : 'text-white'}`}>
+                {r.kg.toFixed(2)} kg
+              </td>
+              <td className={`py-2.5 pl-5 text-right text-sm tabular-nums whitespace-nowrap ${r.dim ? 'text-gray-500' : 'text-gray-300'}`}>
+                {fmtCurrency(r.eur)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -124,6 +117,7 @@ function RunningJobCard({ job, printers }: { job: PrintJob; printers: PrinterCon
   const { t, i18n } = useTranslation()
   const locale = LOCALE_MAP[i18n.resolvedLanguage ?? 'en'] ?? enUS
   const tz = useHATZ()
+  const qc = useQueryClient()
 
   const printer = printers.find(p => p.name === job.printer_name) ?? null
 
@@ -133,6 +127,19 @@ function RunningJobCard({ job, printers }: { job: PrintJob; printers: PrinterCon
     enabled: !!printer,
     refetchInterval: 10_000,
   })
+
+  const forceFinishMut = useMutation({
+    mutationFn: () => api.updatePrint(job.id, {
+      finished_at: new Date().toISOString(),
+      success: true,
+    }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['dashboard'] }),
+  })
+
+  const handleForceFinish = () => {
+    if (!window.confirm(t('dashboard.forceFinishConfirm'))) return
+    forceFinishMut.mutate()
+  }
 
   const liveEntries = status
     ? LIVE_KEYS.map(k => [k, status[k]] as [string, string | null]).filter(([, v]) => v != null && v !== '')
@@ -151,9 +158,20 @@ function RunningJobCard({ job, printers }: { job: PrintJob; printers: PrinterCon
             </p>
           </div>
         </div>
-        <span className="text-xs bg-blue-900 text-blue-300 px-2 py-0.5 rounded-full shrink-0">
-          {t('dashboard.runningJob')}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-white border border-surface-3 hover:border-gray-500 rounded px-2 py-0.5 transition-colors disabled:opacity-50"
+            onClick={handleForceFinish}
+            disabled={forceFinishMut.isPending}
+            title={t('dashboard.forceFinish')}
+          >
+            <CheckCircle2 size={12} />
+            {t('dashboard.forceFinish')}
+          </button>
+          <span className="text-xs bg-blue-900 text-blue-300 px-2 py-0.5 rounded-full">
+            {t('dashboard.runningJob')}
+          </span>
+        </div>
       </div>
 
       {liveEntries.length > 0 && (

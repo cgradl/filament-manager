@@ -36,6 +36,8 @@
     "costGroup": "Coste (€)",
     "filamentGroup": "Filamento (kg)",
     "spoolsGroup": "Bobinas",
+    "colWeight": "Peso",
+    "colMoney": "Importe",
     "inventoryGroup": "Inventario",
     "totalPurchased": "Total comprado",
     "printedSpent": "Impreso / gastado",
@@ -47,6 +49,8 @@
     "totalPrints": "Impresiones totales",
     "runningJob": "Trabajo en curso",
     "runningFor": "En marcha desde",
+    "forceFinish": "Marcar como terminado",
+    "forceFinishConfirm": "¿Marcar esta impresión como terminada?\n\nEl uso de filamento no se calculará automáticamente — deberás ajustarlo manualmente en el historial de impresiones.",
     "recentPrints": "Impresiones recientes",
     "lowStockAlerts": "Alertas de stock bajo",
     "noPrints": "No hay impresiones registradas aún.",
@@ -109,6 +113,7 @@
       "purchasePrice": "Precio de compra (€)",
       "purchaseDate": "Fecha de compra",
       "purchaseLocation": "Lugar de compra",
+      "storageLocation": "Lugar de almacenamiento",
       "amsSlot": "Ranura AMS (ej. ams1_tray2)",
       "notes": "Notas",
       "qty": "Cant.",
@@ -127,7 +132,8 @@
       "price": "Precio (€)",
       "pricePerKg": "€/kg",
       "purchaseDate": "Comprado",
-      "location": "Lugar",
+      "location": "Lugar de compra",
+      "storageLocation": "Almacenamiento",
       "amsSlot": "Ranura AMS",
       "actions": "Acciones"
     },
@@ -217,7 +223,8 @@
       "brands": "Marcas",
       "materials": "Materiales",
       "subtypes": "Subtipos",
-      "locations": "Ubicaciones"
+      "locations": "Ubicaciones",
+      "storageLocations": "Almacenamiento"
     },
     "bambuCloud": {
       "title": "Bambu Lab Cloud",
@@ -349,6 +356,12 @@
       "add": "Añadir lugar",
       "noEntries": "No hay lugares configurados.",
       "placeholder": "ej. Amazon, Aliexpress…"
+    },
+    "storageLocations": {
+      "title": "Lugares de almacenamiento",
+      "add": "Añadir lugar",
+      "noEntries": "No hay lugares de almacenamiento configurados.",
+      "placeholder": "ej. Estante 1, Armario 2…"
     },
     "dataTransfer": {
       "title": "Exportar / Importar",

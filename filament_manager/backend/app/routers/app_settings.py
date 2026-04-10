@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import BrandSpoolWeight, FilamentSubtype, FilamentMaterial, FilamentBrand, PurchaseLocation
+from ..models import BrandSpoolWeight, FilamentSubtype, FilamentMaterial, FilamentBrand, PurchaseLocation, StorageLocation
 from ..schemas import BrandSpoolWeightOut
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -41,12 +41,19 @@ async def get_ha_locale():
             data = r.json()
             lang: str = data.get("language", "en")
             time_zone: str = data.get("time_zone", "UTC")
+            country: str = data.get("country", "")
+            currency: str = data.get("currency", "EUR")
             code = re.match(r"[a-z]{2}", lang.lower())
             language = code.group() if code and code.group() in _SUPPORTED_LANGS else "en"
-            return {"language": language, "time_zone": time_zone}
+            return {
+                "language": language,
+                "time_zone": time_zone,
+                "country": country.upper() if country else "",
+                "currency": currency.upper() if currency else "EUR",
+            }
     except Exception:
         pass
-    return {"language": "en", "time_zone": "UTC"}
+    return {"language": "en", "time_zone": "UTC", "country": "", "currency": "EUR"}
 
 
 class BrandWeightIn(BaseModel):
@@ -250,6 +257,44 @@ def update_purchase_location(entry_id: int, body: SubtypeIn, db: Session = Depen
 @router.delete("/purchase-locations/{entry_id}", status_code=204)
 def delete_purchase_location(entry_id: int, db: Session = Depends(get_db)):
     entry = db.get(PurchaseLocation, entry_id)
+    if not entry:
+        raise HTTPException(404, "Not found")
+    db.delete(entry)
+    db.commit()
+
+
+# ── Storage Locations ─────────────────────────────────────────────────────────
+
+@router.get("/storage-locations", response_model=list[SubtypeOut])
+def list_storage_locations(db: Session = Depends(get_db)):
+    return db.query(StorageLocation).order_by(StorageLocation.name).all()
+
+
+@router.post("/storage-locations", response_model=SubtypeOut, status_code=201)
+def create_storage_location(body: SubtypeIn, db: Session = Depends(get_db)):
+    if db.query(StorageLocation).filter(StorageLocation.name == body.name.strip()).first():
+        raise HTTPException(409, f"Storage location '{body.name}' already exists")
+    entry = StorageLocation(name=body.name.strip())
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+@router.patch("/storage-locations/{entry_id}", response_model=SubtypeOut)
+def update_storage_location(entry_id: int, body: SubtypeIn, db: Session = Depends(get_db)):
+    entry = db.get(StorageLocation, entry_id)
+    if not entry:
+        raise HTTPException(404, "Not found")
+    entry.name = body.name.strip()
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+@router.delete("/storage-locations/{entry_id}", status_code=204)
+def delete_storage_location(entry_id: int, db: Session = Depends(get_db)):
+    entry = db.get(StorageLocation, entry_id)
     if not entry:
         raise HTTPException(404, "Not found")
     db.delete(entry)

@@ -14,6 +14,7 @@ export interface Spool {
   purchase_price: number | null
   purchased_at: string | null
   purchase_location: string | null
+  storage_location: string | null
   ams_slot: string | null
   notes: string | null
   remaining_pct: number
