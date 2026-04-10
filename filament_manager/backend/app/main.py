@@ -129,6 +129,31 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added print_jobs.suggested_usages")
 
+        # print_usages: make spool_id nullable (SQLite can't ALTER COLUMN — rebuild table)
+        usage_cols_info = insp.get_columns("print_usages")
+        spool_id_info = next((c for c in usage_cols_info if c["name"] == "spool_id"), None)
+        if spool_id_info and spool_id_info.get("nullable") is False:
+            conn.execute(text("""
+                CREATE TABLE print_usages_new (
+                    id INTEGER PRIMARY KEY,
+                    print_job_id INTEGER NOT NULL REFERENCES print_jobs(id),
+                    spool_id INTEGER REFERENCES spools(id),
+                    grams_used REAL NOT NULL,
+                    meters_used REAL,
+                    ams_slot TEXT,
+                    created_at DATETIME
+                )
+            """))
+            conn.execute(text(
+                "INSERT INTO print_usages_new "
+                "SELECT id, print_job_id, spool_id, grams_used, meters_used, ams_slot, created_at "
+                "FROM print_usages"
+            ))
+            conn.execute(text("DROP TABLE print_usages"))
+            conn.execute(text("ALTER TABLE print_usages_new RENAME TO print_usages"))
+            conn.commit()
+            log.info("Migration: rebuilt print_usages with nullable spool_id")
+
         # spools: if current_weight_g is 0 for ALL spools and initial_weight_g exists,
         # recover from is_active flag (legacy) — set current = initial for active spools
         if "is_active" in spool_cols:

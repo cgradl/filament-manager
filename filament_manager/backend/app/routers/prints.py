@@ -127,8 +127,8 @@ def create_print(body: PrintJobCreate, db: Session = Depends(get_db)):
     db.flush()
 
     for u in body.usages:
-        spool = db.get(Spool, u.spool_id)
-        if not spool:
+        spool = db.get(Spool, u.spool_id) if u.spool_id else None
+        if u.spool_id and not spool:
             raise HTTPException(404, f"Spool {u.spool_id} not found")
         usage = PrintUsage(
             print_job_id=job.id,
@@ -138,7 +138,8 @@ def create_print(body: PrintJobCreate, db: Session = Depends(get_db)):
             ams_slot=u.ams_slot,
         )
         db.add(usage)
-        spool.current_weight_g = max(0, spool.current_weight_g - u.grams_used)
+        if spool:
+            spool.current_weight_g = max(0, spool.current_weight_g - u.grams_used)
 
     db.commit()
     return _load_job(db, job.id)
@@ -161,18 +162,19 @@ def update_print(job_id: int, body: PrintJobUpdate, db: Session = Depends(get_db
     if body.usages is not None:
         # Revert old spool weights
         for old in job.usages:
-            spool = db.get(Spool, old.spool_id)
-            if spool:
-                spool.current_weight_g = min(
-                    spool.initial_weight_g,
-                    spool.current_weight_g + old.grams_used,
-                )
+            if old.spool_id:
+                spool = db.get(Spool, old.spool_id)
+                if spool:
+                    spool.current_weight_g = min(
+                        spool.initial_weight_g,
+                        spool.current_weight_g + old.grams_used,
+                    )
             db.delete(old)
         db.flush()
 
         for u in body.usages:
-            spool = db.get(Spool, u.spool_id)
-            if not spool:
+            spool = db.get(Spool, u.spool_id) if u.spool_id else None
+            if u.spool_id and not spool:
                 raise HTTPException(404, f"Spool {u.spool_id} not found")
             usage = PrintUsage(
                 print_job_id=job.id,
@@ -182,7 +184,8 @@ def update_print(job_id: int, body: PrintJobUpdate, db: Session = Depends(get_db
                 ams_slot=u.ams_slot,
             )
             db.add(usage)
-            spool.current_weight_g = max(0, spool.current_weight_g - u.grams_used)
+            if spool:
+                spool.current_weight_g = max(0, spool.current_weight_g - u.grams_used)
 
     db.commit()
     return _load_job(db, job.id)
@@ -195,11 +198,12 @@ def delete_print(job_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Print job not found")
     # Revert spool weights
     for usage in job.usages:
-        spool = db.get(Spool, usage.spool_id)
-        if spool:
-            spool.current_weight_g = min(
-                spool.initial_weight_g,
-                spool.current_weight_g + usage.grams_used,
-            )
+        if usage.spool_id:
+            spool = db.get(Spool, usage.spool_id)
+            if spool:
+                spool.current_weight_g = min(
+                    spool.initial_weight_g,
+                    spool.current_weight_g + usage.grams_used,
+                )
     db.delete(job)
     db.commit()

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.13.7
+
+- Bambu Cloud import: print name now uses `designTitle` (Makerworld design title) and falls back to `title` (gcode filename) when absent
+- Bambu Cloud import: real `PrintUsage` rows are created for each AMS tray entry in `amsDetailMapping` — weight and slot are recorded, spool assignment is left blank for the user to fill in via Print History
+- Backend: `PrintUsage.spool_id` is now nullable — import entries without spool assignment no longer block editing or deleting the job
+
+## 0.13.6
+
+- Experiments: "Tasks" download button in the cloud printer card header fetches the full Bambu Cloud task list for that printer (all pages) and saves it as `tasks_{serial}.json` — raw API response useful for diagnosing task/weight data
+
+## 0.13.5
+
+- Experiments: "Download JSON" button next to the Raw MQTT cache header downloads a JSON file with the full cache for that printer (`printer_status`, `ams_cache`, `mqtt_client`) — useful for diagnosing what Bambu Lab is sending over MQTT
+
 ## 0.13.4
 
 - Spools table: action buttons (edit / duplicate / delete) moved to first column

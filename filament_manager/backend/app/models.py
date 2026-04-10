@@ -122,7 +122,7 @@ class PrintUsage(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     print_job_id = Column(Integer, ForeignKey("print_jobs.id"), nullable=False)
-    spool_id = Column(Integer, ForeignKey("spools.id"), nullable=False)
+    spool_id = Column(Integer, ForeignKey("spools.id"), nullable=True)
     grams_used = Column(Float, nullable=False)
     meters_used = Column(Float)
     ams_slot = Column(String)

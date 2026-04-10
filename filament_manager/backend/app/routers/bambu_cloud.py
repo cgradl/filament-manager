@@ -112,6 +112,38 @@ def get_debug() -> dict:
     return bambu_cloud_client.get_debug_info()
 
 
+@router.get("/printer/{serial}/tasks-raw")
+async def get_tasks_raw(serial: str) -> dict:
+    """Return the raw Bambu Cloud task list for a single device (all pages) as-is."""
+    import asyncio, requests as _requests
+    creds = bambu_cloud_client._load_credentials()
+    if not creds or not creds.get("token"):
+        return {"serial": serial, "total": 0, "tasks": []}
+    token = creds["token"]
+    tasks: list[dict] = []
+    limit = 50
+    offset = 0
+    loop = asyncio.get_event_loop()
+    while True:
+        def _fetch(o=offset):
+            resp = _requests.get(
+                "https://api.bambulab.com/v1/user-service/my/tasks",
+                params={"deviceId": serial, "limit": limit, "offset": o},
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        data = await loop.run_in_executor(None, _fetch)
+        hits = data.get("hits") or []
+        tasks.extend(hits)
+        total = int(data.get("total") or 0)
+        offset += len(hits)
+        if not hits or offset >= total:
+            break
+    return {"serial": serial, "total": len(tasks), "tasks": tasks}
+
+
 @router.post("/reconnect")
 async def force_reconnect() -> dict:
     """Force restart of all MQTT connections using saved credentials."""
@@ -145,7 +177,7 @@ async def import_cloud_prints(db: Session = Depends(get_db)) -> dict:
     Per-tray usage data is stored as suggested_usages so the user can assign
     to spools via the Log Usage modal.
     """
-    from ..models import PrintJob, PrinterConfig
+    from ..models import PrintJob, PrintUsage, PrinterConfig
 
     creds = bambu_cloud_client._load_credentials()
     if not creds or not creds.get("token"):
@@ -196,14 +228,14 @@ async def import_cloud_prints(db: Session = Depends(get_db)) -> dict:
         serial = str(task.get("deviceId", ""))
         printer_name = cloud_printers.get(serial)
 
-        name = task.get("title") or task.get("name") or "Imported print"
+        name = task.get("designTitle") or task.get("title") or "Imported print"
         weight = task.get("weight")
         # Bambu Cloud: status 4 = FINISH (success), 5 = FAILED
         success = task.get("status") != 5
 
-        # Build suggested_usages from amsDetailMapping.
-        # Without live AMS tray count data for historical jobs, assume standard 4-tray units.
+        # Parse amsDetailMapping — build both PrintUsage rows and suggested_usages hints
         suggestions: list[dict] = []
+        usage_entries: list[dict] = []
         for entry in (task.get("amsDetailMapping") or []):
             idx = entry.get("ams")
             tray_weight = entry.get("weight")
@@ -214,12 +246,14 @@ async def import_cloud_prints(db: Session = Depends(get_db)) -> dict:
             slot_key = f"ams{unit}_tray{tray}"
             color_raw = entry.get("sourceColor") or entry.get("targetColor") or ""
             color_hex = f"#{color_raw[:6]}" if len(color_raw) >= 6 else None
+            grams = round(float(tray_weight), 1)
             suggestions.append({
                 "ams_slot": slot_key,
-                "grams": round(float(tray_weight), 1),
+                "grams": grams,
                 "filament_type": entry.get("filamentType") or entry.get("targetFilamentType") or "",
                 "color": color_hex,
             })
+            usage_entries.append({"ams_slot": slot_key, "grams": grams})
 
         job = PrintJob(
             name=name,
@@ -236,6 +270,16 @@ async def import_cloud_prints(db: Session = Depends(get_db)) -> dict:
             suggested_usages=suggestions if suggestions else None,
         )
         db.add(job)
+        db.flush()
+
+        for u in usage_entries:
+            db.add(PrintUsage(
+                print_job_id=job.id,
+                spool_id=None,
+                grams_used=u["grams"],
+                ams_slot=u["ams_slot"],
+            ))
+
         if task_id:
             existing_task_ids.add(task_id)
         imported += 1

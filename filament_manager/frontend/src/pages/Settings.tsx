@@ -1347,6 +1347,24 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
 
   const [activeUnit, setActiveUnit] = useState(1)
   const [showRaw, setShowRaw] = useState(false)
+  const [downloadingTasks, setDownloadingTasks] = useState(false)
+
+  const handleDownloadTasks = async () => {
+    if (!printer.bambu_serial) return
+    setDownloadingTasks(true)
+    try {
+      const data = await api.getBambuCloudTasksRaw(printer.bambu_serial)
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `tasks_${printer.bambu_serial}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setDownloadingTasks(false)
+    }
+  }
 
   const LABELS: Record<string, string> = {
     print_stage: 'Stage', print_progress: 'Progress',
@@ -1387,6 +1405,15 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            className="btn-ghost p-1 text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
+            onClick={handleDownloadTasks}
+            disabled={downloadingTasks}
+            title="Download full task list from Bambu Cloud as JSON"
+          >
+            <Download size={11} className={downloadingTasks ? 'animate-pulse' : ''} />
+            {downloadingTasks ? 'Fetching…' : 'Tasks'}
+          </button>
           <button
             className="btn-ghost p-1 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
             onClick={handleReconnect}
@@ -1465,12 +1492,39 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
 
       {/* Raw MQTT cache dump */}
       <div className="mt-3 border-t border-surface-3 pt-2">
-        <button
-          className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
-          onClick={() => setShowRaw(r => !r)}
-        >
-          {showRaw ? '▾' : '▸'} Raw MQTT cache ({Object.keys(rawCache).length} printer fields, {Object.keys(rawAmsCache).length} AMS slots)
-        </button>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
+            onClick={() => setShowRaw(r => !r)}
+          >
+            {showRaw ? '▾' : '▸'} Raw MQTT cache ({Object.keys(rawCache).length} printer fields, {Object.keys(rawAmsCache).length} AMS slots)
+          </button>
+          {debugInfo && printer.bambu_serial && (
+            <button
+              className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
+              title="Download full MQTT cache as JSON"
+              onClick={() => {
+                const serial = printer.bambu_serial!
+                const payload = {
+                  serial,
+                  exported_at: new Date().toISOString(),
+                  printer_status: debugInfo.printer_status_cache?.[serial] ?? {},
+                  ams_cache: debugInfo.ams_cache?.[serial] ?? {},
+                  mqtt_client: debugInfo.mqtt_clients?.[serial] ?? {},
+                }
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `mqtt_cache_${serial}.json`
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+            >
+              <Download size={11} /> Download JSON
+            </button>
+          )}
+        </div>
         {showRaw && (
           <div className="mt-2 space-y-3">
             {/* Printer status fields */}

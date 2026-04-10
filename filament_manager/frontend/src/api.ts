@@ -173,6 +173,8 @@ export const api = {
     }>('bambu-cloud/debug'),
   bambuCloudReconnect: () =>
     request<{ ok: boolean; error?: string }>('bambu-cloud/reconnect', { method: 'POST' }),
+  getBambuCloudTasksRaw: (serial: string) =>
+    request<{ serial: string; total: number; tasks: unknown[] }>(`bambu-cloud/printer/${serial}/tasks-raw`),
   bambuCloudImportPrints: () =>
     request<{ ok: boolean; imported: number; skipped: number; total: number }>('bambu-cloud/import-prints', { method: 'POST' }),
   getBambuCloudPrinterAMS: (serial: string) =>

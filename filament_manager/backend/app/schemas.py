@@ -62,7 +62,7 @@ class SpoolOut(SpoolBase):
 # ── PrintUsage ───────────────────────────────────────────────────────────────
 
 class PrintUsageBase(BaseModel):
-    spool_id: int
+    spool_id: int | None = None
     grams_used: float
     meters_used: float | None = None
     ams_slot: str | None = None
