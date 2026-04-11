@@ -138,7 +138,7 @@ def create_print(body: PrintJobCreate, db: Session = Depends(get_db)):
             ams_slot=u.ams_slot,
         )
         db.add(usage)
-        if spool:
+        if spool and body.deduct_weight:
             spool.current_weight_g = max(0, spool.current_weight_g - u.grams_used)
 
     db.commit()
@@ -160,9 +160,9 @@ def update_print(job_id: int, body: PrintJobUpdate, db: Session = Depends(get_db
         setattr(job, field, value)
 
     if body.usages is not None:
-        # Revert old spool weights
+        # Revert old spool weights (only when deduct_weight is on)
         for old in job.usages:
-            if old.spool_id:
+            if old.spool_id and body.deduct_weight:
                 spool = db.get(Spool, old.spool_id)
                 if spool:
                     spool.current_weight_g = min(
@@ -184,7 +184,7 @@ def update_print(job_id: int, body: PrintJobUpdate, db: Session = Depends(get_db
                 ams_slot=u.ams_slot,
             )
             db.add(usage)
-            if spool:
+            if spool and body.deduct_weight:
                 spool.current_weight_g = max(0, spool.current_weight_g - u.grams_used)
 
     db.commit()

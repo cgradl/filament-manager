@@ -158,6 +158,7 @@
       "duration": "Duración (horas)",
       "printer": "Impresora",
       "printSucceeded": "Impresión exitosa",
+      "deductFromSpool": "Descontar de bobina",
       "filamentUsed": "Filamento utilizado",
       "loadFromAMS": "Cargar desde AMS",
       "loading": "Cargando…",

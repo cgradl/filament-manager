@@ -97,6 +97,7 @@ class PrintJobBase(BaseModel):
 
 class PrintJobCreate(PrintJobBase):
     usages: list[PrintUsageCreate] = []
+    deduct_weight: bool = True
 
 
 class PrintJobUpdate(BaseModel):
@@ -110,6 +111,7 @@ class PrintJobUpdate(BaseModel):
     notes: str | None = None
     printer_name: str | None = None
     usages: list[PrintUsageCreate] | None = None
+    deduct_weight: bool = True
 
 
 class PrintJobOut(PrintJobBase):

@@ -129,6 +129,7 @@ function PrintForm({
   )
   const [loadingAMS, setLoadingAMS] = useState(false)
   const [showEmptySpools, setShowEmptySpools] = useState(false)
+  const [deductWeight, setDeductWeight] = useState(true)
 
   const { data: printers = [] } = useQuery<PrinterConfig[]>({
     queryKey: ['printers'],
@@ -204,6 +205,7 @@ function PrintForm({
         grams_used: Number(u.grams_used),
         ams_slot: u.ams_slot || null,
       })),
+      deduct_weight: deductWeight,
     })
   }
 
@@ -270,10 +272,16 @@ function PrintForm({
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={success} onChange={e => setSuccess(e.target.checked)} />
-            {t('prints.form.printSucceeded')}
-          </label>
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={success} onChange={e => setSuccess(e.target.checked)} />
+              {t('prints.form.printSucceeded')}
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={deductWeight} onChange={e => setDeductWeight(e.target.checked)} />
+              {t('prints.form.deductFromSpool')}
+            </label>
+          </div>
 
           {/* Filament usages */}
           <div>

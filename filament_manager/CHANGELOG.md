@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.10
+
+- Print form (add & edit): "Deduct from spool" checkbox (enabled by default) controls whether saving the form adjusts spool current weight — uncheck when correcting which spool was used without wanting to change inventory counts
+
 ## 0.13.9
 
 - Print form: spool dropdowns now show remaining % next to each spool name, matching the AMS tray assignment style

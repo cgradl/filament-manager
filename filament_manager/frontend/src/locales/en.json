@@ -158,6 +158,7 @@
       "duration": "Duration (hours)",
       "printer": "Printer",
       "printSucceeded": "Print succeeded",
+      "deductFromSpool": "Deduct from spool",
       "filamentUsed": "Filament Used",
       "loadFromAMS": "Load from AMS",
       "loading": "Loading…",

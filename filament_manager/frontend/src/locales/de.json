@@ -158,6 +158,7 @@
       "duration": "Dauer (Stunden)",
       "printer": "Drucker",
       "printSucceeded": "Druck erfolgreich",
+      "deductFromSpool": "Von Spule abziehen",
       "filamentUsed": "Verwendetes Filament",
       "loadFromAMS": "Aus AMS laden",
       "loading": "Laden…",
