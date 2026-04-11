@@ -162,6 +162,7 @@
       "loadFromAMS": "Aus AMS laden",
       "loading": "Laden…",
       "addSpool": "+ Spule hinzufügen",
+      "showEmptySpools": "Leere anzeigen",
       "notes": "Notizen",
       "namePlaceholder": "Benchy, Handyhalter, …",
       "modelPlaceholder": "benchy.3mf",

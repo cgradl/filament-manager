@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.9
+
+- Print form: spool dropdowns now show remaining % next to each spool name, matching the AMS tray assignment style
+- Print form: "Show empty" checkbox above the spool rows toggles visibility of 0% spools (hidden by default); currently selected spools are always shown regardless
+
+## 0.13.8
+
+- Live print tracking: when a Bambu Cloud printer starts a new job via MQTT, the job name now uses `designTitle` (Makerworld design name) and falls back to `subtask_name` (gcode filename) — consistent with the cloud import behaviour
+
 ## 0.13.7
 
 - Bambu Cloud import: print name now uses `designTitle` (Makerworld design title) and falls back to `title` (gcode filename) when absent

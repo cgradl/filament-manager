@@ -128,6 +128,7 @@ function PrintForm({
     })) ?? []
   )
   const [loadingAMS, setLoadingAMS] = useState(false)
+  const [showEmptySpools, setShowEmptySpools] = useState(false)
 
   const { data: printers = [] } = useQuery<PrinterConfig[]>({
     queryKey: ['printers'],
@@ -142,6 +143,13 @@ function PrintForm({
   }, [printers, initial?.printer_name])
 
   const selectedPrinter = printers.find(p => p.id === printerId) ?? null
+
+  // Spools visible in dropdowns: non-empty always shown; empty only when checkbox is on.
+  // Always include spools already selected in a usage row so existing rows don't go blank.
+  const selectedSpoolIds = new Set(usages.map(u => u.spool_id))
+  const visibleSpools = spools.filter(
+    s => showEmptySpools || Math.round(s.remaining_pct) > 0 || selectedSpoolIds.has(s.id)
+  )
 
   // Auto-load AMS on first open when printer is known and no usages are set yet
   useEffect(() => {
@@ -173,7 +181,7 @@ function PrintForm({
   }
 
   const addUsage = () => {
-    const first = spools[0]
+    const first = visibleSpools[0]
     if (first) setUsages(u => [...u, { spool_id: first.id, grams_used: 0, ams_slot: '' }])
   }
   const removeUsage = (i: number) => setUsages(u => u.filter((_, idx) => idx !== i))
@@ -272,6 +280,15 @@ function PrintForm({
             <div className="flex items-center justify-between mb-2">
               <label className="label mb-0">{t('prints.form.filamentUsed')}</label>
               <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showEmptySpools}
+                    onChange={e => setShowEmptySpools(e.target.checked)}
+                    className="accent-blue-500"
+                  />
+                  {t('prints.form.showEmptySpools')}
+                </label>
                 <button
                   className="btn-ghost text-xs py-0.5 flex items-center gap-1 disabled:opacity-40"
                   onClick={loadFromAMS}
@@ -296,9 +313,9 @@ function PrintForm({
                   value={u.spool_id}
                   onChange={e => updateUsage(i, 'spool_id', e.target.value)}
                 >
-                  {spools.map(s => (
+                  {visibleSpools.map(s => (
                     <option key={s.id} value={s.id}>
-                      {s.brand} {s.material}{s.subtype ? ` ${s.subtype}` : ''} — {s.color_name}
+                      {s.brand} {s.material}{s.subtype ? ` ${s.subtype}` : ''} — {s.color_name} ({Math.round(s.remaining_pct)}%)
                     </option>
                   ))}
                 </select>

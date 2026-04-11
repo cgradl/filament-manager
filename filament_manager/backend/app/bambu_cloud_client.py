@@ -414,7 +414,12 @@ def _process_device_message(serial: str, data: dict) -> None:
     state_upper = gcode_state_in_msg.upper()
     if state_upper == "RUNNING":
         asyncio.run_coroutine_threadsafe(
-            print_monitor.on_cloud_print_start(printer_id, current.get("subtask_name", ""), serial),
+            print_monitor.on_cloud_print_start(
+                printer_id,
+                current.get("subtask_name", ""),
+                serial,
+                design_title=current.get("designTitle", ""),
+            ),
             _loop,
         )
     elif state_upper in ("FINISH", "FAILED", "IDLE"):

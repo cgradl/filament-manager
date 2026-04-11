@@ -162,6 +162,7 @@
       "loadFromAMS": "Cargar desde AMS",
       "loading": "Cargando…",
       "addSpool": "+ Añadir bobina",
+      "showEmptySpools": "Mostrar vacías",
       "notes": "Notas",
       "namePlaceholder": "Benchy, Soporte móvil, …",
       "modelPlaceholder": "benchy.3mf",

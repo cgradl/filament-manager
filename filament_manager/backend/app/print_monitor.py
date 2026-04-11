@@ -369,7 +369,7 @@ def _apply_suggested_usages(job: PrintJob, db: Session) -> None:
 
 # ── Bambu Cloud MQTT bridge ───────────────────────────────────────────────────
 
-async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str) -> None:
+async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str, design_title: str = "") -> None:
     """
     Called by bambu_cloud_client when MQTT gcode_state transitions to RUNNING.
     Only acts for printers configured with bambu_source=cloud — HA-source printers
@@ -410,11 +410,13 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str) 
         if prev.get("stage") in _PRINTING_STAGES:
             return
 
-        display_name = subtask_name or ""
-        for ext in (".gcode", ".3mf", ".bgcode"):
-            if display_name.lower().endswith(ext):
-                display_name = display_name[: -len(ext)]
-                break
+        # Prefer designTitle (Makerworld design name) over subtask_name (gcode filename)
+        display_name = design_title or subtask_name or ""
+        if not design_title:
+            for ext in (".gcode", ".3mf", ".bgcode"):
+                if display_name.lower().endswith(ext):
+                    display_name = display_name[: -len(ext)]
+                    break
         if not display_name:
             display_name = f"Print {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 

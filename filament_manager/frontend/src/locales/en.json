@@ -162,6 +162,7 @@
       "loadFromAMS": "Load from AMS",
       "loading": "Loading…",
       "addSpool": "+ Add spool",
+      "showEmptySpools": "Show empty",
       "notes": "Notes",
       "namePlaceholder": "Benchy, Phone Stand, …",
       "modelPlaceholder": "benchy.3mf",
