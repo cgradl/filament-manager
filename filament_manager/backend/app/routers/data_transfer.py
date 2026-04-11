@@ -21,7 +21,7 @@ from ..database import get_db
 from ..models import (
     Spool, PrintJob, PrintUsage,
     BrandSpoolWeight, FilamentMaterial, FilamentSubtype, FilamentBrand,
-    PurchaseLocation, StorageLocation, PrinterConfig, MATERIAL_DENSITY,
+    PurchaseLocation, StorageLocation, PrinterConfig, FilamentCatalog, MATERIAL_DENSITY,
 )
 
 router = APIRouter(prefix="/api/data", tags=["data-transfer"])
@@ -51,6 +51,7 @@ def _spool_dict(s: Spool) -> dict:
         "purchase_price": s.purchase_price,
         "purchased_at": _dt(s.purchased_at),
         "purchase_location": s.purchase_location,
+        "article_number": s.article_number,
         "storage_location": s.storage_location,
         "ams_slot": s.ams_slot,
         "notes": s.notes,
@@ -107,6 +108,7 @@ def export_data(db: Session = Depends(get_db)):
     brands          = db.query(FilamentBrand).order_by(FilamentBrand.name).all()
     locations       = db.query(PurchaseLocation).order_by(PurchaseLocation.name).all()
     storage_locs    = db.query(StorageLocation).order_by(StorageLocation.name).all()
+    catalog         = db.query(FilamentCatalog).order_by(FilamentCatalog.brand, FilamentCatalog.material, FilamentCatalog.color_name).all()
 
     bundle = {
         "version": EXPORT_VERSION,
@@ -143,6 +145,18 @@ def export_data(db: Session = Depends(get_db)):
             "brands":             [b.name for b in brands],
             "purchase_locations": [l.name for l in locations],
             "storage_locations":  [l.name for l in storage_locs],
+            "filament_catalog":   [
+                {
+                    "brand": e.brand,
+                    "material": e.material,
+                    "subtype": e.subtype,
+                    "subtype2": e.subtype2,
+                    "color_name": e.color_name,
+                    "color_hex": e.color_hex,
+                    "article_number": e.article_number,
+                }
+                for e in catalog
+            ],
         },
     }
 
@@ -295,6 +309,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
         "purchase_locations": 0,
         "storage_locations": 0,
         "brand_weights": 0,
+        "filament_catalog": 0,
     }
 
     # ── settings lists (skip duplicates by name) ──────────────────────────────
@@ -335,6 +350,35 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
         if bw.get("brand") and bw["brand"] not in existing_bw:
             db.add(BrandSpoolWeight(brand=bw["brand"], spool_weight_g=bw["spool_weight_g"]))
             stats["brand_weights"] += 1
+
+    # deduplicate filament catalog by article_number when present, else by (brand, material, color_name)
+    existing_catalog_by_article = {
+        r.article_number for r in db.query(FilamentCatalog).all() if r.article_number
+    }
+    existing_catalog_by_key = {
+        (r.brand, r.material, r.color_name) for r in db.query(FilamentCatalog).all()
+    }
+    for entry in s.get("filament_catalog", []):
+        article = entry.get("article_number")
+        key = (entry.get("brand", ""), entry.get("material", ""), entry.get("color_name", ""))
+        if article and article in existing_catalog_by_article:
+            continue
+        if not article and key in existing_catalog_by_key:
+            continue
+        db.add(FilamentCatalog(
+            brand=entry.get("brand", ""),
+            material=entry.get("material", ""),
+            subtype=entry.get("subtype"),
+            subtype2=entry.get("subtype2"),
+            color_name=entry.get("color_name", ""),
+            color_hex=entry.get("color_hex", "#888888"),
+            article_number=article,
+        ))
+        if article:
+            existing_catalog_by_article.add(article)
+        else:
+            existing_catalog_by_key.add(key)
+        stats["filament_catalog"] += 1
 
     db.flush()
 
@@ -384,6 +428,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             spool_weight_g=sp.get("spool_weight_g", 0),
             purchase_price=sp.get("purchase_price"),
             purchased_at=_parse_dt(sp.get("purchased_at")),
+            article_number=sp.get("article_number"),
             purchase_location=sp.get("purchase_location"),
             storage_location=sp.get("storage_location"),
             ams_slot=sp.get("ams_slot"),
@@ -428,10 +473,14 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
 
         for u in job_data.get("usages", []):
             old_spool_id = u.get("spool_id")
-            new_spool_id = spool_id_map.get(old_spool_id) if old_spool_id is not None else None
-            if new_spool_id is None:
-                # spool not in this import — skip usage rather than fail
-                continue
+            if old_spool_id is not None:
+                new_spool_id = spool_id_map.get(old_spool_id)
+                if new_spool_id is None:
+                    # spool referenced but not in this import — skip usage rather than fail
+                    continue
+            else:
+                # null spool_id = cloud-imported print with unassigned usage; preserve as-is
+                new_spool_id = None
             db.add(PrintUsage(
                 print_job_id=job.id,
                 spool_id=new_spool_id,

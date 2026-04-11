@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import BrandSpoolWeight, FilamentSubtype, FilamentMaterial, FilamentBrand, PurchaseLocation, StorageLocation
-from ..schemas import BrandSpoolWeightOut
+from ..models import BrandSpoolWeight, FilamentSubtype, FilamentMaterial, FilamentBrand, PurchaseLocation, StorageLocation, FilamentCatalog
+from ..schemas import BrandSpoolWeightOut, FilamentCatalogCreate, FilamentCatalogUpdate, FilamentCatalogOut
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -295,6 +295,43 @@ def update_storage_location(entry_id: int, body: SubtypeIn, db: Session = Depend
 @router.delete("/storage-locations/{entry_id}", status_code=204)
 def delete_storage_location(entry_id: int, db: Session = Depends(get_db)):
     entry = db.get(StorageLocation, entry_id)
+    if not entry:
+        raise HTTPException(404, "Not found")
+    db.delete(entry)
+    db.commit()
+
+
+# ── Filament Catalog ──────────────────────────────────────────────────────────
+
+@router.get("/filament-catalog", response_model=list[FilamentCatalogOut])
+def list_filament_catalog(db: Session = Depends(get_db)):
+    return db.query(FilamentCatalog).order_by(FilamentCatalog.brand, FilamentCatalog.material, FilamentCatalog.color_name).all()
+
+
+@router.post("/filament-catalog", response_model=FilamentCatalogOut, status_code=201)
+def create_filament_catalog(body: FilamentCatalogCreate, db: Session = Depends(get_db)):
+    entry = FilamentCatalog(**body.model_dump())
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+@router.patch("/filament-catalog/{entry_id}", response_model=FilamentCatalogOut)
+def update_filament_catalog(entry_id: int, body: FilamentCatalogUpdate, db: Session = Depends(get_db)):
+    entry = db.get(FilamentCatalog, entry_id)
+    if not entry:
+        raise HTTPException(404, "Not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(entry, field, value)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+@router.delete("/filament-catalog/{entry_id}", status_code=204)
+def delete_filament_catalog(entry_id: int, db: Session = Depends(get_db)):
+    entry = db.get(FilamentCatalog, entry_id)
     if not entry:
         raise HTTPException(404, "Not found")
     db.delete(entry)

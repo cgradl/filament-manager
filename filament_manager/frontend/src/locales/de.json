@@ -114,6 +114,7 @@
       "purchaseDate": "Kaufdatum",
       "purchaseLocation": "Kaufort",
       "storageLocation": "Lagerort",
+      "articleNumber": "Artikelnr. (aus Filamentkatalog)",
       "amsSlot": "AMS-Fach (z.B. ams1_tray2)",
       "notes": "Notizen",
       "qty": "Anz.",
@@ -226,7 +227,8 @@
       "materials": "Materialien",
       "subtypes": "Untertypen",
       "locations": "Kauforte",
-      "storageLocations": "Lagerorte"
+      "storageLocations": "Lagerorte",
+      "filamentData": "Filamentdaten"
     },
     "bambuCloud": {
       "title": "Bambu Lab Cloud",
@@ -364,6 +366,17 @@
       "add": "Lagerort hinzufügen",
       "noEntries": "Keine Lagerorte konfiguriert.",
       "placeholder": "z.B. Regal 1, Schrank 2…"
+    },
+    "filamentCatalog": {
+      "title": "Filamentkatalog",
+      "brand": "Marke",
+      "material": "Material",
+      "subtype": "Untertyp 1",
+      "subtype2": "Untertyp 2",
+      "colorName": "Farbname",
+      "colorHex": "Farb-Hex",
+      "articleNumber": "Artikelnr.",
+      "noEntries": "Noch keine Einträge im Filamentkatalog. Klicke auf Hinzufügen."
     },
     "dataTransfer": {
       "title": "Export / Import",

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.14.3
+
+- Data export: spools now include `article_number`; settings bundle now includes the full filament catalog
+- Data import: `article_number` restored on spool import; filament catalog entries imported with deduplication (by article number when present, else by brand + material + color name); cloud-imported print usages with null spool_id are preserved rather than skipped
+
+## 0.14.2
+
+- Settings → Data → Filament Data: subtab scrollbar hidden; table now uses full browser width (max-w-2xl lifted when Filament Data is active; section renders outside the card)
+- Spools add/edit: new "Article No." dropdown populated from Filament Catalog entries; selecting an article number auto-fills brand, material, subtypes, color name, and color hex from the catalog entry
+- Backend: `article_number` column added to spools table (migration applied on first startup)
+
+## 0.14.1
+
+- Filament Data: fixed "Add does nothing" bug — inner form was a component defined inside the parent, causing React to remount it on every keystroke and swallow mutations; extracted to module-level `CatalogEditRow`
+- Filament Data: redesigned layout — add form shown as a card above the table with a 4-column grid; table uses `<table>` with `overflow-x-auto` so it scrolls instead of wrapping; columns no longer squish
+
+## 0.14.0
+
+- Settings → Data → Filament Data: new subtab with a full filament product catalog (brand, material, subtype 1 & 2, color name, color hex, article number); brand/material/subtypes are dropdowns from the existing lists; inline add and edit; color picker for hex code
+
 ## 0.13.10
 
 - Print form (add & edit): "Deduct from spool" checkbox (enabled by default) controls whether saving the form adjusts spool current weight — uncheck when correcting which spool was used without wanting to change inventory counts

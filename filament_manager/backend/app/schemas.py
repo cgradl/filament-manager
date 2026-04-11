@@ -20,6 +20,7 @@ class SpoolBase(BaseModel):
     purchased_at: datetime | None = None
     purchase_location: str | None = None
     storage_location: str | None = None
+    article_number: str | None = None
     ams_slot: str | None = None
     notes: str | None = None
 
@@ -44,6 +45,7 @@ class SpoolUpdate(BaseModel):
     purchased_at: datetime | None = None
     purchase_location: str | None = None
     storage_location: str | None = None
+    article_number: str | None = None
     ams_slot: str | None = None
     notes: str | None = None
 
@@ -193,6 +195,37 @@ class BrandSpoolWeightOut(BaseModel):
     id: int
     brand: str
     spool_weight_g: float
+
+
+class FilamentCatalogBase(BaseModel):
+    brand: str
+    material: str
+    subtype: str | None = None
+    subtype2: str | None = None
+    color_name: str
+    color_hex: str = "#888888"
+    article_number: str | None = None
+
+
+class FilamentCatalogCreate(FilamentCatalogBase):
+    pass
+
+
+class FilamentCatalogUpdate(BaseModel):
+    brand: str | None = None
+    material: str | None = None
+    subtype: str | None = None
+    subtype2: str | None = None
+    color_name: str | None = None
+    color_hex: str | None = None
+    article_number: str | None = None
+
+
+class FilamentCatalogOut(FilamentCatalogBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    created_at: datetime
+    updated_at: datetime
 
 
 class HAEntityState(BaseModel):

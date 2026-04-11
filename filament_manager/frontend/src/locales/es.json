@@ -114,6 +114,7 @@
       "purchaseDate": "Fecha de compra",
       "purchaseLocation": "Lugar de compra",
       "storageLocation": "Lugar de almacenamiento",
+      "articleNumber": "Nº artículo (del catálogo de filamentos)",
       "amsSlot": "Ranura AMS (ej. ams1_tray2)",
       "notes": "Notas",
       "qty": "Cant.",
@@ -226,7 +227,8 @@
       "materials": "Materiales",
       "subtypes": "Subtipos",
       "locations": "Ubicaciones",
-      "storageLocations": "Almacenamiento"
+      "storageLocations": "Almacenamiento",
+      "filamentData": "Datos de filamento"
     },
     "bambuCloud": {
       "title": "Bambu Lab Cloud",
@@ -364,6 +366,17 @@
       "add": "Añadir lugar",
       "noEntries": "No hay lugares de almacenamiento configurados.",
       "placeholder": "ej. Estante 1, Armario 2…"
+    },
+    "filamentCatalog": {
+      "title": "Catálogo de filamentos",
+      "brand": "Marca",
+      "material": "Material",
+      "subtype": "Subtipo 1",
+      "subtype2": "Subtipo 2",
+      "colorName": "Nombre de color",
+      "colorHex": "Hex de color",
+      "articleNumber": "Nº artículo",
+      "noEntries": "No hay entradas en el catálogo. Haz clic en Añadir para crear una."
     },
     "dataTransfer": {
       "title": "Exportar / Importar",

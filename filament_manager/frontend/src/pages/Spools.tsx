@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { Spool, BrandSpoolWeight } from '../types'
+import type { Spool, BrandSpoolWeight, FilamentCatalog } from '../types'
 import { Plus, Pencil, Trash2, X, LayoutGrid, Table2, ChevronUp, ChevronDown, ChevronsUpDown, Copy } from 'lucide-react'
 import Modal from '../components/Modal'
 import { formatDateOnly } from '../utils/time'
@@ -14,7 +14,7 @@ const EMPTY_FORM = {
   brand: '', material: 'PLA', subtype: '', subtype2: '', color_name: '', color_hex: '#888888',
   diameter_mm: 1.75, initial_weight_g: 1000, current_weight_g: 1000,
   purchase_price: '', purchased_at: '', purchase_location: '', storage_location: '',
-  ams_slot: '', notes: '',
+  article_number: '', ams_slot: '', notes: '',
 }
 
 function SpoolForm({
@@ -38,6 +38,7 @@ function SpoolForm({
     purchased_at: initial?.purchased_at ? initial.purchased_at.slice(0, 10) : '',
     purchase_location: initial?.purchase_location ?? '',
     storage_location: initial?.storage_location ?? '',
+    article_number: initial?.article_number ?? '',
     initial_weight_g: initial?.initial_weight_g ?? 1000,
     current_weight_g: initial?.current_weight_g ?? 1000,
   })
@@ -51,6 +52,7 @@ function SpoolForm({
   const { data: brands = [] } = useQuery<{ id: number; name: string }[]>({ queryKey: ['filament-brands'], queryFn: api.getFilamentBrands })
   const { data: locations = [] } = useQuery<{ id: number; name: string }[]>({ queryKey: ['purchase-locations'], queryFn: api.getPurchaseLocations })
   const { data: storageLocations = [] } = useQuery<{ id: number; name: string }[]>({ queryKey: ['storage-locations'], queryFn: api.getStorageLocations })
+  const { data: filamentCatalog = [] } = useQuery<FilamentCatalog[]>({ queryKey: ['filament-catalog'], queryFn: api.getFilamentCatalog })
 
   const matchedBrand = brandWeights.find(b => b.brand.toLowerCase() === form.brand.toLowerCase())
   const tareG = matchedBrand?.spool_weight_g ?? 0
@@ -82,6 +84,39 @@ function SpoolForm({
         </div>
 
         <div className="p-5 space-y-4">
+          <div>
+            <label className="label">{t('spools.form.articleNumber')}</label>
+            <select
+              className="input"
+              value={form.article_number ?? ''}
+              onChange={e => {
+                const val = e.target.value
+                const entry = filamentCatalog.find(c => c.article_number === val)
+                if (entry) {
+                  setForm(f => ({
+                    ...f,
+                    article_number: val,
+                    brand: entry.brand,
+                    material: entry.material,
+                    subtype: entry.subtype ?? '',
+                    subtype2: entry.subtype2 ?? '',
+                    color_name: entry.color_name,
+                    color_hex: entry.color_hex,
+                  }))
+                } else {
+                  setForm(f => ({ ...f, article_number: val }))
+                }
+              }}
+            >
+              <option value="">{t('common.select')}</option>
+              {filamentCatalog.filter(c => c.article_number).map(c => (
+                <option key={c.id} value={c.article_number!}>
+                  {c.article_number} — {c.brand} {c.material} {c.color_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="label">{t('spools.form.customId')}</label>
             <input
@@ -654,6 +689,7 @@ export default function Spools() {
     purchased_at: form.purchased_at || null,
     purchase_location: form.purchase_location || null,
     storage_location: form.storage_location || null,
+    article_number: form.article_number || null,
     subtype: form.subtype || null,
     subtype2: form.subtype2 || null,
     ams_slot: form.ams_slot || null,
@@ -762,6 +798,7 @@ export default function Spools() {
               purchased_at: null,
               purchase_location: null,
               storage_location: null,
+              article_number: null,
               ams_slot: null,
             }}
             onSave={handleSave}

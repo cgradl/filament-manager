@@ -140,6 +140,14 @@ export const api = {
   deleteStorageLocation: (id: number) =>
     request<void>(`settings/storage-locations/${id}`, { method: 'DELETE' }),
 
+  getFilamentCatalog: () => request<import('./types').FilamentCatalog[]>('settings/filament-catalog'),
+  createFilamentCatalog: (data: Omit<import('./types').FilamentCatalog, 'id' | 'created_at' | 'updated_at'>) =>
+    request<import('./types').FilamentCatalog>('settings/filament-catalog', { method: 'POST', body: JSON.stringify(data) }),
+  updateFilamentCatalog: (id: number, data: Partial<Omit<import('./types').FilamentCatalog, 'id' | 'created_at' | 'updated_at'>>) =>
+    request<import('./types').FilamentCatalog>(`settings/filament-catalog/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteFilamentCatalog: (id: number) =>
+    request<void>(`settings/filament-catalog/${id}`, { method: 'DELETE' }),
+
   // Version
   getVersion: () => request<{ version: string }>('settings/version'),
   getHALocale: () => request<{ language: string; time_zone: string; country: string; currency: string }>('settings/ha-locale'),

@@ -43,6 +43,7 @@ class Spool(Base):
 
     purchase_location = Column(String)
     storage_location = Column(String)
+    article_number = Column(String, nullable=True)
     ams_slot = Column(String)
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -192,6 +193,22 @@ class StorageLocation(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FilamentCatalog(Base):
+    """User-managed filament product catalog (brand + material + color + article number)."""
+    __tablename__ = "filament_catalog"
+
+    id = Column(Integer, primary_key=True, index=True)
+    brand = Column(String, nullable=False)
+    material = Column(String, nullable=False)
+    subtype = Column(String, nullable=True)
+    subtype2 = Column(String, nullable=True)
+    color_name = Column(String, nullable=False)
+    color_hex = Column(String, default="#888888")
+    article_number = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class PrinterConfig(Base):

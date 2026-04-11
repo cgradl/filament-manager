@@ -114,6 +114,7 @@
       "purchaseDate": "Purchase Date",
       "purchaseLocation": "Purchase Location",
       "storageLocation": "Storage Location",
+      "articleNumber": "Article No. (from Filament Catalog)",
       "amsSlot": "AMS Slot (e.g. ams1_tray2)",
       "notes": "Notes",
       "qty": "Qty",
@@ -226,7 +227,8 @@
       "materials": "Materials",
       "subtypes": "Subtypes",
       "locations": "Locations",
-      "storageLocations": "Storage"
+      "storageLocations": "Storage",
+      "filamentData": "Filament Data"
     },
     "bambuCloud": {
       "title": "Bambu Lab Cloud",
@@ -364,6 +366,17 @@
       "add": "Add Location",
       "noEntries": "No storage locations configured.",
       "placeholder": "e.g. Shelf 1, Cupboard 2…"
+    },
+    "filamentCatalog": {
+      "title": "Filament Catalog",
+      "brand": "Brand",
+      "material": "Material",
+      "subtype": "Subtype 1",
+      "subtype2": "Subtype 2",
+      "colorName": "Color Name",
+      "colorHex": "Color Hex",
+      "articleNumber": "Article No.",
+      "noEntries": "No filament catalog entries yet. Click Add to create one."
     },
     "dataTransfer": {
       "title": "Export / Import",

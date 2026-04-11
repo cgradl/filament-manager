@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype, BambuCloudStatus, BambuCloudDevice } from '../types'
+import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype, BambuCloudStatus, BambuCloudDevice, FilamentCatalog } from '../types'
 import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, Download, Upload, Wifi, WifiOff } from 'lucide-react'
 import Modal from '../components/Modal'
 import BambuCloudSection from '../components/BambuCloudSection'
@@ -1275,10 +1275,249 @@ function DataTransferSection() {
   )
 }
 
+// ── Filament Catalog Section ──────────────────────────────────────────────────
+
+type CatalogEntry = Omit<FilamentCatalog, 'id' | 'created_at' | 'updated_at'>
+
+const EMPTY_CATALOG: CatalogEntry = {
+  brand: '', material: '', subtype: null, subtype2: null,
+  color_name: '', color_hex: '#888888', article_number: null,
+}
+
+// Module-level component — NOT defined inside FilamentDataSection to avoid remount on every render
+function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands, materials, subtypes }: {
+  entry: FilamentCatalog
+  editForm: CatalogEntry
+  setEditForm: (f: CatalogEntry) => void
+  onSave: () => void
+  onCancel: () => void
+  brands: FilamentSubtype[]
+  materials: FilamentSubtype[]
+  subtypes: FilamentSubtype[]
+}) {
+  const { t } = useTranslation()
+  const set = (k: keyof CatalogEntry, v: string) => setEditForm({ ...editForm, [k]: v })
+  const canSave = editForm.brand.trim() && editForm.material.trim() && editForm.color_name.trim()
+  return (
+    <tr className="border-b border-surface-3 bg-surface-2">
+      <td className="py-1 pr-2"><select className="input text-xs py-0.5 w-full" value={editForm.brand} onChange={e => set('brand', e.target.value)}>
+        <option value="">—</option>{brands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+      </select></td>
+      <td className="py-1 pr-2"><select className="input text-xs py-0.5 w-full" value={editForm.material} onChange={e => set('material', e.target.value)}>
+        <option value="">—</option>{materials.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+      </select></td>
+      <td className="py-1 pr-2"><select className="input text-xs py-0.5 w-full" value={editForm.subtype ?? ''} onChange={e => set('subtype', e.target.value)}>
+        <option value="">—</option>{subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+      </select></td>
+      <td className="py-1 pr-2"><select className="input text-xs py-0.5 w-full" value={editForm.subtype2 ?? ''} onChange={e => set('subtype2', e.target.value)}>
+        <option value="">—</option>{subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+      </select></td>
+      <td className="py-1 pr-2"><input className="input text-xs py-0.5 w-full" value={editForm.color_name} onChange={e => set('color_name', e.target.value)} /></td>
+      <td className="py-1 pr-2">
+        <div className="flex items-center gap-1">
+          <input type="color" className="w-6 h-6 rounded cursor-pointer border border-surface-3 bg-transparent p-0 shrink-0" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} />
+          <input className="input text-xs py-0.5 w-20 font-mono" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} maxLength={7} />
+        </div>
+      </td>
+      <td className="py-1 pr-2"><input className="input text-xs py-0.5 w-full" value={editForm.article_number ?? ''} onChange={e => set('article_number', e.target.value)} /></td>
+      <td className="py-1">
+        <div className="flex gap-1">
+          <button className="btn-primary text-xs px-2 py-0.5" onClick={onSave} disabled={!canSave}>{t('common.save')}</button>
+          <button className="btn-ghost text-xs px-2 py-0.5" onClick={onCancel}>{t('common.cancel')}</button>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+function FilamentDataSection() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState<CatalogEntry>({ ...EMPTY_CATALOG })
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editForm, setEditForm] = useState<CatalogEntry>({ ...EMPTY_CATALOG })
+
+  const { data: catalog = [] } = useQuery<FilamentCatalog[]>({
+    queryKey: ['filament-catalog'],
+    queryFn: api.getFilamentCatalog,
+  })
+  const { data: brands = [] } = useQuery<FilamentSubtype[]>({
+    queryKey: ['filament-brands'], queryFn: api.getFilamentBrands,
+  })
+  const { data: materials = [] } = useQuery<FilamentSubtype[]>({
+    queryKey: ['filament-materials'], queryFn: api.getFilamentMaterials,
+  })
+  const { data: subtypes = [] } = useQuery<FilamentSubtype[]>({
+    queryKey: ['filament-subtypes'], queryFn: api.getFilamentSubtypes,
+  })
+
+  const inv = () => qc.invalidateQueries({ queryKey: ['filament-catalog'] })
+
+  const createMut = useMutation({
+    mutationFn: () => api.createFilamentCatalog({
+      ...form,
+      subtype: form.subtype || null,
+      subtype2: form.subtype2 || null,
+      article_number: form.article_number || null,
+    }),
+    onSuccess: () => { inv(); setForm({ ...EMPTY_CATALOG }); setShowAdd(false) },
+  })
+  const updateMut = useMutation({
+    mutationFn: (id: number) => api.updateFilamentCatalog(id, {
+      ...editForm,
+      subtype: editForm.subtype || null,
+      subtype2: editForm.subtype2 || null,
+      article_number: editForm.article_number || null,
+    }),
+    onSuccess: () => { inv(); setEditingId(null) },
+  })
+  const deleteMut = useMutation({ mutationFn: api.deleteFilamentCatalog, onSuccess: inv })
+
+  const startEdit = (e: FilamentCatalog) => {
+    setEditingId(e.id)
+    setEditForm({ brand: e.brand, material: e.material, subtype: e.subtype ?? '', subtype2: e.subtype2 ?? '', color_name: e.color_name, color_hex: e.color_hex, article_number: e.article_number ?? '' })
+  }
+
+  const canAdd = form.brand.trim() && form.material.trim() && form.color_name.trim()
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-300">{t('settings.filamentCatalog.title')}</h3>
+        <button
+          className="btn-primary text-xs px-2 py-1 flex items-center gap-1"
+          onClick={() => { setShowAdd(v => !v); setEditingId(null) }}
+        >
+          <Plus size={12} /> {t('common.add')}
+        </button>
+      </div>
+
+      {/* Add form — shown above the table, not inside it */}
+      {showAdd && (
+        <div className="card space-y-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
+              <label className="label text-xs">{t('settings.filamentCatalog.brand')} *</label>
+              <select className="input text-xs py-1 w-full" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}>
+                <option value="">—</option>
+                {brands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label text-xs">{t('settings.filamentCatalog.material')} *</label>
+              <select className="input text-xs py-1 w-full" value={form.material} onChange={e => setForm(f => ({ ...f, material: e.target.value }))}>
+                <option value="">—</option>
+                {materials.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label text-xs">{t('settings.filamentCatalog.subtype')}</label>
+              <select className="input text-xs py-1 w-full" value={form.subtype ?? ''} onChange={e => setForm(f => ({ ...f, subtype: e.target.value }))}>
+                <option value="">—</option>
+                {subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label text-xs">{t('settings.filamentCatalog.subtype2')}</label>
+              <select className="input text-xs py-1 w-full" value={form.subtype2 ?? ''} onChange={e => setForm(f => ({ ...f, subtype2: e.target.value }))}>
+                <option value="">—</option>
+                {subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
+              <label className="label text-xs">{t('settings.filamentCatalog.colorName')} *</label>
+              <input className="input text-xs py-1 w-full" value={form.color_name} onChange={e => setForm(f => ({ ...f, color_name: e.target.value }))} placeholder="Black" />
+            </div>
+            <div>
+              <label className="label text-xs">{t('settings.filamentCatalog.colorHex')}</label>
+              <div className="flex items-center gap-2">
+                <input type="color" className="w-8 h-8 rounded cursor-pointer border border-surface-3 bg-transparent p-0.5 shrink-0" value={form.color_hex} onChange={e => setForm(f => ({ ...f, color_hex: e.target.value }))} />
+                <input className="input text-xs py-1 font-mono flex-1" value={form.color_hex} onChange={e => setForm(f => ({ ...f, color_hex: e.target.value }))} maxLength={7} />
+              </div>
+            </div>
+            <div>
+              <label className="label text-xs">{t('settings.filamentCatalog.articleNumber')}</label>
+              <input className="input text-xs py-1 w-full" value={form.article_number ?? ''} onChange={e => setForm(f => ({ ...f, article_number: e.target.value }))} placeholder="BL-PLA-BK-1KG" />
+            </div>
+            <div className="flex items-end gap-2">
+              <button className="btn-primary text-xs px-3 py-1.5" onClick={() => createMut.mutate()} disabled={!canAdd || createMut.isPending}>
+                {t('common.add')}
+              </button>
+              <button className="btn-ghost text-xs px-3 py-1.5" onClick={() => { setShowAdd(false); setForm({ ...EMPTY_CATALOG }) }}>
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="card p-0 overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth: '700px' }}>
+          <thead>
+            <tr className="border-b border-surface-3 text-xs text-gray-500 font-medium">
+              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.brand')}</th>
+              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.material')}</th>
+              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.subtype')}</th>
+              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.subtype2')}</th>
+              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.colorName')}</th>
+              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.colorHex')}</th>
+              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.articleNumber')}</th>
+              <th className="py-2 px-3" />
+            </tr>
+          </thead>
+          <tbody>
+            {catalog.length === 0 && (
+              <tr><td colSpan={8} className="text-xs text-gray-500 py-4 px-3">{t('settings.filamentCatalog.noEntries')}</td></tr>
+            )}
+            {catalog.map(entry => editingId === entry.id ? (
+              <CatalogEditRow
+                key={entry.id}
+                entry={entry}
+                editForm={editForm}
+                setEditForm={setEditForm}
+                onSave={() => updateMut.mutate(entry.id)}
+                onCancel={() => setEditingId(null)}
+                brands={brands}
+                materials={materials}
+                subtypes={subtypes}
+              />
+            ) : (
+              <tr key={entry.id} className="border-b border-surface-3 last:border-0 hover:bg-surface-3/30">
+                <td className="py-2 px-3 truncate max-w-[120px]">{entry.brand}</td>
+                <td className="py-2 px-3 truncate max-w-[100px]">{entry.material}</td>
+                <td className="py-2 px-3 text-gray-400">{entry.subtype ?? '—'}</td>
+                <td className="py-2 px-3 text-gray-400">{entry.subtype2 ?? '—'}</td>
+                <td className="py-2 px-3">{entry.color_name}</td>
+                <td className="py-2 px-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-sm border border-white/20 shrink-0" style={{ background: entry.color_hex }} />
+                    <span className="text-xs font-mono text-gray-400">{entry.color_hex}</span>
+                  </div>
+                </td>
+                <td className="py-2 px-3 text-gray-400 text-xs">{entry.article_number ?? '—'}</td>
+                <td className="py-2 px-3">
+                  <div className="flex gap-1 justify-end">
+                    <button className="btn-ghost p-1 text-gray-400 hover:text-white" onClick={() => startEdit(entry)}><Pencil size={13} /></button>
+                    <button className="btn-ghost p-1 text-red-400 hover:text-red-300" onClick={() => deleteMut.mutate(entry.id)}><Trash2 size={13} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 type MainTab = 'printers' | 'data' | 'transfer' | 'experiments'
-type DataSubTab = 'brandWeights' | 'brands' | 'materials' | 'subtypes' | 'locations' | 'storageLocations'
+type DataSubTab = 'brandWeights' | 'brands' | 'materials' | 'subtypes' | 'locations' | 'storageLocations' | 'filamentData'
 
 // ── Cloud printer live status (used in Experiments tab) ───────────────────────
 
@@ -1625,13 +1864,16 @@ export default function Settings() {
     { id: 'subtypes',     label: t('settings.dataTabs.subtypes') },
     { id: 'locations',        label: t('settings.dataTabs.locations') },
     { id: 'storageLocations', label: t('settings.dataTabs.storageLocations') },
+    { id: 'filamentData',     label: t('settings.dataTabs.filamentData') },
   ]
 
   // Experiments tab: all printers with a serial (regardless of source)
   const cloudPrinters = printers.filter(p => p.bambu_serial)
 
+  const isFilamentData = mainTab === 'data' && dataTab === 'filamentData'
+
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className={`space-y-4 ${isFilamentData ? '' : 'max-w-2xl'}`}>
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-bold">{t('settings.title')}</h2>
         {versionData && <span className="text-xs text-gray-500">v{versionData.version}</span>}
@@ -1709,85 +1951,99 @@ export default function Settings() {
 
       {/* ── Tab: Data ── */}
       {mainTab === 'data' && (
-        <div className="card">
-          <div className="flex border-b border-surface-3 mb-5 gap-0 -mx-5 px-5 overflow-x-auto pt-1">
-            {DATA_SUBTABS.map(st => (
-              <button
-                key={st.id}
-                onClick={() => setDataTab(st.id)}
-                className={`pb-2.5 pt-1 px-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
-                  dataTab === st.id
-                    ? 'border-blue-500 text-white'
-                    : 'border-transparent text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                {st.label}
-              </button>
-            ))}
+        <>
+          {/* Subtab bar + small-list content stay inside a constrained card */}
+          <div className={`card ${isFilamentData ? 'pb-0' : ''}`}>
+            {/* Scrollable subtab bar — scrollbar hidden visually */}
+            <div
+              className="flex border-b border-surface-3 gap-0 -mx-5 px-5 pt-1"
+              style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {DATA_SUBTABS.map(st => (
+                <button
+                  key={st.id}
+                  onClick={() => setDataTab(st.id)}
+                  className={`pb-2.5 pt-1 px-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
+                    dataTab === st.id
+                      ? 'border-blue-500 text-white'
+                      : 'border-transparent text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
+
+            {!isFilamentData && (
+              <div className="mt-5">
+                {dataTab === 'brandWeights' && <BrandWeightsSection />}
+                {dataTab === 'brands' && (
+                  <NameListSection
+                    title={t('settings.brands.title')}
+                    queryKey="filament-brands"
+                    fetchFn={api.getFilamentBrands}
+                    createFn={api.createFilamentBrand}
+                    updateFn={api.updateFilamentBrand}
+                    deleteFn={api.deleteFilamentBrand}
+                    placeholder={t('settings.brands.placeholder')}
+                    noEntries={t('settings.brands.noEntries')}
+                  />
+                )}
+                {dataTab === 'materials' && (
+                  <NameListSection
+                    title={t('settings.materials.title')}
+                    queryKey="filament-materials"
+                    fetchFn={api.getFilamentMaterials}
+                    createFn={api.createFilamentMaterial}
+                    updateFn={api.updateFilamentMaterial}
+                    deleteFn={api.deleteFilamentMaterial}
+                    placeholder={t('settings.materials.placeholder')}
+                    noEntries={t('settings.materials.noEntries')}
+                  />
+                )}
+                {dataTab === 'subtypes' && (
+                  <NameListSection
+                    title={t('settings.subtypes.title')}
+                    queryKey="filament-subtypes"
+                    fetchFn={api.getFilamentSubtypes}
+                    createFn={api.createFilamentSubtype}
+                    updateFn={api.updateFilamentSubtype}
+                    deleteFn={api.deleteFilamentSubtype}
+                    placeholder={t('settings.subtypes.placeholder')}
+                    noEntries={t('settings.subtypes.noEntries')}
+                  />
+                )}
+                {dataTab === 'locations' && (
+                  <NameListSection
+                    title={t('settings.purchaseLocations.title')}
+                    queryKey="purchase-locations"
+                    fetchFn={api.getPurchaseLocations}
+                    createFn={api.createPurchaseLocation}
+                    updateFn={api.updatePurchaseLocation}
+                    deleteFn={api.deletePurchaseLocation}
+                    placeholder={t('settings.purchaseLocations.placeholder')}
+                    noEntries={t('settings.purchaseLocations.noEntries')}
+                  />
+                )}
+                {dataTab === 'storageLocations' && (
+                  <NameListSection
+                    title={t('settings.storageLocations.title')}
+                    queryKey="storage-locations"
+                    fetchFn={api.getStorageLocations}
+                    createFn={api.createStorageLocation}
+                    updateFn={api.updateStorageLocation}
+                    deleteFn={api.deleteStorageLocation}
+                    placeholder={t('settings.storageLocations.placeholder')}
+                    noEntries={t('settings.storageLocations.noEntries')}
+                  />
+                )}
+              </div>
+            )}
           </div>
 
-          {dataTab === 'brandWeights' && <BrandWeightsSection />}
-          {dataTab === 'brands' && (
-            <NameListSection
-              title={t('settings.brands.title')}
-              queryKey="filament-brands"
-              fetchFn={api.getFilamentBrands}
-              createFn={api.createFilamentBrand}
-              updateFn={api.updateFilamentBrand}
-              deleteFn={api.deleteFilamentBrand}
-              placeholder={t('settings.brands.placeholder')}
-              noEntries={t('settings.brands.noEntries')}
-            />
-          )}
-          {dataTab === 'materials' && (
-            <NameListSection
-              title={t('settings.materials.title')}
-              queryKey="filament-materials"
-              fetchFn={api.getFilamentMaterials}
-              createFn={api.createFilamentMaterial}
-              updateFn={api.updateFilamentMaterial}
-              deleteFn={api.deleteFilamentMaterial}
-              placeholder={t('settings.materials.placeholder')}
-              noEntries={t('settings.materials.noEntries')}
-            />
-          )}
-          {dataTab === 'subtypes' && (
-            <NameListSection
-              title={t('settings.subtypes.title')}
-              queryKey="filament-subtypes"
-              fetchFn={api.getFilamentSubtypes}
-              createFn={api.createFilamentSubtype}
-              updateFn={api.updateFilamentSubtype}
-              deleteFn={api.deleteFilamentSubtype}
-              placeholder={t('settings.subtypes.placeholder')}
-              noEntries={t('settings.subtypes.noEntries')}
-            />
-          )}
-          {dataTab === 'locations' && (
-            <NameListSection
-              title={t('settings.purchaseLocations.title')}
-              queryKey="purchase-locations"
-              fetchFn={api.getPurchaseLocations}
-              createFn={api.createPurchaseLocation}
-              updateFn={api.updatePurchaseLocation}
-              deleteFn={api.deletePurchaseLocation}
-              placeholder={t('settings.purchaseLocations.placeholder')}
-              noEntries={t('settings.purchaseLocations.noEntries')}
-            />
-          )}
-          {dataTab === 'storageLocations' && (
-            <NameListSection
-              title={t('settings.storageLocations.title')}
-              queryKey="storage-locations"
-              fetchFn={api.getStorageLocations}
-              createFn={api.createStorageLocation}
-              updateFn={api.updateStorageLocation}
-              deleteFn={api.deleteStorageLocation}
-              placeholder={t('settings.storageLocations.placeholder')}
-              noEntries={t('settings.storageLocations.noEntries')}
-            />
-          )}
-        </div>
+          {/* Filament Data renders outside the card for full-width table */}
+          {isFilamentData && <FilamentDataSection />}
+        </>
       )}
 
       {/* ── Tab: Export / Import ── */}

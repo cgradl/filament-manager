@@ -15,6 +15,7 @@ export interface Spool {
   purchased_at: string | null
   purchase_location: string | null
   storage_location: string | null
+  article_number: string | null
   ams_slot: string | null
   notes: string | null
   remaining_pct: number
@@ -108,6 +109,19 @@ export interface BrandSpoolWeight {
 export interface FilamentSubtype {
   id: number
   name: string
+}
+
+export interface FilamentCatalog {
+  id: number
+  brand: string
+  material: string
+  subtype: string | null
+  subtype2: string | null
+  color_name: string
+  color_hex: string
+  article_number: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface AMSTray {

@@ -73,6 +73,12 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added spools.storage_location")
 
+        # spools: add article_number if missing
+        if "article_number" not in spool_cols:
+            conn.execute(text("ALTER TABLE spools ADD COLUMN article_number TEXT"))
+            conn.commit()
+            log.info("Migration: added spools.article_number")
+
         # printer_configs: rebuild if it still has the old entity-per-column schema
         printer_cols = [c["name"] for c in insp.get_columns("printer_configs")]
         if "device_slug" not in printer_cols:
