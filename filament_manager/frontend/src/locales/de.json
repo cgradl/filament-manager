@@ -27,7 +27,9 @@
     "none": "— keine —",
     "select": "— auswählen —",
     "remaining": "verbleibend",
-    "of": "von"
+    "of": "von",
+    "search": "Suchen…",
+    "clear": "Zurücksetzen"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -376,7 +378,14 @@
       "colorName": "Farbname",
       "colorHex": "Farb-Hex",
       "articleNumber": "Artikelnr.",
-      "noEntries": "Noch keine Einträge im Filamentkatalog. Klicke auf Hinzufügen."
+      "noEntries": "Noch keine Einträge im Filamentkatalog. Klicke auf Hinzufügen.",
+      "importCsv": "CSV importieren",
+      "importResult": "Import abgeschlossen: {{added}} hinzugefügt, {{updated}} aktualisiert",
+      "allBrands": "Alle Marken",
+      "allMaterials": "Alle Materialien",
+      "filterCount": "{{shown}} von {{total}}",
+      "totalCount": "{{total}} Einträge",
+      "noResults": "Keine Einträge entsprechen dem Filter."
     },
     "dataTransfer": {
       "title": "Export / Import",

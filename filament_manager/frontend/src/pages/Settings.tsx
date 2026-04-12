@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { PrinterConfig, DiscoverResult, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype, BambuCloudStatus, BambuCloudDevice, FilamentCatalog } from '../types'
-import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, Download, Upload, Wifi, WifiOff } from 'lucide-react'
+import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Search, Pencil, ChevronDown, ChevronUp, ChevronsUpDown, Download, Upload, Wifi, WifiOff } from 'lucide-react'
 import Modal from '../components/Modal'
 import BambuCloudSection from '../components/BambuCloudSection'
 
@@ -1284,6 +1284,16 @@ const EMPTY_CATALOG: CatalogEntry = {
   color_name: '', color_hex: '#888888', article_number: null,
 }
 
+type CatalogSortKey = 'brand' | 'material' | 'subtype' | 'subtype2' | 'color_name' | 'color_hex' | 'article_number'
+type CatalogSortDir = 'asc' | 'desc'
+
+function CatalogSortIcon({ col, sort }: { col: CatalogSortKey; sort: { key: CatalogSortKey; dir: CatalogSortDir } }) {
+  if (sort.key !== col) return <ChevronsUpDown size={12} className="text-gray-600" />
+  return sort.dir === 'asc'
+    ? <ChevronUp size={12} className="text-accent" />
+    : <ChevronDown size={12} className="text-accent" />
+}
+
 // Module-level component — NOT defined inside FilamentDataSection to avoid remount on every render
 function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands, materials, subtypes }: {
   entry: FilamentCatalog
@@ -1300,32 +1310,32 @@ function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands
   const canSave = editForm.brand.trim() && editForm.material.trim() && editForm.color_name.trim()
   return (
     <tr className="border-b border-surface-3 bg-surface-2">
-      <td className="py-1 pr-2"><select className="input text-xs py-0.5 w-full" value={editForm.brand} onChange={e => set('brand', e.target.value)}>
-        <option value="">—</option>{brands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-      </select></td>
-      <td className="py-1 pr-2"><select className="input text-xs py-0.5 w-full" value={editForm.material} onChange={e => set('material', e.target.value)}>
-        <option value="">—</option>{materials.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-      </select></td>
-      <td className="py-1 pr-2"><select className="input text-xs py-0.5 w-full" value={editForm.subtype ?? ''} onChange={e => set('subtype', e.target.value)}>
-        <option value="">—</option>{subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-      </select></td>
-      <td className="py-1 pr-2"><select className="input text-xs py-0.5 w-full" value={editForm.subtype2 ?? ''} onChange={e => set('subtype2', e.target.value)}>
-        <option value="">—</option>{subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-      </select></td>
-      <td className="py-1 pr-2"><input className="input text-xs py-0.5 w-full" value={editForm.color_name} onChange={e => set('color_name', e.target.value)} /></td>
-      <td className="py-1 pr-2">
-        <div className="flex items-center gap-1">
-          <input type="color" className="w-6 h-6 rounded cursor-pointer border border-surface-3 bg-transparent p-0 shrink-0" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} />
-          <input className="input text-xs py-0.5 w-20 font-mono" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} maxLength={7} />
-        </div>
-      </td>
-      <td className="py-1 pr-2"><input className="input text-xs py-0.5 w-full" value={editForm.article_number ?? ''} onChange={e => set('article_number', e.target.value)} /></td>
-      <td className="py-1">
+      <td className="px-2 py-1">
         <div className="flex gap-1">
           <button className="btn-primary text-xs px-2 py-0.5" onClick={onSave} disabled={!canSave}>{t('common.save')}</button>
           <button className="btn-ghost text-xs px-2 py-0.5" onClick={onCancel}>{t('common.cancel')}</button>
         </div>
       </td>
+      <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.brand} onChange={e => set('brand', e.target.value)}>
+        <option value="">—</option>{brands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+      </select></td>
+      <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.material} onChange={e => set('material', e.target.value)}>
+        <option value="">—</option>{materials.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+      </select></td>
+      <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.subtype ?? ''} onChange={e => set('subtype', e.target.value)}>
+        <option value="">—</option>{subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+      </select></td>
+      <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.subtype2 ?? ''} onChange={e => set('subtype2', e.target.value)}>
+        <option value="">—</option>{subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+      </select></td>
+      <td className="px-2 py-1"><input className="input text-xs py-0.5 w-full" value={editForm.color_name} onChange={e => set('color_name', e.target.value)} /></td>
+      <td className="px-2 py-1">
+        <div className="flex items-center gap-1">
+          <input type="color" className="w-6 h-6 rounded cursor-pointer border border-surface-3 bg-transparent p-0 shrink-0" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} />
+          <input className="input text-xs py-0.5 w-20 font-mono" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} maxLength={7} />
+        </div>
+      </td>
+      <td className="px-2 py-1"><input className="input text-xs py-0.5 w-full" value={editForm.article_number ?? ''} onChange={e => set('article_number', e.target.value)} /></td>
     </tr>
   )
 }
@@ -1337,6 +1347,14 @@ function FilamentDataSection() {
   const [form, setForm] = useState<CatalogEntry>({ ...EMPTY_CATALOG })
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<CatalogEntry>({ ...EMPTY_CATALOG })
+  const [importResult, setImportResult] = useState<{ added: number; updated: number } | null>(null)
+  const csvInputRef = useRef<HTMLInputElement>(null)
+  const [sort, setSort] = useState<{ key: CatalogSortKey; dir: CatalogSortDir }>({ key: 'brand', dir: 'asc' })
+  const [filters, setFilters] = useState<Partial<Record<CatalogSortKey, string>>>({})
+
+  const setFilter = (k: CatalogSortKey, v: string) => setFilters(f => ({ ...f, [k]: v }))
+  const toggleSort = (k: CatalogSortKey) =>
+    setSort(s => s.key === k ? { key: k, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key: k, dir: 'asc' })
 
   const { data: catalog = [] } = useQuery<FilamentCatalog[]>({
     queryKey: ['filament-catalog'],
@@ -1374,6 +1392,47 @@ function FilamentDataSection() {
   })
   const deleteMut = useMutation({ mutationFn: api.deleteFilamentCatalog, onSuccess: inv })
 
+  const importMut = useMutation({
+    mutationFn: api.importFilamentCatalog,
+    onSuccess: (result) => { inv(); setImportResult(result) },
+  })
+
+  const handleCsvFile = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result as string
+      const lines = text.split(/\r?\n/).filter(l => l.trim())
+      if (lines.length < 2) return
+      // detect delimiter from header line
+      const header = lines[0]
+      const delim = header.includes(';') ? ';' : ','
+      const cols = header.split(delim).map(c => c.trim().toLowerCase())
+      // map known column names to our fields
+      const idx = (names: string[]) => names.map(n => cols.findIndex(c => c === n)).find(i => i >= 0) ?? -1
+      const iBrand   = idx(['marke', 'brand'])
+      const iMat     = idx(['material'])
+      const iSub1    = idx(['subtype', 'subtype 1', 'subtype1'])
+      const iSub2    = idx(['subtype 2', 'subtype2'])
+      const iColor   = idx(['color name', 'colorname', 'farbe', 'color'])
+      const iArticle = idx(['artikel numner', 'artikel nummer', 'article number', 'article_number', 'articlenumber'])
+      const iHex     = idx(['hex-code', 'hex code', 'hexcode', 'color_hex', 'color hex'])
+      const rows = lines.slice(1).map(line => {
+        const cells = line.split(delim).map(c => c.trim())
+        return {
+          brand:          iBrand   >= 0 ? cells[iBrand]   ?? '' : '',
+          material:       iMat     >= 0 ? cells[iMat]     ?? '' : '',
+          subtype:        iSub1    >= 0 ? cells[iSub1]    || null : null,
+          subtype2:       iSub2    >= 0 ? cells[iSub2]    || null : null,
+          color_name:     iColor   >= 0 ? cells[iColor]   ?? '' : '',
+          color_hex:      iHex     >= 0 ? cells[iHex]     || '#888888' : '#888888',
+          article_number: iArticle >= 0 ? cells[iArticle] || null : null,
+        }
+      }).filter(r => r.brand && r.material && r.color_name)
+      if (rows.length > 0) importMut.mutate(rows)
+    }
+    reader.readAsText(file, 'UTF-8')
+  }
+
   const startEdit = (e: FilamentCatalog) => {
     setEditingId(e.id)
     setEditForm({ brand: e.brand, material: e.material, subtype: e.subtype ?? '', subtype2: e.subtype2 ?? '', color_name: e.color_name, color_hex: e.color_hex, article_number: e.article_number ?? '' })
@@ -1381,17 +1440,62 @@ function FilamentDataSection() {
 
   const canAdd = form.brand.trim() && form.material.trim() && form.color_name.trim()
 
+  const processed = useMemo(() => {
+    let rows = [...catalog]
+    for (const [k, v] of Object.entries(filters)) {
+      if (!v) continue
+      const lower = v.toLowerCase()
+      rows = rows.filter(e => {
+        const val = e[k as keyof FilamentCatalog]
+        if (val == null) return false
+        return String(val).toLowerCase().includes(lower)
+      })
+    }
+    rows.sort((a, b) => {
+      const av = a[sort.key] ?? ''
+      const bv = b[sort.key] ?? ''
+      const cmp = String(av).localeCompare(String(bv))
+      return sort.dir === 'asc' ? cmp : -cmp
+    })
+    return rows
+  }, [catalog, sort, filters])
+
+  const hasFilter = Object.values(filters).some(v => v)
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-300">{t('settings.filamentCatalog.title')}</h3>
-        <button
-          className="btn-primary text-xs px-2 py-1 flex items-center gap-1"
-          onClick={() => { setShowAdd(v => !v); setEditingId(null) }}
-        >
-          <Plus size={12} /> {t('common.add')}
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) { handleCsvFile(f); e.target.value = '' } }}
+          />
+          <button
+            className="btn-ghost text-xs px-2 py-1 flex items-center gap-1"
+            onClick={() => { setImportResult(null); csvInputRef.current?.click() }}
+            disabled={importMut.isPending}
+          >
+            <Upload size={12} /> {t('settings.filamentCatalog.importCsv')}
+          </button>
+          <button
+            className="btn-primary text-xs px-2 py-1 flex items-center gap-1"
+            onClick={() => { setShowAdd(v => !v); setEditingId(null) }}
+          >
+            <Plus size={12} /> {t('common.add')}
+          </button>
+        </div>
       </div>
+
+      {importResult && (
+        <div className="text-xs px-3 py-2 rounded bg-green-900/40 border border-green-700/50 text-green-300 flex items-center justify-between">
+          <span>{t('settings.filamentCatalog.importResult', { added: importResult.added, updated: importResult.updated })}</span>
+          <button className="ml-4 text-green-400 hover:text-white" onClick={() => setImportResult(null)}>✕</button>
+        </div>
+      )}
 
       {/* Add form — shown above the table, not inside it */}
       {showAdd && (
@@ -1455,25 +1559,58 @@ function FilamentDataSection() {
       )}
 
       {/* Table */}
-      <div className="card p-0 overflow-x-auto">
-        <table className="w-full text-sm" style={{ minWidth: '700px' }}>
+      <div className="overflow-x-auto rounded-xl border border-surface-3">
+        <table className="w-full text-xs text-left" style={{ minWidth: '700px' }}>
           <thead>
-            <tr className="border-b border-surface-3 text-xs text-gray-500 font-medium">
-              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.brand')}</th>
-              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.material')}</th>
-              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.subtype')}</th>
-              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.subtype2')}</th>
-              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.colorName')}</th>
-              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.colorHex')}</th>
-              <th className="text-left py-2 px-3">{t('settings.filamentCatalog.articleNumber')}</th>
-              <th className="py-2 px-3" />
+            <tr className="border-b border-surface-3">
+              <th className="px-3 py-2 w-16" />
+              {([
+                ['brand',          t('settings.filamentCatalog.brand')],
+                ['material',       t('settings.filamentCatalog.material')],
+                ['subtype',        t('settings.filamentCatalog.subtype')],
+                ['subtype2',       t('settings.filamentCatalog.subtype2')],
+                ['color_name',     t('settings.filamentCatalog.colorName')],
+                ['color_hex',      t('settings.filamentCatalog.colorHex')],
+                ['article_number', t('settings.filamentCatalog.articleNumber')],
+              ] as [CatalogSortKey, string][]).map(([key, label]) => (
+                <th
+                  key={key}
+                  className="px-3 py-2 text-gray-400 font-medium whitespace-nowrap cursor-pointer select-none hover:text-white"
+                  onClick={() => toggleSort(key)}
+                >
+                  <span className="flex items-center gap-1">
+                    {label} <CatalogSortIcon col={key} sort={sort} />
+                  </span>
+                </th>
+              ))}
+            </tr>
+            <tr className="border-b border-surface-3 bg-surface-3/30">
+              <td className="px-2 py-1">
+                <button
+                  className="text-xs text-gray-500 hover:text-white"
+                  onClick={() => setFilters({})}
+                  title={t('common.clear')}
+                >✕</button>
+              </td>
+              {(['brand', 'material', 'subtype', 'subtype2', 'color_name', 'color_hex', 'article_number'] as CatalogSortKey[]).map(key => (
+                <td key={key} className="px-2 py-1">
+                  <input
+                    className="w-full bg-surface-3 rounded px-2 py-0.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-accent"
+                    placeholder="filter…"
+                    value={filters[key] ?? ''}
+                    onChange={e => setFilter(key, e.target.value)}
+                  />
+                </td>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {catalog.length === 0 && (
-              <tr><td colSpan={8} className="text-xs text-gray-500 py-4 px-3">{t('settings.filamentCatalog.noEntries')}</td></tr>
+            {processed.length === 0 && (
+              <tr><td colSpan={8} className="text-xs text-gray-500 py-4 px-3">
+                {hasFilter ? t('settings.filamentCatalog.noResults') : t('settings.filamentCatalog.noEntries')}
+              </td></tr>
             )}
-            {catalog.map(entry => editingId === entry.id ? (
+            {processed.map(entry => editingId === entry.id ? (
               <CatalogEditRow
                 key={entry.id}
                 entry={entry}
@@ -1486,25 +1623,25 @@ function FilamentDataSection() {
                 subtypes={subtypes}
               />
             ) : (
-              <tr key={entry.id} className="border-b border-surface-3 last:border-0 hover:bg-surface-3/30">
-                <td className="py-2 px-3 truncate max-w-[120px]">{entry.brand}</td>
-                <td className="py-2 px-3 truncate max-w-[100px]">{entry.material}</td>
-                <td className="py-2 px-3 text-gray-400">{entry.subtype ?? '—'}</td>
-                <td className="py-2 px-3 text-gray-400">{entry.subtype2 ?? '—'}</td>
-                <td className="py-2 px-3">{entry.color_name}</td>
-                <td className="py-2 px-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-sm border border-white/20 shrink-0" style={{ background: entry.color_hex }} />
-                    <span className="text-xs font-mono text-gray-400">{entry.color_hex}</span>
+              <tr key={entry.id} className="border-b border-surface-3/50 hover:bg-surface-3/40 transition-colors">
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <div className="flex gap-1">
+                    <button className="btn-ghost p-1 text-gray-400 hover:text-white" onClick={() => startEdit(entry)}><Pencil size={12} /></button>
+                    <button className="btn-ghost p-1 text-red-400 hover:text-red-300" onClick={() => deleteMut.mutate(entry.id)}><Trash2 size={12} /></button>
                   </div>
                 </td>
-                <td className="py-2 px-3 text-gray-400 text-xs">{entry.article_number ?? '—'}</td>
-                <td className="py-2 px-3">
-                  <div className="flex gap-1 justify-end">
-                    <button className="btn-ghost p-1 text-gray-400 hover:text-white" onClick={() => startEdit(entry)}><Pencil size={13} /></button>
-                    <button className="btn-ghost p-1 text-red-400 hover:text-red-300" onClick={() => deleteMut.mutate(entry.id)}><Trash2 size={13} /></button>
-                  </div>
+                <td className="px-3 py-2 font-medium text-white whitespace-nowrap">{entry.brand}</td>
+                <td className="px-3 py-2 whitespace-nowrap">{entry.material}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-gray-400">{entry.subtype ?? '—'}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-gray-400">{entry.subtype2 ?? '—'}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/10" style={{ background: entry.color_hex }} />
+                    {entry.color_name}
+                  </span>
                 </td>
+                <td className="px-3 py-2 whitespace-nowrap font-mono text-gray-400">{entry.color_hex}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-gray-400">{entry.article_number ?? '—'}</td>
               </tr>
             ))}
           </tbody>

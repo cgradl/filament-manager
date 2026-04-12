@@ -27,7 +27,9 @@
     "none": "— ninguno —",
     "select": "— seleccionar —",
     "remaining": "restante",
-    "of": "de"
+    "of": "de",
+    "search": "Buscar…",
+    "clear": "Limpiar"
   },
   "dashboard": {
     "title": "Panel",
@@ -376,7 +378,14 @@
       "colorName": "Nombre de color",
       "colorHex": "Hex de color",
       "articleNumber": "Nº artículo",
-      "noEntries": "No hay entradas en el catálogo. Haz clic en Añadir para crear una."
+      "noEntries": "No hay entradas en el catálogo. Haz clic en Añadir para crear una.",
+      "importCsv": "Importar CSV",
+      "importResult": "Importación completada: {{added}} añadidos, {{updated}} actualizados",
+      "allBrands": "Todas las marcas",
+      "allMaterials": "Todos los materiales",
+      "filterCount": "{{shown}} de {{total}}",
+      "totalCount": "{{total}} entradas",
+      "noResults": "Ninguna entrada coincide con el filtro."
     },
     "dataTransfer": {
       "title": "Exportar / Importar",

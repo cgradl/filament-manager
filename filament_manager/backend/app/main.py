@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from .database import engine, Base
@@ -327,17 +327,30 @@ app.include_router(bambu_cloud.router)
 STATIC_DIR = Path(__file__).parent.parent / "static"
 log.info("Static dir: %s (exists=%s)", STATIC_DIR, STATIC_DIR.exists())
 
+def _index_response() -> Response:
+    """Serve index.html with no-cache headers so the browser always re-fetches it.
+    Hashed /assets/* files are still cached indefinitely by the browser."""
+    content = (STATIC_DIR / "index.html").read_bytes()
+    return Response(
+        content=content,
+        media_type="text/html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
 if STATIC_DIR.exists():
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
 
     @app.get("/", include_in_schema=False)
     async def root():
-        return FileResponse(STATIC_DIR / "index.html")
+        return _index_response()
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_frontend(full_path: str):
         # Let API routes 404 naturally; everything else → SPA
-        index = STATIC_DIR / "index.html"
-        return FileResponse(index)
+        return _index_response()
 else:
     log.warning("Static dir not found — frontend will not be served")

@@ -147,6 +147,8 @@ export const api = {
     request<import('./types').FilamentCatalog>(`settings/filament-catalog/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteFilamentCatalog: (id: number) =>
     request<void>(`settings/filament-catalog/${id}`, { method: 'DELETE' }),
+  importFilamentCatalog: (rows: { brand: string; material: string; subtype: string | null; subtype2: string | null; color_name: string; color_hex: string; article_number: string | null }[]) =>
+    request<{ added: number; updated: number }>('settings/filament-catalog/import', { method: 'POST', body: JSON.stringify({ rows }) }),
 
   // Version
   getVersion: () => request<{ version: string }>('settings/version'),

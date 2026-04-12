@@ -2,7 +2,7 @@
 
 A Home Assistant app for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via the [greghesp Bambu Lab integration](https://github.com/greghesp/ha-bambulab).
 
-![Version](https://img.shields.io/badge/version-0.14.3-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.14.7-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -13,7 +13,7 @@ A Home Assistant app for tracking 3D printer filament inventory, monitoring prin
 - **Suggested filament usage** — on print completion the app pre-fills grams used per tray for review; an optional per-printer *auto-deduct* flag applies the deduction immediately without confirmation
 - **Live print status** — active print jobs show real-time stage, progress, remaining time, weight, and active tray, sourced from HA sensors (HA printers) or MQTT cache (Cloud printers)
 - **Spool inventory** — full CRUD for filament spools with brand, material, color, weight, cost, and storage location data
-- **Filament catalog** — manage a master list of filament products (brand, material, subtypes, color, article number) in Settings → Data → Filament Data
+- **Filament catalog** — manage a master list of filament products (brand, material, subtypes, color, article number) in Settings → Data → Filament Data; bulk import via CSV (semicolon or comma delimited); upserts by brand + article number
 - **Cost analytics** — per-print cost, price per kg, inventory value, and spend by purchase location
 - **Dashboard** — overview charts, low-stock alerts, and recent print history
 - **Print history search & date filter** — filter print jobs by name, printer, or spool material/color; filter by month, week, or day with quick presets (this/last) or a custom date picker

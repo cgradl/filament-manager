@@ -27,7 +27,9 @@
     "none": "— none —",
     "select": "— select —",
     "remaining": "remaining",
-    "of": "of"
+    "of": "of",
+    "search": "Search…",
+    "clear": "Clear"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -376,7 +378,14 @@
       "colorName": "Color Name",
       "colorHex": "Color Hex",
       "articleNumber": "Article No.",
-      "noEntries": "No filament catalog entries yet. Click Add to create one."
+      "noEntries": "No filament catalog entries yet. Click Add to create one.",
+      "importCsv": "Import CSV",
+      "importResult": "Import complete: {{added}} added, {{updated}} updated",
+      "allBrands": "All brands",
+      "allMaterials": "All materials",
+      "filterCount": "{{shown}} of {{total}}",
+      "totalCount": "{{total}} entries",
+      "noResults": "No entries match your filter."
     },
     "dataTransfer": {
       "title": "Export / Import",

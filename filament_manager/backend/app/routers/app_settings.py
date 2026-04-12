@@ -336,3 +336,59 @@ def delete_filament_catalog(entry_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Not found")
     db.delete(entry)
     db.commit()
+
+
+class CatalogImportRow(BaseModel):
+    brand: str
+    material: str
+    subtype: str | None = None
+    subtype2: str | None = None
+    color_name: str
+    color_hex: str = "#888888"
+    article_number: str | None = None
+
+
+class CatalogImportBody(BaseModel):
+    rows: list[CatalogImportRow]
+
+
+@router.post("/filament-catalog/import")
+def import_filament_catalog(body: CatalogImportBody, db: Session = Depends(get_db)):
+    """Upsert filament catalog rows. Unique key: (brand, article_number).
+    Rows without an article_number are always inserted as new entries."""
+    added = 0
+    updated = 0
+
+    # Build lookup by (brand, article_number) for rows that have an article_number
+    existing: dict[tuple[str, str], FilamentCatalog] = {
+        (e.brand, e.article_number): e
+        for e in db.query(FilamentCatalog).all()
+        if e.article_number
+    }
+
+    for row in body.rows:
+        key = (row.brand, row.article_number) if row.article_number else None
+        if key and key in existing:
+            entry = existing[key]
+            entry.material = row.material
+            entry.subtype = row.subtype or None
+            entry.subtype2 = row.subtype2 or None
+            entry.color_name = row.color_name
+            entry.color_hex = row.color_hex
+            entry.updated_at = datetime.utcnow()
+            updated += 1
+        else:
+            new_entry = FilamentCatalog(
+                brand=row.brand,
+                material=row.material,
+                subtype=row.subtype or None,
+                subtype2=row.subtype2 or None,
+                color_name=row.color_name,
+                color_hex=row.color_hex,
+                article_number=row.article_number or None,
+            )
+            db.add(new_entry)
+            added += 1
+
+    db.commit()
+    return {"added": added, "updated": updated}

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.14.7
+
+- Filament Catalog table: replaced the separate filter bar with Spools-style inline column filters (per-column text inputs in a sticky filter row) and clickable column headers for ascending/descending sort; sort indicator icons match the Spools table; actions column moved to the left
+
+## 0.14.6
+
+- Frontend: `index.html` now served with `Cache-Control: no-cache` headers so the browser always fetches the latest version after an update; hashed `/assets/*` files remain browser-cached for fast loads
+
+## 0.14.5
+
+- Filament Catalog: search box filters across brand, material, subtypes, color name, and article number; brand and material dropdowns narrow the list further; entry count shown; "Clear" resets all filters at once
+
+## 0.14.4
+
+- Filament Catalog: CSV import button — upload a semicolon- or comma-separated file; rows are upserted by (brand, article number): existing entries are updated, new ones added; result banner shows counts of added and updated rows
+
 ## 0.14.3
 
 - Data export: spools now include `article_number`; settings bundle now includes the full filament catalog
