@@ -113,6 +113,7 @@
       "remainingFilament": "Remaining filament",
       "percentRemaining": "{{pct}}% remaining",
       "purchasePrice": "Purchase Price (€)",
+      "purchasePricePlaceholder": "11.59",
       "purchaseDate": "Purchase Date",
       "purchaseLocation": "Purchase Location",
       "storageLocation": "Storage Location",
@@ -138,7 +139,12 @@
       "location": "Location",
       "storageLocation": "Storage",
       "amsSlot": "AMS Slot",
-      "actions": "Actions"
+      "actions": "Actions",
+      "filterText": "filter…",
+      "filterNumPct": "=, >=, < (%)",
+      "filterNumKg": "=, >=, < (kg, e.g. 0.5)",
+      "filterNumEur": "=, >=, < (€, e.g. 12.50)",
+      "filterDate": "DD.MM.YYYY"
     },
     "actions": {
       "duplicate": "Duplicate",
@@ -173,7 +179,9 @@
       "noAMSPrinter": "Select a printer to load AMS assignments, or add spools manually.",
       "noAMSAssigned": "No spools are currently assigned to AMS trays. Go to Settings → Printer → AMS Tray Assignment to link spools to trays.",
       "loadAMSHint": "Click \"Load from AMS\" to pre-fill from current tray assignments, or add manually.",
-      "selectPrinterFirst": "Select a printer first"
+      "selectPrinterFirst": "Select a printer first",
+      "editUsages": "Edit Usages",
+      "noUsagesRecorded": "No filament usage recorded."
     },
     "table": {
       "print": "Print",

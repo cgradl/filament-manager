@@ -113,6 +113,7 @@
       "remainingFilament": "Filamento restante",
       "percentRemaining": "{{pct}}% restante",
       "purchasePrice": "Precio de compra (€)",
+      "purchasePricePlaceholder": "11,59",
       "purchaseDate": "Fecha de compra",
       "purchaseLocation": "Lugar de compra",
       "storageLocation": "Lugar de almacenamiento",
@@ -138,7 +139,12 @@
       "location": "Lugar de compra",
       "storageLocation": "Almacenamiento",
       "amsSlot": "Ranura AMS",
-      "actions": "Acciones"
+      "actions": "Acciones",
+      "filterText": "filtrar…",
+      "filterNumPct": "=, >=, < (%)",
+      "filterNumKg": "=, >=, < (kg, ej. 0,5)",
+      "filterNumEur": "=, >=, < (€, ej. 12,50)",
+      "filterDate": "DD.MM.AAAA"
     },
     "actions": {
       "duplicate": "Duplicar",
@@ -173,7 +179,9 @@
       "noAMSPrinter": "Selecciona una impresora para cargar asignaciones AMS o añade bobinas manualmente.",
       "noAMSAssigned": "No hay bobinas asignadas a las ranuras AMS. Ve a Ajustes → Impresora → Asignación de ranuras AMS.",
       "loadAMSHint": "Haz clic en «Cargar desde AMS» para rellenar desde las asignaciones actuales o añade manualmente.",
-      "selectPrinterFirst": "Selecciona primero una impresora"
+      "selectPrinterFirst": "Selecciona primero una impresora",
+      "editUsages": "Editar consumo",
+      "noUsagesRecorded": "No se registró consumo de filamento."
     },
     "table": {
       "print": "Impresión",

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.14.9
+
+- Print jobs: filament usage on existing prints is now shown read-only by default; an "Edit Usages" button (pencil icon) unlocks per-row editing, preventing accidental overwrites
+- Print jobs: "Load from AMS" and "Add spool" controls are hidden until edit mode is entered
+- Print jobs: auto-loading AMS tray data is now limited to new prints only — existing jobs never have their stored usages overwritten on open
+
+## 0.14.8
+
+- Spools table: fixed summary row misalignment — label colspan corrected from 4 to 5 so aggregate values (avg %, total weight, avg price) line up with their respective columns
+- Spools table filters: date column now filters against the displayed DD.MM.YYYY value instead of the raw ISO string; numeric inputs accept locale decimal comma (e.g. `0,5`) as well as dot; filter placeholders show format hints per column type (e.g. `TT.MM.JJJJ` / `DD.MM.AAAA` for date, `=, >=, < (kg, z.B. 0,5)` for weight) in the active language
+
 ## 0.14.7
 
 - Filament Catalog table: replaced the separate filter bar with Spools-style inline column filters (per-column text inputs in a sticky filter row) and clickable column headers for ascending/descending sort; sort indicator icons match the Spools table; actions column moved to the left

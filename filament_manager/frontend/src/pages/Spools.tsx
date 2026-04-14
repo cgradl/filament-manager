@@ -279,7 +279,7 @@ function SpoolForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">{t('spools.form.purchasePrice')}</label>
-              <input className="input" type="number" step="0.01" value={form.purchase_price} onChange={set('purchase_price')} placeholder="11.59" />
+              <input className="input" type="number" step="0.01" value={form.purchase_price} onChange={set('purchase_price')} placeholder={t('spools.form.purchasePricePlaceholder')} />
             </div>
             <div>
               <label className="label">{t('spools.form.purchaseDate')}</label>
@@ -424,26 +424,44 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
   const NUMERIC_COLS = new Set<SortKey>([
     'custom_id', 'remaining_pct', 'current_weight_g', 'initial_weight_g', 'purchase_price', 'price_per_kg',
   ])
+  const WEIGHT_COLS  = new Set<SortKey>(['current_weight_g', 'initial_weight_g'])
+  const PRICE_COLS   = new Set<SortKey>(['purchase_price', 'price_per_kg'])
+  const DATE_COLS    = new Set<SortKey>(['purchased_at'])
+
+  const filterPlaceholder = (key: SortKey): string => {
+    if (DATE_COLS.has(key))    return t('spools.table.filterDate')
+    if (WEIGHT_COLS.has(key))  return t('spools.table.filterNumKg')
+    if (PRICE_COLS.has(key))   return t('spools.table.filterNumEur')
+    if (NUMERIC_COLS.has(key)) return t('spools.table.filterNumPct')
+    return t('spools.table.filterText')
+  }
 
   const processed = useMemo(() => {
     let rows = [...spools]
 
-    for (const [k, v] of Object.entries(filters)) {
-      if (!v) continue
+    for (const [k, raw] of Object.entries(filters)) {
+      if (!raw) continue
+      const v = raw as string
       const key = k as SortKey
 
-      if (NUMERIC_COLS.has(key)) {
+      if (DATE_COLS.has(key)) {
+        // filter against the displayed formatted value (DD.MM.YYYY), not the raw ISO string
+        const lower = v.toLowerCase()
+        rows = rows.filter(s => {
+          const formatted = s.purchased_at ? formatDateOnly(s.purchased_at) : ''
+          return formatted.toLowerCase().includes(lower)
+        })
+      } else if (NUMERIC_COLS.has(key)) {
         const op = v.startsWith('>=') ? '>=' : v.startsWith('<=') ? '<=' : v.startsWith('>') ? '>' : v.startsWith('<') ? '<' : '='
-        const numStr = v.replace(/^[><=]+/, '').trim()
+        // normalise locale decimal separator to dot before parsing
+        const numStr = v.replace(/^[><=]+/, '').trim().replace(',', '.')
         const threshold = parseFloat(numStr)
         if (isNaN(threshold)) continue
         rows = rows.filter(s => {
           const raw = s[key as keyof Spool]
           const num = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''))
           if (isNaN(num)) return false
-          const cmpVal = (key === 'current_weight_g' || key === 'initial_weight_g')
-            ? num / 1000
-            : num
+          const cmpVal = WEIGHT_COLS.has(key) ? num / 1000 : num
           if (op === '>=') return cmpVal >= threshold
           if (op === '<=') return cmpVal <= threshold
           if (op === '>')  return cmpVal >  threshold
@@ -529,7 +547,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                 <input
                   className="w-full bg-surface-3 rounded px-2 py-0.5 text-xs text-gray-100 placeholder-gray-600
                              focus:outline-none focus:ring-1 focus:ring-accent"
-                  placeholder={NUMERIC_COLS.has(c.key) ? '=, >=, <…' : 'filter…'}
+                  placeholder={filterPlaceholder(c.key)}
                   value={filters[c.key] ?? ''}
                   onChange={e => setFilter(c.key, e.target.value)}
                 />
@@ -630,7 +648,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
             <tfoot>
               <tr className="border-t-2 border-surface-3 bg-surface-3/40 text-gray-300 font-medium">
                 <td />
-                <td className="px-3 py-2 text-xs text-gray-400" colSpan={4}>
+                <td className="px-3 py-2 text-xs text-gray-400" colSpan={5}>
                   {n} {n !== 1 ? t('dashboard.chart.spools') : t('dashboard.chart.spool')}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap text-xs">

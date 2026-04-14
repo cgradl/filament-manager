@@ -130,6 +130,8 @@ function PrintForm({
   const [loadingAMS, setLoadingAMS] = useState(false)
   const [showEmptySpools, setShowEmptySpools] = useState(false)
   const [deductWeight, setDeductWeight] = useState(true)
+  // For existing jobs usages start read-only; new jobs go straight to edit mode
+  const [usageEditMode, setUsageEditMode] = useState(!initial)
 
   const { data: printers = [] } = useQuery<PrinterConfig[]>({
     queryKey: ['printers'],
@@ -152,8 +154,10 @@ function PrintForm({
     s => showEmptySpools || Math.round(s.remaining_pct) > 0 || selectedSpoolIds.has(s.id)
   )
 
-  // Auto-load AMS on first open when printer is known and no usages are set yet
+  // Auto-load AMS on first open when printer is known and no usages are set yet.
+  // Only for new prints — never overwrite stored usages on an existing job.
   useEffect(() => {
+    if (initial) return             // editing existing job — never auto-load
     if (!printerId) return
     if (usages.length > 0) return  // already has data — don't overwrite
     const printer = printers.find(p => p.id === printerId)
@@ -288,62 +292,108 @@ function PrintForm({
             <div className="flex items-center justify-between mb-2">
               <label className="label mb-0">{t('prints.form.filamentUsed')}</label>
               <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={showEmptySpools}
-                    onChange={e => setShowEmptySpools(e.target.checked)}
-                    className="accent-blue-500"
-                  />
-                  {t('prints.form.showEmptySpools')}
-                </label>
-                <button
-                  className="btn-ghost text-xs py-0.5 flex items-center gap-1 disabled:opacity-40"
-                  onClick={loadFromAMS}
-                  disabled={!selectedPrinter || loadingAMS}
-                  title={selectedPrinter ? `Load current AMS tray assignments from ${selectedPrinter.name}` : t('prints.form.selectPrinterFirst')}
-                >
-                  <Download size={11} />
-                  {loadingAMS ? t('prints.form.loading') : t('prints.form.loadFromAMS')}
-                </button>
-                <button className="btn-ghost text-xs py-0.5" onClick={addUsage}>{t('prints.form.addSpool')}</button>
+                {usageEditMode ? (
+                  <>
+                    <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={showEmptySpools}
+                        onChange={e => setShowEmptySpools(e.target.checked)}
+                        className="accent-blue-500"
+                      />
+                      {t('prints.form.showEmptySpools')}
+                    </label>
+                    <button
+                      className="btn-ghost text-xs py-0.5 flex items-center gap-1 disabled:opacity-40"
+                      onClick={loadFromAMS}
+                      disabled={!selectedPrinter || loadingAMS}
+                      title={selectedPrinter ? `Load current AMS tray assignments from ${selectedPrinter.name}` : t('prints.form.selectPrinterFirst')}
+                    >
+                      <Download size={11} />
+                      {loadingAMS ? t('prints.form.loading') : t('prints.form.loadFromAMS')}
+                    </button>
+                    <button className="btn-ghost text-xs py-0.5" onClick={addUsage}>{t('prints.form.addSpool')}</button>
+                  </>
+                ) : (
+                  <button
+                    className="btn-ghost text-xs py-0.5 flex items-center gap-1"
+                    onClick={() => setUsageEditMode(true)}
+                  >
+                    <Pencil size={11} />
+                    {t('prints.form.editUsages')}
+                  </button>
+                )}
               </div>
             </div>
-            {usages.length === 0 && (
-              <p className="text-xs text-gray-500">
-                {selectedPrinter ? t('prints.form.loadAMSHint') : t('prints.form.noAMSPrinter')}
-              </p>
+
+            {/* Read-only usage display */}
+            {!usageEditMode && (
+              usages.length === 0 ? (
+                <p className="text-xs text-gray-500">{t('prints.form.noUsagesRecorded')}</p>
+              ) : (
+                usages.map((u, i) => {
+                  const spool = spools.find(s => s.id === u.spool_id)
+                  return (
+                    <div key={i} className="flex items-center gap-2 py-1 text-xs text-gray-400">
+                      {spool && (
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ background: spool.color_hex }}
+                        />
+                      )}
+                      <span className="flex-1">
+                        {spool
+                          ? `${spool.brand} ${spool.material}${spool.subtype ? ` ${spool.subtype}` : ''} — ${spool.color_name}`
+                          : `Spool #${u.spool_id}`}
+                      </span>
+                      <span className="text-gray-300">{u.grams_used.toFixed(1)}g</span>
+                      {u.ams_slot && <span className="text-blue-400">{u.ams_slot}</span>}
+                    </div>
+                  )
+                })
+              )
             )}
-            {usages.map((u, i) => (
-              <div key={i} className="flex items-center gap-2 mb-2">
-                <select
-                  className="input flex-1 text-xs py-1"
-                  value={u.spool_id}
-                  onChange={e => updateUsage(i, 'spool_id', e.target.value)}
-                >
-                  {visibleSpools.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.brand} {s.material}{s.subtype ? ` ${s.subtype}` : ''} — {s.color_name} ({Math.round(s.remaining_pct)}%)
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className="input w-20 text-xs py-1"
-                  type="number" step="0.1" min="0"
-                  value={u.grams_used || ''}
-                  onChange={e => updateUsage(i, 'grams_used', parseFloat(e.target.value) || 0)}
-                  placeholder="g"
-                />
-                <span className="text-xs text-gray-500">g</span>
-                <input
-                  className="input w-24 text-xs py-1"
-                  value={u.ams_slot}
-                  onChange={e => updateUsage(i, 'ams_slot', e.target.value)}
-                  placeholder="slot"
-                />
-                <button onClick={() => removeUsage(i)} className="text-red-400 hover:text-red-300"><X size={14} /></button>
-              </div>
-            ))}
+
+            {/* Editable usage rows */}
+            {usageEditMode && (
+              <>
+                {usages.length === 0 && (
+                  <p className="text-xs text-gray-500">
+                    {selectedPrinter ? t('prints.form.loadAMSHint') : t('prints.form.noAMSPrinter')}
+                  </p>
+                )}
+                {usages.map((u, i) => (
+                  <div key={i} className="flex items-center gap-2 mb-2">
+                    <select
+                      className="input flex-1 text-xs py-1"
+                      value={u.spool_id}
+                      onChange={e => updateUsage(i, 'spool_id', e.target.value)}
+                    >
+                      {visibleSpools.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.brand} {s.material}{s.subtype ? ` ${s.subtype}` : ''} — {s.color_name} ({Math.round(s.remaining_pct)}%)
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="input w-20 text-xs py-1"
+                      type="number" step="0.1" min="0"
+                      value={u.grams_used || ''}
+                      onChange={e => updateUsage(i, 'grams_used', parseFloat(e.target.value) || 0)}
+                      placeholder="g"
+                    />
+                    <span className="text-xs text-gray-500">g</span>
+                    <input
+                      className="input w-24 text-xs py-1"
+                      value={u.ams_slot}
+                      onChange={e => updateUsage(i, 'ams_slot', e.target.value)}
+                      placeholder="slot"
+                    />
+                    <button onClick={() => removeUsage(i)} className="text-red-400 hover:text-red-300"><X size={14} /></button>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
           <div>
