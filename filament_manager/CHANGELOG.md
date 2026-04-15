@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.10
+
+- Cloud prints: print name now uses `designTitle` (Makerworld design name) first, falls back to `title` (slicer job name), then to the gcode filename — previously the gcode/slicer title was always shown instead of the design name
+
 ## 0.14.9
 
 - Print jobs: filament usage on existing prints is now shown read-only by default; an "Edit Usages" button (pencil icon) unlocks per-row editing, preventing accidental overwrites

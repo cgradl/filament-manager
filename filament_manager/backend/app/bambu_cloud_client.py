@@ -419,6 +419,7 @@ def _process_device_message(serial: str, data: dict) -> None:
                 current.get("subtask_name", ""),
                 serial,
                 design_title=current.get("designTitle", ""),
+                title=current.get("title", ""),
             ),
             _loop,
         )
