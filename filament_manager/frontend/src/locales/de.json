@@ -229,7 +229,7 @@
       "printers": "Drucker",
       "data": "Daten",
       "transfer": "Export / Import",
-      "experiments": "Experimente"
+      "experiments": "Cloud-Konfiguration"
     },
     "dataTabs": {
       "brandWeights": "Spulengewichte",
@@ -276,8 +276,8 @@
       "regionUS": "Global / Nordamerika",
       "regionEU": "Europa",
       "regionCN": "China",
-      "configureInExperiments": "Cloud-Quelle im Tab Experimente konfigurieren",
-      "notConnectedHint": "Nicht mit Bambu Lab Cloud verbunden. Verbinde dich zuerst im Tab Experimente.",
+      "configureInExperiments": "Cloud-Quelle im Tab Cloud-Konfiguration konfigurieren",
+      "notConnectedHint": "Nicht mit Bambu Lab Cloud verbunden. Verbinde dich zuerst im Tab Cloud-Konfiguration.",
       "selectDevice": "Drucker auswählen",
       "serial": "Seriennummer"
     },

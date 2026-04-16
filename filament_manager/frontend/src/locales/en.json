@@ -229,7 +229,7 @@
       "printers": "Printers",
       "data": "Data",
       "transfer": "Export / Import",
-      "experiments": "Experiments"
+      "experiments": "Cloud Config"
     },
     "dataTabs": {
       "brandWeights": "Spool Weights",
@@ -276,8 +276,8 @@
       "regionUS": "Global / North America",
       "regionEU": "Europe",
       "regionCN": "China",
-      "configureInExperiments": "Configure cloud source in the Experiments tab",
-      "notConnectedHint": "Not connected to Bambu Lab Cloud. Go to the Experiments tab to connect first.",
+      "configureInExperiments": "Configure cloud source in the Cloud Config tab",
+      "notConnectedHint": "Not connected to Bambu Lab Cloud. Go to the Cloud Config tab to connect first.",
       "selectDevice": "Select your printer",
       "serial": "Serial"
     },

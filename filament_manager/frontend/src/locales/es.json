@@ -229,7 +229,7 @@
       "printers": "Impresoras",
       "data": "Datos",
       "transfer": "Exportar / Importar",
-      "experiments": "Experimentos"
+      "experiments": "Config. Cloud"
     },
     "dataTabs": {
       "brandWeights": "Pesos de Bobina",
@@ -276,8 +276,8 @@
       "regionUS": "Global / América del Norte",
       "regionEU": "Europa",
       "regionCN": "China",
-      "configureInExperiments": "Configura la fuente cloud en la pestaña Experimentos",
-      "notConnectedHint": "No conectado a Bambu Lab Cloud. Ve a la pestaña Experimentos para conectarte primero.",
+      "configureInExperiments": "Configura la fuente cloud en la pestaña Config. Cloud",
+      "notConnectedHint": "No conectado a Bambu Lab Cloud. Ve a la pestaña Config. Cloud para conectarte primero.",
       "selectDevice": "Selecciona tu impresora",
       "serial": "Número de serie"
     },

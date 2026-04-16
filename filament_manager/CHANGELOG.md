@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.1
+
+- Renamed "Experiments" tab in Settings to "Cloud Config" (EN: Cloud Config / DE: Cloud-Konfiguration / ES: Config. Cloud)
+
 ## 0.20.0
 
 ### ⚠️ Breaking Change

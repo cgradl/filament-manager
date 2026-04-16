@@ -2,7 +2,7 @@
 
 A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.20.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.20.1-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -66,7 +66,7 @@ Once the add-on appears, click it and press **Install**.
 
 ## Configuration
 
-1. Open the add-on and go to **Settings → Experiments**
+1. Open the add-on and go to **Settings → Cloud Config**
 2. Under **Bambu Lab Cloud**, enter your Bambu account email and password and click **Connect** (2FA if required)
 3. Go to **Settings → Printers → Add Printer**, select your device from the dropdown, and save
 4. Add your filament spools under **Spools**
