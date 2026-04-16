@@ -6,16 +6,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
 from .database import engine, Base
 from .routers import spools, prints, printers, dashboard, app_settings, data_transfer, bambu_cloud
-from . import print_monitor, bambu_cloud_client
+from . import bambu_cloud_client
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
-
-scheduler = AsyncIOScheduler()
 
 
 @asynccontextmanager
@@ -79,49 +75,63 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added spools.article_number")
 
-        # printer_configs: rebuild if it still has the old entity-per-column schema
+        # printer_configs: rebuild to cloud-only schema (removes all greghesp HA columns)
         printer_cols = [c["name"] for c in insp.get_columns("printer_configs")]
-        if "device_slug" not in printer_cols:
-            conn.execute(text("DROP TABLE IF EXISTS printer_configs"))
+        _ha_cols = {"device_slug", "ams_device_slug", "sensor_print_stage",
+                    "sensor_print_progress", "sensor_remaining_time", "sensor_nozzle_temp",
+                    "sensor_bed_temp", "sensor_current_file", "sensor_print_weight",
+                    "sensor_active_tray", "sensor_ams_active", "ams_tray_pattern"}
+        if _ha_cols & set(printer_cols):
+            # Table has legacy HA columns — rebuild keeping only cloud-relevant rows
+            conn.execute(text("""
+                CREATE TABLE printer_configs_new (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    ams_unit_count INTEGER DEFAULT 1,
+                    is_active INTEGER DEFAULT 1,
+                    bambu_serial TEXT,
+                    bambu_source TEXT NOT NULL DEFAULT 'cloud',
+                    auto_deduct INTEGER NOT NULL DEFAULT 0,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """))
+            conn.execute(text("""
+                INSERT INTO printer_configs_new
+                    (id, name, ams_unit_count, is_active, bambu_serial,
+                     bambu_source, auto_deduct, created_at, updated_at)
+                SELECT id, name,
+                    COALESCE(ams_unit_count, 1),
+                    COALESCE(is_active, 1),
+                    bambu_serial,
+                    'cloud',
+                    COALESCE(auto_deduct, 0),
+                    created_at, updated_at
+                FROM printer_configs
+                WHERE bambu_source = 'cloud' AND bambu_serial IS NOT NULL
+            """))
+            conn.execute(text("DROP TABLE printer_configs"))
+            conn.execute(text("ALTER TABLE printer_configs_new RENAME TO printer_configs"))
             conn.commit()
-            Base.metadata.tables["printer_configs"].create(bind=engine)
-            log.info("Migration: rebuilt printer_configs with simplified schema")
-        elif "ams_device_slug" not in printer_cols:
-            conn.execute(text("ALTER TABLE printer_configs ADD COLUMN ams_device_slug TEXT"))
-            conn.commit()
-            log.info("Migration: added printer_configs.ams_device_slug")
-
-        # printer_configs: add bambu_serial if missing
-        if "bambu_serial" not in printer_cols:
-            conn.execute(text("ALTER TABLE printer_configs ADD COLUMN bambu_serial TEXT"))
-            conn.commit()
-            log.info("Migration: added printer_configs.bambu_serial")
-
-        # printer_configs: add bambu_source if missing
-        if "bambu_source" not in printer_cols:
-            conn.execute(text(
-                "ALTER TABLE printer_configs ADD COLUMN bambu_source TEXT NOT NULL DEFAULT 'ha'"
-            ))
-            conn.commit()
-            log.info("Migration: added printer_configs.bambu_source")
-
-        # printer_configs: add per-printer sensor entity ID overrides
-        for _col in ("sensor_print_stage", "sensor_print_progress", "sensor_remaining_time",
-                     "sensor_nozzle_temp", "sensor_bed_temp", "sensor_current_file",
-                     "sensor_print_weight", "sensor_active_tray", "sensor_ams_active",
-                     "ams_tray_pattern"):
-            if _col not in printer_cols:
-                conn.execute(text(f"ALTER TABLE printer_configs ADD COLUMN {_col} TEXT"))
+            log.info("Migration: rebuilt printer_configs — removed HA columns, kept cloud printers only")
+        else:
+            # Fresh install or already migrated — ensure required columns exist
+            if "bambu_serial" not in printer_cols:
+                conn.execute(text("ALTER TABLE printer_configs ADD COLUMN bambu_serial TEXT"))
                 conn.commit()
-                log.info("Migration: added printer_configs.%s", _col)
-
-        # printer_configs: add auto_deduct flag
-        if "auto_deduct" not in printer_cols:
-            conn.execute(text(
-                "ALTER TABLE printer_configs ADD COLUMN auto_deduct INTEGER NOT NULL DEFAULT 0"
-            ))
-            conn.commit()
-            log.info("Migration: added printer_configs.auto_deduct")
+                log.info("Migration: added printer_configs.bambu_serial")
+            if "bambu_source" not in printer_cols:
+                conn.execute(text(
+                    "ALTER TABLE printer_configs ADD COLUMN bambu_source TEXT NOT NULL DEFAULT 'cloud'"
+                ))
+                conn.commit()
+                log.info("Migration: added printer_configs.bambu_source")
+            if "auto_deduct" not in printer_cols:
+                conn.execute(text(
+                    "ALTER TABLE printer_configs ADD COLUMN auto_deduct INTEGER NOT NULL DEFAULT 0"
+                ))
+                conn.commit()
+                log.info("Migration: added printer_configs.auto_deduct")
 
         # print_jobs: add print_weight_g if missing
         if "print_weight_g" not in job_cols:
@@ -285,24 +295,11 @@ async def lifespan(app: FastAPI):
                 s.commit()
                 log.info("Seeded brand weights: %s", added)
 
-    # Start print monitor
-    scheduler.add_job(
-        print_monitor.poll_printers,
-        "interval",
-        seconds=30,
-        id="poll_printers",
-        replace_existing=True,
-    )
-    scheduler.start()
-    log.info("Print monitor started (30s interval)")
-
     await bambu_cloud_client.startup()
 
     yield
 
     await bambu_cloud_client.shutdown()
-    scheduler.shutdown()
-    log.info("Scheduler stopped")
 
 
 app = FastAPI(title="Filament Manager", lifespan=lifespan)

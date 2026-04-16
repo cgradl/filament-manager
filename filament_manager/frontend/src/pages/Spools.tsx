@@ -12,7 +12,7 @@ import { formatDateOnly } from '../utils/time'
 const EMPTY_FORM = {
   custom_id: '',
   brand: '', material: 'PLA', subtype: '', subtype2: '', color_name: '', color_hex: '#888888',
-  diameter_mm: 1.75, initial_weight_g: 1000, current_weight_g: 1000,
+  diameter_mm: '', initial_weight_g: 1000, current_weight_g: 1000,
   purchase_price: '', purchased_at: '', purchase_location: '', storage_location: '',
   article_number: '', ams_slot: '', notes: '',
 }
@@ -700,9 +700,10 @@ export default function Spools() {
   })
   const deleteMut = useMutation({ mutationFn: api.deleteSpool, onSuccess: invalidate })
 
-  const buildPayload = (form: typeof EMPTY_FORM) => ({
+  const buildPayload = (form: typeof EMPTY_FORM): Partial<Spool> => ({
     ...form,
     custom_id: form.custom_id !== '' ? parseInt(form.custom_id as string, 10) || null : null,
+    diameter_mm: form.diameter_mm !== '' ? parseFloat(form.diameter_mm as string) : 1.75,
     purchase_price: form.purchase_price ? parseFloat(form.purchase_price as string) : null,
     purchased_at: form.purchased_at || null,
     purchase_location: form.purchase_location || null,
@@ -712,7 +713,7 @@ export default function Spools() {
     subtype2: form.subtype2 || null,
     ams_slot: form.ams_slot || null,
     notes: form.notes || null,
-  })
+  } as Partial<Spool>)
 
   const handleSave = async (form: typeof EMPTY_FORM, quantity: number) => {
     const payload = buildPayload(form)

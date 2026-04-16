@@ -216,50 +216,13 @@ class PrinterConfig(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)              # friendly name, e.g. "My Printer"
-    device_slug = Column(String, nullable=False)       # HA entity slug, e.g. "my_printer"
-    ams_device_slug = Column(String)                   # AMS device slug if different from printer
     ams_unit_count = Column(Integer, default=1)        # number of AMS units (1-4)
     is_active = Column(Boolean, default=True)
-    bambu_serial = Column(String, nullable=True)          # Bambu Lab device serial number
-    bambu_source = Column(String, nullable=False, default="ha")  # "ha" | "cloud"
-
-    # Optional per-printer sensor entity ID overrides (for non-English HA installations)
-    sensor_print_stage    = Column(String, nullable=True)
-    sensor_print_progress = Column(String, nullable=True)
-    sensor_remaining_time = Column(String, nullable=True)
-    sensor_nozzle_temp    = Column(String, nullable=True)
-    sensor_bed_temp       = Column(String, nullable=True)
-    sensor_current_file   = Column(String, nullable=True)
-    sensor_print_weight   = Column(String, nullable=True)
-    sensor_active_tray    = Column(String, nullable=True)  # sensor.{slug}_active_tray — currently loaded tray slot
-    sensor_ams_active     = Column(String, nullable=True)  # binary_sensor.{slug}_ams_1_active — Running/Not running: AMS unit 1 currently in use
-
-    # Optional AMS entity pattern/suffix overrides
-    # ams_tray_pattern: replaces "ams_{u}_tray_{t}" (no ams_device_slug) or "tray_{t}" (with ams_device_slug)
-    # ams_suffix_*: replaces "_type" / "_color" / "_remain" suffixes (no ams_device_slug mode only)
-    ams_tray_pattern  = Column(String, nullable=True)
+    bambu_serial = Column(String, nullable=True)       # Bambu Lab device serial number
+    bambu_source = Column(String, nullable=False, default="cloud")  # always "cloud"
 
     # When True: apply suggested_usages automatically on print completion (no user confirmation needed)
     auto_deduct = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    @property
-    def sensor_overrides(self) -> dict:
-        """Return only the printer sensor keys that have a non-empty override set."""
-        keys = ("print_stage", "print_progress", "remaining_time",
-                "nozzle_temp", "bed_temp", "current_file", "print_weight", "active_tray", "ams_active")
-        return {
-            k: getattr(self, f"sensor_{k}")
-            for k in keys
-            if getattr(self, f"sensor_{k}", None)
-        }
-
-    @property
-    def ams_overrides(self) -> dict:
-        """Return AMS entity overrides dict, omitting keys that are unset."""
-        result = {}
-        if self.ams_tray_pattern:
-            result["tray_pattern"] = self.ams_tray_pattern
-        return result

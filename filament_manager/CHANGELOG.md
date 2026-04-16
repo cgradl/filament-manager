@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.20.0
+
+### ⚠️ Breaking Change
+
+**The [greghesp/ha-bambulab](https://github.com/greghesp/ha-bambulab) Home Assistant integration is no longer required and no longer supported.**
+
+Printer configurations that used the HA integration as their data source will be removed on upgrade. Reconfigure your printer via **Settings → Experiments → Bambu Lab Cloud**. All spools, print history, and other data are unaffected.
+
+### Changes
+
+- Removed greghesp Bambu Lab HA integration — only Bambu Lab Cloud (MQTT) is supported from now on
+- Printer form always uses the cloud flow; HA source type, sensor entity config, and device slug fields are removed
+- Database migration: HA-source printer configs are dropped on upgrade; cloud printers are preserved
+- Settings: removed "Experimental" badge from the Bambu Lab Cloud section
+- Print job naming: `designTitle` (Makerworld design name) fetched from Bambu Cloud task API at job creation — previously the MQTT `gcode_state=RUNNING` message arrived before `designTitle`, causing the slicer title to always be used instead
+- Print job start time: fetched from Bambu Cloud task API so the record reflects when printing actually began, even when the app was down at print start
+- Fixed: app startup crash caused by dangling APScheduler job referencing the removed `print_monitor` import — active print tracking (MQTT callbacks) was broken as a result
+- Fixed: stale open print jobs (container crashed mid-print) are now closed automatically when the printer reports IDLE/FINISH/FAILED on reconnect
+- Fixed: if a new RUNNING message names a different file than the stale open job, the stale job is closed and a new one created
+- Fixed: filament catalog CSV import handles BOM-prefixed files (Excel UTF-8 export) and quoted header/cell values
+- Fixed: AMS snapshot crash (`KeyError: 'remain'`) when a tray exists in cache without a remaining-percentage value
+- Fixed: spool form `diameter_mm` type mismatch causing TypeScript build failure
+
 ## 0.14.10
 
 - Cloud prints: print name now uses `designTitle` (Makerworld design name) first, falls back to `title` (slicer job name), then to the gcode filename — previously the gcode/slicer title was always shown instead of the design name

@@ -1,28 +1,37 @@
 # Filament Manager
 
-A Home Assistant app for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via the [greghesp Bambu Lab integration](https://github.com/greghesp/ha-bambulab).
+A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.14.10-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.20.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+
+---
+
+## ⚠️ Breaking Change — v0.20.0
+
+**The [greghesp/ha-bambulab](https://github.com/greghesp/ha-bambulab) Home Assistant integration is no longer required and is no longer supported.**
+
+If you were using the HA integration as the data source for your printer, your printer configuration will be removed on upgrade. You must reconfigure your printer using **Bambu Lab Cloud** (Settings → Experiments → Bambu Lab Cloud → connect with your Bambu account, then add your printer).
+
+Spools, print history, and all other data are unaffected.
 
 ---
 
 ## Features
 
-- **Automatic print detection** — monitors your Bambu Lab printer state via HA sensors (HA printers) or Bambu Cloud MQTT (Cloud printers) and creates print records automatically
-- **AMS filament tracking** — snapshots filament levels at print start/end and calculates grams used per spool
+- **Automatic print detection** — monitors your Bambu Lab printer via Bambu Cloud MQTT; creates print records automatically when a print starts
+- **Accurate print naming** — uses the Makerworld design title (`designTitle`) when available, falls back to the slicer job title; real print start time fetched from the Bambu Cloud task API
+- **AMS filament tracking** — snapshots filament levels at print start/end; calculates grams used per spool per tray
 - **Suggested filament usage** — on print completion the app pre-fills grams used per tray for review; an optional per-printer *auto-deduct* flag applies the deduction immediately without confirmation
-- **Live print status** — active print jobs show real-time stage, progress, remaining time, weight, and active tray, sourced from HA sensors (HA printers) or MQTT cache (Cloud printers)
+- **Live print status** — active print jobs show real-time stage, progress, remaining time, and active tray from Bambu Cloud MQTT
 - **Spool inventory** — full CRUD for filament spools with brand, material, color, weight, cost, and storage location data
-- **Filament catalog** — manage a master list of filament products (brand, material, subtypes, color, article number) in Settings → Data → Filament Data; bulk import via CSV (semicolon or comma delimited); upserts by brand + article number
+- **Filament catalog** — manage a master list of filament products; bulk import via CSV (semicolon or comma, Excel UTF-8 with BOM supported)
 - **Cost analytics** — per-print cost, price per kg, inventory value, and spend by purchase location
 - **Dashboard** — overview charts, low-stock alerts, and recent print history
-- **Print history search & date filter** — filter print jobs by name, printer, or spool material/color; filter by month, week, or day with quick presets (this/last) or a custom date picker
-- **Printer discovery** — scans Home Assistant for your Bambu Lab entities automatically
-- **EN / DE / ES interface** — full translations with in-app language switcher; inherits language from your HA instance by default
-- **HA day/night theme** — automatically follows Home Assistant's light/dark mode; mirrors HA's accent color; falls back to OS `prefers-color-scheme` when used standalone
-- **Data export / import** — back up and restore all spools, prints, and settings as a single JSON bundle; import historical print jobs directly from Bambu Lab Cloud
-- **Spoolman export** *(experimental)* — export your spool inventory in [Spoolman](https://github.com/Donkie/Spoolman)-compatible format
-- **Bambu Lab Cloud** *(experimental)* — direct MQTT connection to Bambu Lab Cloud for real-time print monitoring; HA integration and Cloud mode coexist per-printer; live MQTT connection indicator with one-click reconnect
+- **Print history search & date filter** — filter by name, printer, material, color; quick presets (this/last week/month)
+- **EN / DE / ES interface** — full translations; inherits language from your HA instance by default
+- **HA day/night theme** — follows Home Assistant light/dark mode and accent color
+- **Data export / import** — backup and restore all spools, prints, and settings as a JSON bundle; import historical print jobs directly from Bambu Lab Cloud
+- **Spoolman export** *(experimental)* — export spool inventory in [Spoolman](https://github.com/Donkie/Spoolman)-compatible format
 
 ---
 
@@ -43,108 +52,63 @@ A Home Assistant app for tracking 3D printer filament inventory, monitoring prin
 ## Requirements
 
 - Home Assistant with Supervisor (HassOS / Home Assistant OS)
-- [Bambu Lab integration by greghesp](https://github.com/greghesp/ha-bambulab) already configured
-
+- A Bambu Lab account (email + password) for cloud connection
 
 ---
 
 ## Installation
-Go to Settings -> Apps -> Install App ->
-Click on the 3 dots in top right corner -> Repositories ->
-Copy the url to this repo https://github.com/cgradl/filament-manager and paste it into the add box at the bottom -> Press the button "add" and close after wards.
-Once the app shows up in your list click on it and press install
 
+Go to **Settings → Add-ons → Add-on Store** → click the three-dot menu → **Repositories** → paste `https://github.com/cgradl/filament-manager` → **Add**.
+
+Once the add-on appears, click it and press **Install**.
 
 ---
 
 ## Configuration
-```
-After installation go to Settings page
-Click "+ Add Printer" 
-a)if you use english and standard sensor names:
-1st field put printer name as shown in HA under Settings → Devices & Services → Bambu Lab. (e.g. myprinter)
-2nd field put printer name as shown in HA under Settings → Devices & Services → Bambu Lab. (e.g. myprinter)
-press test
-all values should be filled
-press save
-b) if you have other language or non standard sensor names for printer and AMS
-1st field put printer name as shown in HA under Settings → Devices & Services → Bambu Lab. (e.g. myprinter)
-2nd field put printer name as shown in HA under Settings → Devices & Services → Bambu Lab. (e.g. myprinter)
-Click on Custom Sensor entity IDs
-Fill all below fields with the right sensor name (e.g. sensor.myprinter_current_stage)
-press save
-```
+
+1. Open the add-on and go to **Settings → Experiments**
+2. Under **Bambu Lab Cloud**, enter your Bambu account email and password and click **Connect** (2FA if required)
+3. Go to **Settings → Printers → Add Printer**, select your device from the dropdown, and save
+4. Add your filament spools under **Spools**
+
 ---
+
 ## How It Works
 
 ### Automatic Print Tracking
 
-A background job polls `sensor.{device_slug}_current_stage` every 30 seconds.
+Bambu Lab printers push state changes via MQTT. When `gcode_state` transitions to `RUNNING`, a new `PrintJob` is created. On `FINISH` / `FAILED` / `IDLE`, the job is closed and filament usage is fetched from the Bambu Cloud task API.
 
 ```
-idle → printing         Creates a new PrintJob + captures AMS snapshot
-printing → finished     Closes job, calculates filament delta, updates spool weights
-printing → failed       Closes job with failed flag
+idle → RUNNING     Creates PrintJob, fetches real start time + designTitle from cloud
+RUNNING → FINISH   Closes job, fetches weight + per-tray breakdown from cloud task API
+RUNNING → FAILED   Closes job with failed flag
 ```
 
-### Filament Consumption Calculation
+### Filament Consumption
 
-At print start, the app records the remaining percentage of each AMS tray. On print end, it computes:
-
-```
-grams_used = initial_weight_g × (pct_start − pct_end) / 100
-```
-
-The spool's `current_weight_g` is updated automatically.
+Per-tray breakdown comes from the Bambu Cloud task API (`amsDetailMapping`). The spool's `current_weight_g` is updated automatically when auto-deduct is enabled.
 
 ### Cost Tracking
 
-Each spool stores a purchase price. The app derives:
-
-- `price_per_kg` = price ÷ net weight (kg)
-- `cost_per_gram` = price_per_kg ÷ 1000
+- `price_per_kg` = purchase price ÷ net weight
 - Per-print cost = Σ (grams_used × cost_per_gram) across all spools used
-
----
-
-## API Overview
-
-| Resource | Endpoints |
-|----------|-----------|
-| Spools | `GET/POST /api/spools` · `GET/PATCH/DELETE /api/spools/{id}` |
-| Prints | `GET/POST /api/prints` · `GET/PATCH/DELETE /api/prints/{id}` |
-| Printers | `GET/POST /api/printers` · `GET /api/printers/discover/{slug}` |
-| Dashboard | `GET /api/dashboard` |
-| Settings | `GET /api/app-settings` · `GET /api/app-settings/ha-connected` |
-
-Full interactive docs available at `http://<ha-host>:8099/docs` (FastAPI Swagger UI).
 
 ---
 
 ## Data & Persistence
 
-- Database: SQLite at `/data/filament.db` (persists across app updates)
-- Schema migrations run automatically on startup — no manual steps required
-- Updating the app never touches the database
-
----
-
-
-## Configuration
-
-The app exposes no user-visible `config.yaml` options. All configuration is done inside the app's **Settings** page after first launch:
-
-1. Verify **HA Connected** shows green
-2. Click **Add Printer** and enter your device slug (e.g. `my_printer`)
-3. Use the auto-discovery search to map your AMS tray entities
-4. Add your filament spools under **Spools**
+- Database: SQLite at `/data/filament.db` (survives updates)
+- Schema migrations run automatically on startup
 
 ---
 
 ## License
-MIT License (see license file). Not affiliated with Bambu Lab or Home Assistant.
+
+MIT License. Not affiliated with Bambu Lab or Home Assistant.
+
 ---
 
-## Makerworld profile
-check out my 3d models under
-https://makerworld.com/en/@carasak/
+## Makerworld
+
+Check out my 3D models at https://makerworld.com/en/@carasak/

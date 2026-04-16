@@ -67,23 +67,11 @@ export interface PrintJob {
 export interface PrinterConfig {
   id: number
   name: string
-  device_slug: string
-  ams_device_slug: string | null
   ams_unit_count: number
   is_active: boolean
   auto_deduct: boolean
   bambu_serial: string | null
-  bambu_source: string   // "ha" | "cloud"
-  sensor_print_stage:    string | null
-  sensor_print_progress: string | null
-  sensor_remaining_time: string | null
-  sensor_nozzle_temp:    string | null
-  sensor_bed_temp:       string | null
-  sensor_current_file:   string | null
-  sensor_print_weight:   string | null
-  sensor_active_tray:    string | null
-  sensor_ams_active:     string | null
-  ams_tray_pattern:  string | null
+  bambu_source: string   // always "cloud"
 }
 
 export interface BambuCloudStatus {
@@ -134,12 +122,6 @@ export interface AMSTray {
   spool: Spool | null
 }
 
-export interface DiscoverResult {
-  slug: string
-  printer_entities: Record<string, { entity_id: string; found: boolean; state: string | null }>
-  ams_preview: { ams_id: number; trays: { slot: number; entity_remaining: string; found: boolean; state: string | null }[] }[]
-  all_matching: { entity_id: string; state: string; friendly_name: string }[]
-}
 
 export interface PrinterStatus {
   print_stage: string | null
@@ -192,8 +174,3 @@ export interface DashboardStats {
   prints_per_day: { date: string; count: number }[]
 }
 
-export interface HAEntity {
-  entity_id: string
-  friendly_name: string
-  state: string
-}

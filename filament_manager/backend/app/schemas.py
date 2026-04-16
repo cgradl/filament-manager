@@ -228,8 +228,3 @@ class FilamentCatalogOut(FilamentCatalogBase):
     updated_at: datetime
 
 
-class HAEntityState(BaseModel):
-    entity_id: str
-    state: str
-    attributes: dict = {}
-    friendly_name: str | None = None

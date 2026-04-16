@@ -297,6 +297,84 @@ async def get_task_data_for_serial(serial: str) -> dict:
     return await loop.run_in_executor(None, lambda: _http_get_task_data(serial, creds["token"]))
 
 
+def _http_get_task_metadata(serial: str, task_id: str | None, token: str) -> dict:
+    """Fetch task metadata for the running/most-recent task.
+
+    Returns a dict with:
+      start_time   (datetime | None) — UTC start time of the print
+      design_title (str | None)      — Makerworld design title (designTitle field)
+
+    If *task_id* is given the task list is searched for a matching entry first;
+    falls back to the most recent task for the serial.
+    Bambu timestamps may be Unix seconds or milliseconds — both are handled.
+    """
+    from datetime import datetime, timezone as _tz
+    result: dict = {"start_time": None, "design_title": None}
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = requests.get(
+            "https://api.bambulab.com/v1/user-service/my/tasks",
+            params={"deviceId": serial, "limit": 5},
+            headers=headers,
+            timeout=20,
+        )
+        resp.raise_for_status()
+        hits = resp.json().get("hits") or []
+        if not hits:
+            return result
+
+        task = None
+        if task_id:
+            for t in hits:
+                # task_id in MQTT is an integer; cloud API may return 'id' or 'taskId'
+                if str(t.get("id") or t.get("taskId") or "") == str(task_id):
+                    task = t
+                    break
+        if task is None:
+            task = hits[0]  # fallback: most recent task
+
+        raw_ts = task.get("startTime")
+        if raw_ts is not None:
+            try:
+                # Try numeric Unix timestamp (seconds or milliseconds)
+                ts = float(raw_ts)
+                if ts > 1e10:   # milliseconds → seconds
+                    ts /= 1000
+                result["start_time"] = datetime.fromtimestamp(ts, tz=_tz.utc)
+            except (TypeError, ValueError):
+                # ISO 8601 string e.g. "2026-04-16T05:45:54Z"
+                try:
+                    result["start_time"] = datetime.fromisoformat(
+                        str(raw_ts).replace("Z", "+00:00")
+                    )
+                except (TypeError, ValueError) as exc2:
+                    log.warning("Could not parse startTime %r: %s", raw_ts, exc2)
+
+        # designTitle is the Makerworld design name — preferred over the slicer title
+        dt = task.get("designTitle") or ""
+        if dt:
+            result["design_title"] = dt
+
+    except Exception as exc:
+        log.warning("Bambu Cloud task metadata fetch failed for %s: %s", serial, exc)
+    return result
+
+
+async def get_task_metadata(serial: str, task_id: str | None) -> dict:
+    """Async: fetch start_time and design_title for the running/most-recent task."""
+    creds = _load_credentials()
+    if not creds or not creds.get("token"):
+        return {"start_time": None, "design_title": None}
+    try:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None, lambda: _http_get_task_metadata(serial, task_id, creds["token"])
+        )
+    except Exception as exc:
+        log.warning("get_task_metadata failed for %s: %s", serial, exc)
+        return {"start_time": None, "design_title": None}
+
+
 def _http_get_all_tasks(token: str) -> list[dict]:
     """Fetch all tasks for all printers from the Bambu Cloud task API (paginated)."""
     headers = {"Authorization": f"Bearer {token}"}
@@ -846,7 +924,7 @@ def get_printer_cloud_status(serial: str | None) -> dict:
 
 def get_ams_snapshot_for_serial(serial: str) -> dict[str, float]:
     """Return the last AMS remain% snapshot for a device serial."""
-    return {k: v["remain"] for k, v in _ams_cache.get(serial, {}).items()}
+    return {k: v["remain"] for k, v in _ams_cache.get(serial, {}).items() if "remain" in v}
 
 
 def get_ams_detail_for_serial(serial: str) -> dict[str, dict]:
