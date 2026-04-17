@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from .database import SessionLocal
-from .models import PrinterConfig, PrintJob, PrintUsage, Spool
+from .models import PrinterConfig, PrintJob, PrintUsage, Spool, SpoolAudit
 
 log = logging.getLogger(__name__)
 
@@ -86,11 +86,19 @@ async def _on_print_end(
                     continue  # external spool — skip
                 color_raw = entry.get("sourceColor") or entry.get("targetColor") or ""
                 color_hex = f"#{color_raw[:6]}" if len(color_raw) >= 6 else None
+                # Snapshot the spool currently in this slot so the UI shows the
+                # correct spool even if the AMS is changed before the user confirms.
+                full_slot = f"{job.printer_name}:{slot_key}" if job.printer_name else slot_key
+                snap_spool = (
+                    db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
+                    or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
+                )
                 suggestions.append({
                     "ams_slot": slot_key,
                     "grams": round(float(tray_weight), 1),
                     "filament_type": entry.get("filamentType") or entry.get("targetFilamentType") or "",
                     "color": color_hex,
+                    "spool_id": snap_spool.id if snap_spool else None,
                 })
             if suggestions:
                 job.suggested_usages = suggestions
@@ -104,21 +112,28 @@ async def _on_print_end(
                     idx, bambu_cloud_client.get_ams_unit_tray_counts(serial),
                 )
                 if slot_key:
+                    full_slot = f"{job.printer_name}:{slot_key}" if job.printer_name else slot_key
+                    snap_spool = (
+                        db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
+                        or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
+                    )
                     job.suggested_usages = [{
                         "ams_slot": slot_key,
                         "grams": round(float(weight), 1),
                         "filament_type": "",
                         "color": None,
+                        "spool_id": snap_spool.id if snap_spool else None,
                     }]
                     log.info("Cloud: stored single-tray suggestion %.1fg on %s for job #%d",
                              weight, slot_key, job.id)
 
+        suggestions_count = len(job.suggested_usages) if job.suggested_usages else 0
         if job.suggested_usages and auto_deduct:
-            _apply_suggested_usages(job, db)
+            _apply_suggested_usages(job, db)  # clears job.suggested_usages
             log.info("Cloud auto-deduct: applied %d usages for job #%d",
-                     len(job.suggested_usages), job.id)
+                     suggestions_count, job.id)
 
-        if job.print_weight_g is not None or job.suggested_usages is not None:
+        if job.print_weight_g is not None or suggestions_count > 0:
             db.commit()
     except Exception as exc:
         log.warning("post-print data fetch failed for job #%d: %s", job_id, exc)
@@ -154,6 +169,7 @@ def _apply_suggested_usages(job: PrintJob, db: Session) -> None:
         if not spool:
             log.warning("auto-deduct: no spool found for slot %s — skipping", slot_key)
             continue
+        weight_before = spool.current_weight_g
         spool.current_weight_g = max(0.0, spool.current_weight_g - grams)
         db.add(PrintUsage(
             print_job_id=job.id,
@@ -161,8 +177,18 @@ def _apply_suggested_usages(job: PrintJob, db: Session) -> None:
             grams_used=grams,
             ams_slot=slot_key,
         ))
+        db.add(SpoolAudit(
+            spool_id=spool.id,
+            action="print_auto",
+            delta_g=-grams,
+            weight_before=weight_before,
+            weight_after=spool.current_weight_g,
+            print_job_id=job.id,
+            print_name=job.name,
+        ))
         log.info("auto-deduct: %.1fg from spool #%d (%s) for job #%d",
                  grams, spool.id, slot_key, job.id)
+    job.suggested_usages = None  # mark as confirmed so the UI yellow icon goes away
 
 
 # ── Bambu Cloud MQTT bridge ───────────────────────────────────────────────────

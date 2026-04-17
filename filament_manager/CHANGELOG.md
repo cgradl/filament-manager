@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.21.8
+
+- Fixed: spools table action icons (edit / duplicate / history / delete) were overlapping in a 2×2 grid — changed to a single flex row
+
+## 0.21.7
+
+- Fixed: auto-deduct checkbox was missing from the printer form — the setting was stored and sent to the backend but never shown in the UI, making it impossible to enable without manual DB edits; checkbox now appears in the printer edit/add dialog below "Monitor this printer"
+
+## 0.21.6
+
+- Fixed: print edit form now pre-populates filament usages from the cloud snapshot (`suggested_usages`) for unconfirmed auto prints, so the correct print-time spool is shown instead of "No usages recorded" — prevents the user from accidentally loading current AMS state via "Load from AMS" and storing the wrong spool
+
+## 0.21.5
+
+- Fixed: editing a print's name, notes, or time without touching usages no longer creates spurious `print_delete` + `print_manual` audit pairs — the backend now only reverts and re-applies spool weights when the user explicitly enters usage edit mode
+
+## 0.21.4
+
+- Settings → Appearance tab: new option to move the spools table action icons (edit / duplicate / history / delete) to the last column instead of the first; preference is stored in the browser
+
+## 0.21.3
+
+- UX: add spool form now auto-focuses the article number dropdown when opened
+- UX: after selecting a filament from the catalog, focus jumps to the nominal weight field
+
+## 0.21.2
+
+- Fixed: when prints are started in quick succession directly on the printer, each new print job now gets the correct start time (current time) instead of inheriting the first print's start time from the Bambu Cloud task API. The cloud task list lags a few seconds behind the printer — the app no longer falls back to the most-recent cloud task when the expected task ID isn't found yet.
+
+## 0.21.1
+
+- Fixed: print confirmation modal now uses the spool that was physically in the AMS slot at print-end time — changing spools between print finish and confirmation no longer shows the wrong spool
+- Fixed: yellow "confirm usage" icon no longer reappears on already-confirmed auto prints after navigating away
+- Fixed: confirming 0 g usage (e.g. failed prints) no longer causes the print list to go blank until reload
+
+## 0.21.0
+
+- **Spool weight history** — each weight change is now recorded in an immutable audit log with action type (auto-deduct, manual print, print deleted, manual edit), before/after weights, delta, and the associated print name
+- History icon added to each spool (2×2 icon grid: Edit + Duplicate on top, History + Delete on bottom) in both grid and table views
+- Audit log viewable as a popup directly from the spool list
+- Each audit entry has a reverse (↺) button that creates a correction entry with the opposite delta and updates the spool weight accordingly — original entry is never removed
+
+## 0.20.2
+
+- Filament catalog CSV import: switched to fixed positional column order (`Brand;Material;Subtype;Subtype 2;Color name;Article number;Hex-Code`) — no header row required, all lines are treated as data; BOM stripping and Excel quote handling retained
+
 ## 0.20.1
 
 - Renamed "Experiments" tab in Settings to "Cloud Config" (EN: Cloud Config / DE: Cloud-Konfiguration / ES: Config. Cloud)

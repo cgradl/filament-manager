@@ -331,7 +331,15 @@ def _http_get_task_metadata(serial: str, task_id: str | None, token: str) -> dic
                     task = t
                     break
         if task is None:
-            task = hits[0]  # fallback: most recent task
+            if task_id:
+                # task_id was provided by MQTT but the cloud API doesn't have it yet
+                # (cloud task list lags behind the printer by a few seconds when the
+                # user starts prints in quick succession directly on the printer).
+                # Do NOT fall back to hits[0] — that would be the *previous* print's
+                # task, giving every rapid-fire print the same start time and title.
+                # Let the caller use datetime.now() as the start time instead.
+                return result
+            task = hits[0]  # no task_id supplied — use most recent as best effort
 
         raw_ts = task.get("startTime")
         if raw_ts is not None:

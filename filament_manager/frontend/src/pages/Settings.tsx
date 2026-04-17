@@ -146,6 +146,12 @@ function CloudPrinterFormContent({
               {t('settings.printers.monitorPrinter')}
             </label>
 
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={autoDeduct} onChange={e => setAutoDeduct(e.target.checked)} />
+              <span>{t('settings.printers.autoDeduct')}</span>
+              <span className="text-[10px] text-amber-400 border border-amber-400/50 rounded px-1 py-0.5 leading-none">{t('common.experimental')}</span>
+            </label>
+
             {/* Live preview when a device is selected */}
             {selectedSerial && (
               <div className="bg-surface-3/40 rounded-xl p-3 space-y-3">
@@ -1048,35 +1054,26 @@ function FilamentDataSection() {
   const handleCsvFile = (file: File) => {
     const reader = new FileReader()
     reader.onload = (e) => {
-      // Strip UTF-8 BOM if present (Excel exports often include it)
-      let text = (e.target?.result as string).replace(/^\uFEFF/, '')
+      // Strip UTF-8 BOM (Excel UTF-8 exports include it)
+      const text = (e.target?.result as string).replace(/^\uFEFF/, '')
       const lines = text.split(/\r?\n/).filter(l => l.trim())
-      if (lines.length < 2) return
-      // Detect delimiter from header line
-      const header = lines[0]
-      const delim = header.includes(';') ? ';' : ','
-      // Strip surrounding quotes and lowercase — handles Excel-quoted CSV headers
+      if (lines.length < 1) return
+      // Detect delimiter from first line
+      const delim = lines[0].includes(';') ? ';' : ','
+      // Strip surrounding quotes — handles Excel-quoted cells
       const unquote = (s: string) => s.trim().replace(/^["']|["']$/g, '')
-      const cols = header.split(delim).map(c => unquote(c).toLowerCase())
-      // Map known column names to our fields
-      const idx = (names: string[]) => names.map(n => cols.findIndex(c => c === n)).find(i => i >= 0) ?? -1
-      const iBrand   = idx(['marke', 'brand'])
-      const iMat     = idx(['material'])
-      const iSub1    = idx(['subtype', 'subtype 1', 'subtype1'])
-      const iSub2    = idx(['subtype 2', 'subtype2'])
-      const iColor   = idx(['color name', 'colorname', 'farbe', 'color'])
-      const iArticle = idx(['artikel nummer', 'artikel numner', 'article number', 'article_number', 'articlenumber'])
-      const iHex     = idx(['hex-code', 'hex code', 'hexcode', 'color_hex', 'color hex'])
-      const rows = lines.slice(1).map(line => {
-        const cells = line.split(delim).map(c => unquote(c))
+      // Fixed column order: Brand;Material;Subtype;Subtype 2;Color name;Article number;Hex-Code
+      // No header row is required — all lines are treated as data.
+      const rows = lines.map(line => {
+        const c = line.split(delim).map(unquote)
         return {
-          brand:          iBrand   >= 0 ? cells[iBrand]   ?? '' : '',
-          material:       iMat     >= 0 ? cells[iMat]     ?? '' : '',
-          subtype:        iSub1    >= 0 ? cells[iSub1]    || null : null,
-          subtype2:       iSub2    >= 0 ? cells[iSub2]    || null : null,
-          color_name:     iColor   >= 0 ? cells[iColor]   ?? '' : '',
-          color_hex:      iHex     >= 0 ? (cells[iHex] || '#888888') : '#888888',
-          article_number: iArticle >= 0 ? cells[iArticle] || null : null,
+          brand:          c[0] ?? '',
+          material:       c[1] ?? '',
+          subtype:        c[2] || null,
+          subtype2:       c[3] || null,
+          color_name:     c[4] ?? '',
+          article_number: c[5] || null,
+          color_hex:      c[6] ? `#${c[6].replace(/^#/, '')}` : '#888888',
         }
       }).filter(r => r.brand && r.material && r.color_name)
       if (rows.length > 0) {
@@ -1308,7 +1305,7 @@ function FilamentDataSection() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-type MainTab = 'printers' | 'data' | 'transfer' | 'experiments'
+type MainTab = 'printers' | 'data' | 'transfer' | 'experiments' | 'appearance'
 type DataSubTab = 'brandWeights' | 'brands' | 'materials' | 'subtypes' | 'locations' | 'storageLocations' | 'filamentData'
 
 // ── Cloud printer live status (used in Experiments tab) ───────────────────────
@@ -1643,10 +1640,11 @@ export default function Settings() {
   const activePrinter = printers.find(p => p.id === activePrinterId) ?? printers[0] ?? null
 
   const MAIN_TABS: { id: MainTab; label: string; dot?: boolean }[] = [
-    { id: 'printers',    label: t('settings.tabs.printers') },
-    { id: 'data',        label: t('settings.tabs.data') },
-    { id: 'transfer',    label: t('settings.tabs.transfer') },
-    { id: 'experiments', label: t('settings.tabs.experiments'), dot: isCloudConnected },
+    { id: 'printers',   label: t('settings.tabs.printers') },
+    { id: 'data',       label: t('settings.tabs.data') },
+    { id: 'transfer',   label: t('settings.tabs.transfer') },
+    { id: 'experiments',label: t('settings.tabs.experiments'), dot: isCloudConnected },
+    { id: 'appearance', label: t('settings.tabs.appearance') },
   ]
 
   const DATA_SUBTABS: { id: DataSubTab; label: string }[] = [
@@ -1663,6 +1661,14 @@ export default function Settings() {
   const cloudPrinters = printers.filter(p => p.bambu_serial)
 
   const isFilamentData = mainTab === 'data' && dataTab === 'filamentData'
+
+  const [spoolsActionsLast, setSpoolsActionsLast] = useState(
+    () => localStorage.getItem('fm_spools_actions_last') === 'true'
+  )
+  const toggleSpoolsActionsLast = (val: boolean) => {
+    setSpoolsActionsLast(val)
+    localStorage.setItem('fm_spools_actions_last', String(val))
+  }
 
   return (
     <div className={`space-y-4 ${isFilamentData ? '' : 'max-w-2xl'}`}>
@@ -1840,6 +1846,26 @@ export default function Settings() {
 
       {/* ── Tab: Export / Import ── */}
       {mainTab === 'transfer' && <DataTransferSection />}
+
+      {/* ── Tab: Appearance ── */}
+      {mainTab === 'appearance' && (
+        <div className="card space-y-4">
+          <h3 className="text-sm font-semibold text-gray-300">{t('settings.appearance.title')}</h3>
+          <div className="flex items-start gap-3">
+            <input
+              id="spools-actions-last"
+              type="checkbox"
+              className="mt-0.5 accent-blue-500"
+              checked={spoolsActionsLast}
+              onChange={e => toggleSpoolsActionsLast(e.target.checked)}
+            />
+            <label htmlFor="spools-actions-last" className="cursor-pointer">
+              <p className="text-sm text-gray-200">{t('settings.appearance.spoolsActionsLast')}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{t('settings.appearance.spoolsActionsLastHint')}</p>
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* ── Tab: Experiments ── */}
       {mainTab === 'experiments' && (

@@ -29,7 +29,8 @@
     "remaining": "restante",
     "of": "de",
     "search": "Buscar…",
-    "clear": "Limpiar"
+    "clear": "Limpiar",
+    "experimental": "Experimental"
   },
   "dashboard": {
     "title": "Panel",
@@ -149,7 +150,25 @@
     "actions": {
       "duplicate": "Duplicar",
       "delete": "Eliminar",
-      "edit": "Editar"
+      "edit": "Editar",
+      "history": "Historial de peso"
+    },
+    "audit": {
+      "title": "Historial de peso — {{brand}} {{color}}",
+      "noEntries": "No hay cambios de peso registrados aún.",
+      "date": "Fecha",
+      "action": "Acción",
+      "before": "Antes",
+      "delta": "Cambio",
+      "after": "Después",
+      "print": "Impresión",
+      "action_print_auto": "Descuento auto",
+      "action_print_manual": "Impresión manual",
+      "action_print_delete": "Impresión eliminada",
+      "action_spool_edit": "Edición manual",
+      "action_correction": "Corrección",
+      "correctBtn": "Revertir esta entrada",
+      "correctConfirm": "¿Revertir el cambio de {{delta}} g? Se añadirá una entrada de corrección de {{reverse}} g y se actualizará el peso del carrete."
     }
   },
   "prints": {
@@ -229,7 +248,13 @@
       "printers": "Impresoras",
       "data": "Datos",
       "transfer": "Exportar / Importar",
-      "experiments": "Config. Cloud"
+      "experiments": "Config. Cloud",
+      "appearance": "Apariencia"
+    },
+    "appearance": {
+      "title": "Visualización",
+      "spoolsActionsLast": "Tabla de bobinas: columna de acciones al final",
+      "spoolsActionsLastHint": "Mover los iconos de editar / duplicar / historial / eliminar a la última columna en lugar de la primera"
     },
     "dataTabs": {
       "brandWeights": "Pesos de Bobina",

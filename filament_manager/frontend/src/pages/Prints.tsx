@@ -120,13 +120,24 @@ function PrintForm({
   const [success, setSuccess] = useState(initial?.success ?? true)
   const [printerId, setPrinterId] = useState<number | ''>('')
   const [notes, setNotes] = useState(initial?.notes ?? '')
-  const [usages, setUsages] = useState<UsageRow[]>(
-    initial?.usages?.map(u => ({
-      spool_id: u.spool_id,
-      grams_used: u.grams_used,
-      ams_slot: u.ams_slot ?? '',
-    })) ?? []
-  )
+  const [usages, setUsages] = useState<UsageRow[]>(() => {
+    // Confirmed usages take priority
+    if (initial?.usages && initial.usages.length > 0) {
+      return initial.usages.map(u => ({
+        spool_id: u.spool_id,
+        grams_used: u.grams_used,
+        ams_slot: u.ams_slot ?? '',
+      }))
+    }
+    // Unconfirmed auto print: pre-populate from the cloud snapshot so the edit
+    // form shows the print-time spool, not whatever is in the slot right now.
+    if (initial?.suggested_usages && initial.suggested_usages.length > 0) {
+      return initial.suggested_usages
+        .filter(s => s.spool_id != null)
+        .map(s => ({ spool_id: s.spool_id!, grams_used: s.grams, ams_slot: s.ams_slot }))
+    }
+    return []
+  })
   const [loadingAMS, setLoadingAMS] = useState(false)
   const [showEmptySpools, setShowEmptySpools] = useState(false)
   const [deductWeight, setDeductWeight] = useState(true)
@@ -194,7 +205,7 @@ function PrintForm({
     setUsages(u => u.map((row, idx) => idx === i ? { ...row, [k]: v } : row))
 
   const handleSave = () => {
-    onSave({
+    const payload: Record<string, unknown> = {
       name,
       model_name: modelName || null,
       description: description || null,
@@ -204,13 +215,19 @@ function PrintForm({
       success,
       notes: notes || null,
       printer_name: selectedPrinter?.name ?? null,
-      usages: usages.map(u => ({
+    }
+    // Only send usages when the user explicitly entered edit mode — otherwise the
+    // backend would revert and re-apply existing usages unchanged, creating noisy
+    // audit pairs (print_delete + print_manual) with zero net weight change.
+    if (usageEditMode) {
+      payload.usages = usages.map(u => ({
         spool_id: Number(u.spool_id),
         grams_used: Number(u.grams_used),
         ams_slot: u.ams_slot || null,
-      })),
-      deduct_weight: deductWeight,
-    })
+      }))
+      payload.deduct_weight = deductWeight
+    }
+    onSave(payload)
   }
 
   return (
@@ -423,37 +440,43 @@ function LogUsageModal({
   onCancel: () => void
 }) {
   const { t } = useTranslation()
+
+  // Spools list — used to display info for the snapshotted spool_id in each suggestion.
+  const { data: spools = [] } = useQuery<Spool[]>({
+    queryKey: ['spools'],
+    queryFn: api.getSpools,
+  })
+
+  // Backward-compat fallback: for old suggestions without a spool_id snapshot,
+  // look up the current AMS tray to find which spool is there now.
   const { data: printers = [] } = useQuery<PrinterConfig[]>({
     queryKey: ['printers'],
     queryFn: api.getPrinters,
   })
-
-  const printer = printers.find(p => p.name === job.printer_name) ?? printers[0] ?? null
-
-  const { data: trays = [], isLoading } = useQuery<AMSTray[]>({
+  const printer = printers.find(p => p.name === job.printer_name) ?? null
+  const needsFallback = (job.suggested_usages ?? []).some(s => s.spool_id == null)
+  const { data: trays = [] } = useQuery<AMSTray[]>({
     queryKey: ['printer-ams', printer?.id],
     queryFn: () => api.getPrinterAMS(printer!.id),
-    enabled: !!printer,
+    enabled: !!printer && needsFallback,
   })
+  const traysBySlot = Object.fromEntries(trays.map(t => [t.slot_key, t]))
 
-  const assigned = trays.filter(t => t.spool !== null)
-  const suggestions: Record<string, SuggestedUsage> = {}
-  if (job.suggested_usages) {
-    for (const s of job.suggested_usages) suggestions[s.ams_slot] = s
-  }
-  const hasSuggestions = Object.keys(suggestions).length > 0
+  const suggestions = job.suggested_usages ?? []
 
-  const [grams, setGrams] = useState<Record<string, string>>(() => {
-    if (!job.suggested_usages) return {}
-    const init: Record<string, string> = {}
-    for (const s of job.suggested_usages) init[s.ams_slot] = String(s.grams)
-    return init
-  })
+  const [grams, setGrams] = useState<Record<string, string>>(() =>
+    Object.fromEntries(suggestions.map(s => [s.ams_slot, String(s.grams)]))
+  )
 
   const handleSave = () => {
-    const usages = assigned
-      .map(t => ({ spool_id: t.spool!.id, grams_used: parseFloat(grams[t.slot_key] || '0'), ams_slot: t.slot_key }))
-      .filter(u => u.grams_used > 0)
+    const usages: { spool_id: number; grams_used: number; ams_slot: string }[] = []
+    for (const s of suggestions) {
+      const gramsVal = parseFloat(grams[s.ams_slot] || '0')
+      // Use snapshotted spool_id; fall back to the current AMS tray for old suggestions
+      const spoolId = s.spool_id ?? traysBySlot[s.ams_slot]?.spool?.id ?? null
+      if (gramsVal <= 0 || spoolId == null) continue
+      usages.push({ spool_id: spoolId, grams_used: gramsVal, ams_slot: s.ams_slot })
+    }
     onSave(usages)
   }
 
@@ -469,37 +492,40 @@ function LogUsageModal({
         </div>
 
         <div className="p-5 space-y-3">
-          {isLoading && <p className="text-sm text-gray-500">{t('prints.form.loading')}</p>}
+          <p className="text-xs text-blue-400 bg-blue-950/40 rounded px-3 py-1.5">
+            {t('prints.cloudSuggestion')}
+          </p>
 
-          {hasSuggestions && (
-            <p className="text-xs text-blue-400 bg-blue-950/40 rounded px-3 py-1.5">
-              {t('prints.cloudSuggestion')}
-            </p>
-          )}
-
-          {!isLoading && assigned.length === 0 && (
+          {suggestions.length === 0 && (
             <p className="text-sm text-gray-500">{t('prints.form.noAMSAssigned')}</p>
           )}
 
-          {assigned.map(tray => {
-            const suggested = suggestions[tray.slot_key]
+          {suggestions.map(s => {
+            // Prefer the snapshotted spool (captured at print-end); fall back to current AMS
+            const spool = s.spool_id
+              ? (spools.find(sp => sp.id === s.spool_id) ?? null)
+              : (traysBySlot[s.ams_slot]?.spool ?? null)
             return (
-              <div key={tray.slot_key} className="flex items-center gap-3">
+              <div key={s.ams_slot} className="flex items-center gap-3">
                 <span
                   className="w-3 h-3 rounded-full shrink-0"
-                  style={{ background: tray.spool!.color_hex }}
+                  style={{ background: spool?.color_hex ?? '#888' }}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">
-                    {tray.spool!.brand} {tray.spool!.material}
-                    {tray.spool!.subtype ? ` ${tray.spool!.subtype}` : ''} · {tray.spool!.color_name}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {tray.tray} · {tray.spool!.remaining_pct}% {tray.spool!.current_weight_g !== undefined
-                      ? `(${(tray.spool!.current_weight_g / 1000).toFixed(3)} kg)`
-                      : ''}
-                    {suggested ? <span className="text-blue-400 ml-1">· cloud: {suggested.grams}g</span> : null}
-                  </p>
+                  {spool ? (
+                    <>
+                      <p className="text-sm text-white truncate">
+                        {spool.brand} {spool.material}
+                        {spool.subtype ? ` ${spool.subtype}` : ''} · {spool.color_name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {s.ams_slot} · {spool.remaining_pct}%
+                        {` (${(spool.current_weight_g / 1000).toFixed(3)} kg)`}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-400">{s.ams_slot}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <input
@@ -508,8 +534,8 @@ function LogUsageModal({
                     min="0"
                     step="0.1"
                     placeholder="0"
-                    value={grams[tray.slot_key] ?? ''}
-                    onChange={e => setGrams(g => ({ ...g, [tray.slot_key]: e.target.value }))}
+                    value={grams[s.ams_slot] ?? ''}
+                    onChange={e => setGrams(g => ({ ...g, [s.ams_slot]: e.target.value }))}
                   />
                   <span className="text-xs text-gray-500">g</span>
                 </div>
@@ -525,7 +551,6 @@ function LogUsageModal({
           <button
             className="btn-primary"
             onClick={handleSave}
-            disabled={assigned.length === 0}
           >
             {t('prints.saveUsage')}
           </button>
@@ -587,7 +612,7 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
 }) {
   const tz = useHATZ()
   const [expanded, setExpanded] = useState(false)
-  const needsUsage = job.source === 'auto' && job.finished_at && job.total_grams === 0
+  const needsUsage = job.source === 'auto' && job.finished_at && job.total_grams === 0 && job.suggested_usages !== null
   const showModel = job.model_name && job.model_name !== job.name
 
   return (
@@ -753,7 +778,12 @@ export default function Prints() {
   const createMut = useMutation({ mutationFn: api.createPrint, onSuccess: () => { invalidate(); setShowForm(false) } })
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: number; data: unknown }) => api.updatePrint(id, data),
-    onSuccess: () => { invalidate(); setEditing(null) },
+    onSuccess: (updated: PrintJob) => {
+      setShown(prev => prev.map(j => j.id === updated.id ? updated : j))
+      qc.invalidateQueries({ queryKey: ['spools'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      setEditing(null)
+    },
   })
   const deleteMut = useMutation({ mutationFn: api.deletePrint, onSuccess: invalidate })
 

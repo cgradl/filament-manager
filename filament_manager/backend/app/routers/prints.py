@@ -6,7 +6,7 @@ from sqlalchemy import or_, func, select as sa_select
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
-from ..models import PrintJob, PrintUsage, Spool
+from ..models import PrintJob, PrintUsage, Spool, SpoolAudit
 from ..schemas import PrintJobCreate, PrintJobOut, PrintJobUpdate
 
 router = APIRouter(prefix="/api/prints", tags=["prints"])
@@ -139,7 +139,17 @@ def create_print(body: PrintJobCreate, db: Session = Depends(get_db)):
         )
         db.add(usage)
         if spool and body.deduct_weight:
+            weight_before = spool.current_weight_g
             spool.current_weight_g = max(0, spool.current_weight_g - u.grams_used)
+            db.add(SpoolAudit(
+                spool_id=spool.id,
+                action="print_manual",
+                delta_g=-u.grams_used,
+                weight_before=weight_before,
+                weight_after=spool.current_weight_g,
+                print_job_id=job.id,
+                print_name=job.name,
+            ))
 
     db.commit()
     return _load_job(db, job.id)
@@ -165,10 +175,20 @@ def update_print(job_id: int, body: PrintJobUpdate, db: Session = Depends(get_db
             if old.spool_id and body.deduct_weight:
                 spool = db.get(Spool, old.spool_id)
                 if spool:
+                    weight_before = spool.current_weight_g
                     spool.current_weight_g = min(
                         spool.initial_weight_g,
                         spool.current_weight_g + old.grams_used,
                     )
+                    db.add(SpoolAudit(
+                        spool_id=spool.id,
+                        action="print_delete",
+                        delta_g=old.grams_used,
+                        weight_before=weight_before,
+                        weight_after=spool.current_weight_g,
+                        print_job_id=job.id,
+                        print_name=job.name,
+                    ))
             db.delete(old)
         db.flush()
 
@@ -185,7 +205,19 @@ def update_print(job_id: int, body: PrintJobUpdate, db: Session = Depends(get_db
             )
             db.add(usage)
             if spool and body.deduct_weight:
+                weight_before = spool.current_weight_g
                 spool.current_weight_g = max(0, spool.current_weight_g - u.grams_used)
+                db.add(SpoolAudit(
+                    spool_id=spool.id,
+                    action="print_manual",
+                    delta_g=-u.grams_used,
+                    weight_before=weight_before,
+                    weight_after=spool.current_weight_g,
+                    print_job_id=job.id,
+                    print_name=job.name,
+                ))
+        # Always clear suggested_usages when usages are explicitly confirmed
+        job.suggested_usages = None
 
     db.commit()
     return _load_job(db, job.id)
@@ -196,14 +228,24 @@ def delete_print(job_id: int, db: Session = Depends(get_db)):
     job = db.get(PrintJob, job_id)
     if not job:
         raise HTTPException(404, "Print job not found")
-    # Revert spool weights
+    # Revert spool weights and write audit entries before job deletion
     for usage in job.usages:
         if usage.spool_id:
             spool = db.get(Spool, usage.spool_id)
             if spool:
+                weight_before = spool.current_weight_g
                 spool.current_weight_g = min(
                     spool.initial_weight_g,
                     spool.current_weight_g + usage.grams_used,
                 )
+                db.add(SpoolAudit(
+                    spool_id=spool.id,
+                    action="print_delete",
+                    delta_g=usage.grams_used,
+                    weight_before=weight_before,
+                    weight_after=spool.current_weight_g,
+                    print_job_id=None,
+                    print_name=job.name,
+                ))
     db.delete(job)
     db.commit()

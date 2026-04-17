@@ -27,6 +27,10 @@ export const api = {
     request<Spool>(`spools/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSpool: (id: number) =>
     request<void>(`spools/${id}`, { method: 'DELETE' }),
+  getSpoolAudit: (id: number) =>
+    request<import('./types').SpoolAuditEntry[]>(`spools/${id}/audit`),
+  correctSpoolAudit: (spoolId: number, entryId: number) =>
+    request<import('./types').SpoolAuditEntry>(`spools/${spoolId}/audit/${entryId}/correct`, { method: 'POST' }),
   getMaterials: () => request<string[]>('spools/materials/list'),
   getSubtypes: () => request<string[]>('spools/subtypes/list'),
 

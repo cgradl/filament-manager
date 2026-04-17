@@ -29,7 +29,8 @@
     "remaining": "remaining",
     "of": "of",
     "search": "Search…",
-    "clear": "Clear"
+    "clear": "Clear",
+    "experimental": "Experimental"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -149,7 +150,25 @@
     "actions": {
       "duplicate": "Duplicate",
       "delete": "Delete",
-      "edit": "Edit"
+      "edit": "Edit",
+      "history": "Weight History"
+    },
+    "audit": {
+      "title": "Weight History — {{brand}} {{color}}",
+      "noEntries": "No weight changes recorded yet.",
+      "date": "Date",
+      "action": "Action",
+      "before": "Before",
+      "delta": "Change",
+      "after": "After",
+      "print": "Print",
+      "action_print_auto": "Auto-deduct",
+      "action_print_manual": "Manual print",
+      "action_print_delete": "Print deleted",
+      "action_spool_edit": "Manual edit",
+      "action_correction": "Correction",
+      "correctBtn": "Reverse this entry",
+      "correctConfirm": "Reverse the {{delta}} g change? A correction entry of {{reverse}} g will be added and the spool weight updated."
     }
   },
   "prints": {
@@ -229,7 +248,13 @@
       "printers": "Printers",
       "data": "Data",
       "transfer": "Export / Import",
-      "experiments": "Cloud Config"
+      "experiments": "Cloud Config",
+      "appearance": "Appearance"
+    },
+    "appearance": {
+      "title": "Display",
+      "spoolsActionsLast": "Spools table: actions column at end",
+      "spoolsActionsLastHint": "Move the edit / duplicate / history / delete icons to the last column instead of the first"
     },
     "dataTabs": {
       "brandWeights": "Spool Weights",

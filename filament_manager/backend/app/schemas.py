@@ -190,6 +190,21 @@ class DashboardStats(BaseModel):
     prints_per_day: list[PrintsPerDay] = []
 
 
+# ── SpoolAudit ───────────────────────────────────────────────────────────────
+
+class SpoolAuditEntry(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    changed_at: datetime
+    action: str
+    delta_g: float
+    weight_before: float | None
+    weight_after: float | None
+    print_job_id: int | None
+    print_name: str | None
+
+
 class BrandSpoolWeightOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

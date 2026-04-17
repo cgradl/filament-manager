@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { Spool, BrandSpoolWeight, FilamentCatalog } from '../types'
-import { Plus, Pencil, Trash2, X, LayoutGrid, Table2, ChevronUp, ChevronDown, ChevronsUpDown, Copy } from 'lucide-react'
+import type { Spool, BrandSpoolWeight, FilamentCatalog, SpoolAuditEntry } from '../types'
+import { Plus, Pencil, Trash2, X, LayoutGrid, Table2, ChevronUp, ChevronDown, ChevronsUpDown, Copy, History, RotateCcw } from 'lucide-react'
 import Modal from '../components/Modal'
 import { formatDateOnly } from '../utils/time'
 
@@ -45,6 +45,7 @@ function SpoolForm({
 
   const [measuredTotal, setMeasuredTotal] = useState('')
   const [quantity, setQuantity] = useState(1)
+  const weightInputRef = useRef<HTMLInputElement>(null)
 
   const { data: materials = [] } = useQuery({ queryKey: ['materials'], queryFn: api.getMaterials })
   const { data: subtypes = [] } = useQuery({ queryKey: ['subtypes'], queryFn: api.getSubtypes })
@@ -88,6 +89,7 @@ function SpoolForm({
             <label className="label">{t('spools.form.articleNumber')}</label>
             <select
               className="input"
+              autoFocus={isNew}
               value={form.article_number ?? ''}
               onChange={e => {
                 const val = e.target.value
@@ -103,6 +105,7 @@ function SpoolForm({
                     color_name: entry.color_name,
                     color_hex: entry.color_hex,
                   }))
+                  setTimeout(() => weightInputRef.current?.focus(), 0)
                 } else {
                   setForm(f => ({ ...f, article_number: val }))
                 }
@@ -207,6 +210,7 @@ function SpoolForm({
                 <label className="label">{t('spools.form.nominalWeight')} *</label>
                 <div className="flex items-center gap-2">
                   <input
+                    ref={weightInputRef}
                     className="input" type="number" step="50" min="0"
                     value={form.initial_weight_g}
                     onChange={e => setForm(f => ({
@@ -344,10 +348,120 @@ function SpoolForm({
   )
 }
 
+// ── Spool Audit Modal ─────────────────────────────────────────────────────────
+
+function SpoolAuditModal({ spool, onClose }: { spool: Spool; onClose: () => void }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+
+  const { data: entries = [], isLoading } = useQuery<SpoolAuditEntry[]>({
+    queryKey: ['spool-audit', spool.id],
+    queryFn: () => api.getSpoolAudit(spool.id),
+  })
+
+  const correctMut = useMutation({
+    mutationFn: (entryId: number) => api.correctSpoolAudit(spool.id, entryId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['spool-audit', spool.id] })
+      qc.invalidateQueries({ queryKey: ['spools'] })
+    },
+  })
+
+  const actionLabel = (action: string) => t(`spools.audit.action_${action}`, action)
+
+  const handleCorrect = (e: SpoolAuditEntry) => {
+    const sign = e.delta_g < 0 ? '' : '+'
+    const msg = t('spools.audit.correctConfirm', {
+      delta: `${sign}${e.delta_g.toFixed(1)}`,
+      reverse: `${e.delta_g < 0 ? '+' : ''}${(-e.delta_g).toFixed(1)}`,
+    })
+    if (confirm(msg)) correctMut.mutate(e.id)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-surface-2 border border-surface-3 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-3 shrink-0">
+          <h2 className="font-semibold text-sm">
+            {t('spools.audit.title', { brand: spool.brand, color: spool.color_name })}
+          </h2>
+          <button onClick={onClose} className="btn-ghost p-1"><X size={16} /></button>
+        </div>
+        <div className="overflow-y-auto flex-1">
+          {isLoading && <p className="text-gray-500 text-sm p-5">{t('common.loading')}</p>}
+          {!isLoading && entries.length === 0 && (
+            <p className="text-gray-500 text-sm p-5">{t('spools.audit.noEntries')}</p>
+          )}
+          {entries.length > 0 && (
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="border-b border-surface-3 text-gray-400 font-medium">
+                  <th className="px-4 py-2">{t('spools.audit.date')}</th>
+                  <th className="px-4 py-2">{t('spools.audit.action')}</th>
+                  <th className="px-4 py-2 text-right">{t('spools.audit.before')}</th>
+                  <th className="px-4 py-2 text-right">{t('spools.audit.delta')}</th>
+                  <th className="px-4 py-2 text-right">{t('spools.audit.after')}</th>
+                  <th className="px-4 py-2">{t('spools.audit.print')}</th>
+                  <th className="px-2 py-2 w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map(e => {
+                  const positive = e.delta_g > 0
+                  return (
+                    <tr key={e.id} className="border-b border-surface-3/40 hover:bg-surface-3/30">
+                      <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
+                        {new Date(e.changed_at).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${
+                          e.action === 'print_auto'    ? 'bg-blue-900/50 text-blue-300' :
+                          e.action === 'print_manual'  ? 'bg-purple-900/50 text-purple-300' :
+                          e.action === 'print_delete'  ? 'bg-green-900/50 text-green-300' :
+                          e.action === 'correction'    ? 'bg-amber-900/50 text-amber-300' :
+                          'bg-surface-3 text-gray-300'
+                        }`}>
+                          {actionLabel(e.action)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-right text-gray-400 whitespace-nowrap">
+                        {e.weight_before != null ? `${e.weight_before.toFixed(1)} g` : '—'}
+                      </td>
+                      <td className={`px-4 py-2 text-right font-medium whitespace-nowrap ${positive ? 'text-green-400' : 'text-red-400'}`}>
+                        {positive ? '+' : ''}{e.delta_g.toFixed(1)} g
+                      </td>
+                      <td className="px-4 py-2 text-right text-gray-300 whitespace-nowrap">
+                        {e.weight_after != null ? `${e.weight_after.toFixed(1)} g` : '—'}
+                      </td>
+                      <td className="px-4 py-2 text-gray-400 max-w-[180px] truncate">
+                        {e.print_name ?? '—'}
+                      </td>
+                      <td className="px-2 py-2">
+                        <button
+                          onClick={() => handleCorrect(e)}
+                          disabled={correctMut.isPending}
+                          className="btn-ghost p-1 text-gray-500 hover:text-amber-400"
+                          title={t('spools.audit.correctBtn')}
+                        >
+                          <RotateCcw size={11} />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Spool Card ────────────────────────────────────────────────────────────────
 
-function SpoolCard({ spool, onEdit, onDuplicate, onDelete }: {
-  spool: Spool; onEdit: () => void; onDuplicate: () => void; onDelete: () => void
+function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete }: {
+  spool: Spool; onEdit: () => void; onDuplicate: () => void; onHistory: () => void; onDelete: () => void
 }) {
   const { t } = useTranslation()
   const pct = spool.remaining_pct
@@ -367,9 +481,10 @@ function SpoolCard({ spool, onEdit, onDuplicate, onDelete }: {
             <p className="text-xs text-gray-400">{spool.color_name}</p>
           </div>
         </div>
-        <div className="flex gap-1 shrink-0 ml-2">
+        <div className="grid grid-cols-2 gap-0.5 shrink-0 ml-2">
           <button onClick={onEdit} className="btn-ghost p-1" title={t('spools.actions.edit')}><Pencil size={13} /></button>
           <button onClick={onDuplicate} className="btn-ghost p-1 text-blue-400" title={t('spools.actions.duplicate')}><Copy size={13} /></button>
+          <button onClick={onHistory} className="btn-ghost p-1 text-amber-400" title={t('spools.actions.history')}><History size={13} /></button>
           <button onClick={onDelete} className="btn-ghost p-1 text-red-400 hover:text-red-300" title={t('spools.actions.delete')}><Trash2 size={13} /></button>
         </div>
       </div>
@@ -408,11 +523,12 @@ function SortIcon({ col, sort }: { col: SortKey; sort: { key: SortKey; dir: Sort
     : <ChevronDown size={12} className="text-accent" />
 }
 
-function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
-  spools: Spool[]; onEdit: (s: Spool) => void; onDuplicate: (s: Spool) => void; onDelete: (s: Spool) => void
+function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete }: {
+  spools: Spool[]; onEdit: (s: Spool) => void; onDuplicate: (s: Spool) => void; onHistory: (s: Spool) => void; onDelete: (s: Spool) => void
 }) {
   const { t } = useTranslation()
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'ams_slot', dir: 'asc' })
+  const actionsLast = localStorage.getItem('fm_spools_actions_last') === 'true'
   const [filters, setFilters] = useState<Partial<Record<SortKey, string>>>({})
 
   const setFilter = (k: SortKey, v: string) =>
@@ -514,12 +630,35 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
     { key: 'ams_slot',         label: t('spools.table.amsSlot'),         width: 'w-24' },
   ]
 
+  const actionHeaderCell = <th className="px-3 py-2 w-28" />
+  const actionFilterCell = (
+    <td className="px-2 py-1">
+      <button
+        className="text-xs text-gray-500 hover:text-white"
+        onClick={() => setFilters({})}
+        title="Clear all filters"
+      >
+        ✕
+      </button>
+    </td>
+  )
+  const actionDataCell = (s: Spool) => (
+    <td className="px-3 py-2 whitespace-nowrap">
+      <div className="flex items-center gap-0.5">
+        <button onClick={() => onEdit(s)} className="btn-ghost p-1" title={t('spools.actions.edit')}><Pencil size={12} /></button>
+        <button onClick={() => onDuplicate(s)} className="btn-ghost p-1 text-blue-400" title={t('spools.actions.duplicate')}><Copy size={12} /></button>
+        <button onClick={() => onHistory(s)} className="btn-ghost p-1 text-amber-400" title={t('spools.actions.history')}><History size={12} /></button>
+        <button onClick={() => onDelete(s)} className="btn-ghost p-1 text-red-400" title={t('spools.actions.delete')}><Trash2 size={12} /></button>
+      </div>
+    </td>
+  )
+
   return (
     <div className="overflow-x-auto rounded-xl border border-surface-3">
       <table className="w-full text-xs text-left">
         <thead>
           <tr className="border-b border-surface-3">
-            <th className="px-3 py-2 w-20" />
+            {!actionsLast && actionHeaderCell}
             {cols.map(c => (
               <th
                 key={c.key}
@@ -531,17 +670,10 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                 </span>
               </th>
             ))}
+            {actionsLast && actionHeaderCell}
           </tr>
           <tr className="border-b border-surface-3 bg-surface-3/30">
-            <td className="px-2 py-1">
-              <button
-                className="text-xs text-gray-500 hover:text-white"
-                onClick={() => setFilters({})}
-                title="Clear all filters"
-              >
-                ✕
-              </button>
-            </td>
+            {!actionsLast && actionFilterCell}
             {cols.map(c => (
               <td key={c.key} className="px-2 py-1">
                 <input
@@ -553,6 +685,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                 />
               </td>
             ))}
+            {actionsLast && actionFilterCell}
           </tr>
         </thead>
         <tbody>
@@ -564,13 +697,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                 key={s.id}
                 className="border-b border-surface-3/50 hover:bg-surface-3/40 transition-colors"
               >
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <div className="flex gap-1">
-                    <button onClick={() => onEdit(s)} className="btn-ghost p-1" title={t('spools.actions.edit')}><Pencil size={12} /></button>
-                    <button onClick={() => onDuplicate(s)} className="btn-ghost p-1 text-blue-400" title={t('spools.actions.duplicate')}><Copy size={12} /></button>
-                    <button onClick={() => onDelete(s)} className="btn-ghost p-1 text-red-400" title={t('spools.actions.delete')}><Trash2 size={12} /></button>
-                  </div>
-                </td>
+                {!actionsLast && actionDataCell(s)}
                 <td className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono">{s.custom_id ?? '—'}</td>
                 <td className="px-3 py-2 font-medium text-white whitespace-nowrap">{s.brand}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{s.material}</td>
@@ -621,6 +748,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                 <td className="px-3 py-2 whitespace-nowrap text-blue-400">
                   {s.ams_slot ?? '—'}
                 </td>
+                {actionsLast && actionDataCell(s)}
               </tr>
             )
           })}
@@ -647,7 +775,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
           return (
             <tfoot>
               <tr className="border-t-2 border-surface-3 bg-surface-3/40 text-gray-300 font-medium">
-                <td />
+                {!actionsLast && <td />}
                 <td className="px-3 py-2 text-xs text-gray-400" colSpan={5}>
                   {n} {n !== 1 ? t('dashboard.chart.spools') : t('dashboard.chart.spool')}
                 </td>
@@ -666,7 +794,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onDelete }: {
                 <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">
                   {avgPpkg != null ? `€${avgPpkg.toFixed(2)}` : '—'}
                 </td>
-                <td colSpan={4} />
+                <td colSpan={actionsLast ? 5 : 4} />
               </tr>
             </tfoot>
           )
@@ -684,6 +812,7 @@ export default function Spools() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Spool | null>(null)
   const [duplicating, setDuplicating] = useState<Spool | null>(null)
+  const [auditSpool, setAuditSpool] = useState<Spool | null>(null)
   const [view, setView] = useState<'cards' | 'table'>('table')
 
   const { data: spools = [], isLoading } = useQuery<Spool[]>({
@@ -774,6 +903,7 @@ export default function Spools() {
               spool={spool}
               onEdit={() => setEditing(spool)}
               onDuplicate={() => setDuplicating(spool)}
+              onHistory={() => setAuditSpool(spool)}
               onDelete={() => handleDelete(spool)}
             />
           ))}
@@ -783,6 +913,7 @@ export default function Spools() {
           spools={spools}
           onEdit={s => setEditing(s)}
           onDuplicate={s => setDuplicating(s)}
+          onHistory={s => setAuditSpool(s)}
           onDelete={handleDelete}
         />
       )}
@@ -823,6 +954,12 @@ export default function Spools() {
             onSave={handleSave}
             onCancel={() => setDuplicating(null)}
           />
+        </Modal>
+      )}
+
+      {auditSpool && (
+        <Modal>
+          <SpoolAuditModal spool={auditSpool} onClose={() => setAuditSpool(null)} />
         </Modal>
       )}
     </div>

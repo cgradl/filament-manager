@@ -29,7 +29,8 @@
     "remaining": "verbleibend",
     "of": "von",
     "search": "Suchen…",
-    "clear": "Zurücksetzen"
+    "clear": "Zurücksetzen",
+    "experimental": "Experimentell"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -149,7 +150,25 @@
     "actions": {
       "duplicate": "Duplizieren",
       "delete": "Löschen",
-      "edit": "Bearbeiten"
+      "edit": "Bearbeiten",
+      "history": "Gewichtsverlauf"
+    },
+    "audit": {
+      "title": "Gewichtsverlauf — {{brand}} {{color}}",
+      "noEntries": "Noch keine Gewichtsänderungen aufgezeichnet.",
+      "date": "Datum",
+      "action": "Aktion",
+      "before": "Vorher",
+      "delta": "Änderung",
+      "after": "Nachher",
+      "print": "Druck",
+      "action_print_auto": "Auto-Abzug",
+      "action_print_manual": "Manueller Druck",
+      "action_print_delete": "Druck gelöscht",
+      "action_spool_edit": "Manuelle Bearbeitung",
+      "action_correction": "Korrektur",
+      "correctBtn": "Eintrag umkehren",
+      "correctConfirm": "Die Änderung von {{delta}} g umkehren? Ein Korrektureintrag von {{reverse}} g wird hinzugefügt und das Spulengewicht aktualisiert."
     }
   },
   "prints": {
@@ -229,7 +248,13 @@
       "printers": "Drucker",
       "data": "Daten",
       "transfer": "Export / Import",
-      "experiments": "Cloud-Konfiguration"
+      "experiments": "Cloud-Konfiguration",
+      "appearance": "Darstellung"
+    },
+    "appearance": {
+      "title": "Anzeige",
+      "spoolsActionsLast": "Spulentabelle: Aktionsspalte am Ende",
+      "spoolsActionsLastHint": "Bearbeiten / Duplizieren / Verlauf / Löschen-Symbole in die letzte statt erste Spalte verschieben"
     },
     "dataTabs": {
       "brandWeights": "Spulengewichte",

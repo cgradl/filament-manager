@@ -41,6 +41,7 @@ export interface SuggestedUsage {
   grams: number
   filament_type: string
   color: string | null
+  spool_id: number | null
 }
 
 export interface PrintJob {
@@ -86,6 +87,17 @@ export interface BambuCloudDevice {
   name: string
   model: string
   online: boolean
+}
+
+export interface SpoolAuditEntry {
+  id: number
+  changed_at: string
+  action: string
+  delta_g: number
+  weight_before: number | null
+  weight_after: number | null
+  print_job_id: number | null
+  print_name: string | null
 }
 
 export interface BrandSpoolWeight {
