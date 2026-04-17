@@ -380,7 +380,7 @@ function SpoolAuditModal({ spool, onClose }: { spool: Spool; onClose: () => void
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-surface-2 border border-surface-3 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+      <div className="bg-surface-2 border border-surface-3 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-3 shrink-0">
           <h2 className="font-semibold text-sm">
             {t('spools.audit.title', { brand: spool.brand, color: spool.color_name })}
@@ -433,7 +433,7 @@ function SpoolAuditModal({ spool, onClose }: { spool: Spool; onClose: () => void
                       <td className="px-4 py-2 text-right text-gray-300 whitespace-nowrap">
                         {e.weight_after != null ? `${e.weight_after.toFixed(1)} g` : '—'}
                       </td>
-                      <td className="px-4 py-2 text-gray-400 max-w-[180px] truncate">
+                      <td className="px-4 py-2 text-gray-400">
                         {e.print_name ?? '—'}
                       </td>
                       <td className="px-2 py-2">

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.21.9
+
+- Fixed: spool weight history popup was too narrow (`max-w-2xl` → `max-w-4xl`); print name column no longer truncated
+
 ## 0.21.8
 
 - Fixed: spools table action icons (edit / duplicate / history / delete) were overlapping in a 2×2 grid — changed to a single flex row
