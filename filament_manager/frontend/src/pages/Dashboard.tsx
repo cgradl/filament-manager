@@ -431,8 +431,7 @@ function AMSPrinterAlert({ printer, spools }: { printer: PrinterConfig; spools: 
   const { data: trays = [] } = useQuery<AMSTray[]>({
     queryKey: ['printer-ams', printer.id],
     queryFn: () => api.getPrinterAMS(printer.id),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
+    refetchInterval: 30_000,
   })
 
   const mismatches = trays.filter(tr =>
@@ -490,7 +489,6 @@ export default function Dashboard() {
   const { data: spools = [] } = useQuery<Spool[]>({
     queryKey: ['spools'],
     queryFn: api.getSpools,
-    staleTime: 60_000,
   })
 
   if (isLoading) return <div className="text-gray-500 text-sm">{t('common.loading')}</div>

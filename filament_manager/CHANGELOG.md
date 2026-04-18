@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.1
+
+- Fixed: AMS auto-match now matches materials stored with a subtype (e.g. spool `material=TPU, subtype=for AMS` now matches printer-reported `"TPU for AMS"`)
+
 ## 0.22.0
 
 - AMS tray assignment: spool dropdown now sorted by Brand → Material → Color

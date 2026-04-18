@@ -16,11 +16,16 @@ export function findBestSpoolMatch(tray: AMSTray, spools: Spool[]): Spool | null
   const mat = tray.ha_material.toLowerCase()
   const col = normalizeHex(tray.ha_color_hex)
 
-  const candidates = spools.filter(s =>
-    s.material.toLowerCase() === mat &&
-    normalizeHex(s.color_hex) === col &&
-    s.current_weight_g > 0
-  )
+  const candidates = spools.filter(s => {
+    const spoolMat = s.subtype
+      ? `${s.material} ${s.subtype}`.toLowerCase()
+      : s.material.toLowerCase()
+    return (
+      (s.material.toLowerCase() === mat || spoolMat === mat) &&
+      normalizeHex(s.color_hex) === col &&
+      s.current_weight_g > 0
+    )
+  })
 
   if (candidates.length === 0) return null
 
