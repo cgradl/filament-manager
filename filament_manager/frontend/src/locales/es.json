@@ -105,6 +105,7 @@
       "diameter": "Diámetro (mm)",
       "colorName": "Nombre del color",
       "colorSwatch": "Muestra de color",
+      "colorHexInvalid": "Debe ser un color hexadecimal válido de 6 dígitos (ej. #ff5733)",
       "weight": "Peso",
       "nominalWeight": "Peso nominal del filamento",
       "nominalWeightHint": "Peso indicado (solo filamento, sin bobina)",

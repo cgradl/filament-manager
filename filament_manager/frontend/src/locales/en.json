@@ -105,6 +105,7 @@
       "diameter": "Diameter (mm)",
       "colorName": "Color Name",
       "colorSwatch": "Color Swatch",
+      "colorHexInvalid": "Must be a valid 6-digit hex color (e.g. #ff5733)",
       "weight": "Weight",
       "nominalWeight": "Nominal filament weight",
       "nominalWeightHint": "Label weight (filament only, no spool)",

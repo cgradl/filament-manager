@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.3
+
+- Spool form: color hex field now validates for a valid `#rrggbb` format; red border + error message shown on invalid input; Save button disabled until corrected
+
 ## 0.22.2
 
 - Fixed: AMS mismatch warning on Dashboard now triggers for any non-empty tray (remaining > 0%) — previously trays with < 5% remaining were silently ignored

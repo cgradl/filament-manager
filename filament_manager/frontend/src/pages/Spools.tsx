@@ -193,11 +193,19 @@ function SpoolForm({
                 <input
                   type="color"
                   className="h-9 w-16 rounded cursor-pointer bg-surface-3 border border-surface-3"
-                  value={form.color_hex}
+                  value={/^#[0-9a-fA-F]{6}$/.test(form.color_hex) ? form.color_hex : '#888888'}
                   onChange={set('color_hex')}
                 />
-                <input className="input flex-1" value={form.color_hex} onChange={set('color_hex')} placeholder="#ffffff" />
+                <input
+                  className={`input flex-1 ${form.color_hex && !/^#[0-9a-fA-F]{6}$/.test(form.color_hex) ? 'border-red-500 focus:border-red-500' : ''}`}
+                  value={form.color_hex}
+                  onChange={set('color_hex')}
+                  placeholder="#ffffff"
+                />
               </div>
+              {form.color_hex && !/^#[0-9a-fA-F]{6}$/.test(form.color_hex) && (
+                <p className="text-xs text-red-400 mt-1">{t('spools.form.colorHexInvalid')}</p>
+              )}
             </div>
           </div>
 
@@ -337,7 +345,7 @@ function SpoolForm({
             <button
               className="btn-primary"
               onClick={() => onSave(form as typeof EMPTY_FORM, quantity)}
-              disabled={!form.brand || !form.material || !form.color_name}
+              disabled={!form.brand || !form.material || !form.color_name || !/^#[0-9a-fA-F]{6}$/.test(form.color_hex)}
             >
               {isNew && quantity > 1 ? t('spools.form.addN', { n: quantity }) : t('common.save')}
             </button>

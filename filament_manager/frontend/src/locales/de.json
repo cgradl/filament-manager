@@ -105,6 +105,7 @@
       "diameter": "Durchmesser (mm)",
       "colorName": "Farbname",
       "colorSwatch": "Farbauswahl",
+      "colorHexInvalid": "Muss ein gültiger 6-stelliger Hex-Farbcode sein (z. B. #ff5733)",
       "weight": "Gewicht",
       "nominalWeight": "Nominales Filamentgewicht",
       "nominalWeightHint": "Aufgedrucktes Gewicht (nur Filament, ohne Spule)",
