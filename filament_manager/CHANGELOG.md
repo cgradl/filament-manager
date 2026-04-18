@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.2
+
+- Fixed: AMS mismatch warning on Dashboard now triggers for any non-empty tray (remaining > 0%) — previously trays with < 5% remaining were silently ignored
+
 ## 0.22.1
 
 - Fixed: AMS auto-match now matches materials stored with a subtype (e.g. spool `material=TPU, subtype=for AMS` now matches printer-reported `"TPU for AMS"`)

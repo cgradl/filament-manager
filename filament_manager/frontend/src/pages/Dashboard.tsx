@@ -438,7 +438,7 @@ function AMSPrinterAlert({ printer, spools }: { printer: PrinterConfig; spools: 
     tr.ha_material &&
     tr.ha_color_hex &&
     tr.ha_remaining !== null &&
-    parseFloat(tr.ha_remaining) >= 5 &&
+    parseFloat(tr.ha_remaining) > 0 &&
     findBestSpoolMatch(tr, spools) === null
   )
 
