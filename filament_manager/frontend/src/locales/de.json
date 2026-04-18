@@ -59,6 +59,8 @@
     "noPrints": "Noch keine Drucke erfasst.",
     "noSpools": "Noch keine Spulen.",
     "allWellStocked": "Alle Spulen gut gefüllt.",
+    "amsNoMatchCard": "AMS-Filament nicht zugeordnet",
+    "amsNoMatch": "Keine Spule im Inventar",
     "noPurchaseData": "Noch keine Kaufdaten vorhanden.",
     "noFilamentData": "Noch keine Filamentdaten vorhanden.",
     "noLocationData": "Noch keine Spulen mit Kaufort und Preis eingetragen.",
@@ -335,7 +337,11 @@
       "noAMSData": "Keine AMS-Fachdaten gefunden.",
       "amsUnit": "AMS-Einheit {{n}}",
       "unassigned": "— nicht zugeordnet —",
-      "confirmDelete": "Drucker \"{{name}}\" entfernen?"
+      "confirmDelete": "Drucker \"{{name}}\" entfernen?",
+      "autoMatchAll": "Auto-Zuordnung",
+      "autoMatchTray": "Beste Übereinstimmung",
+      "autoMatchNone": "Keine passende Spule im Inventar",
+      "autoMatchResult": "{{count}} Fach/Fächer automatisch zugeordnet"
     },
     "brandWeights": {
       "title": "Leerspulengewichte je Marke",

@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { DashboardStats, PrintJob, PrinterConfig, PrinterStatus } from '../types'
+import type { DashboardStats, PrintJob, PrinterConfig, PrinterStatus, AMSTray, Spool } from '../types'
 import { AlertTriangle, Printer, Zap, CheckCircle2 } from 'lucide-react'
+import { findBestSpoolMatch } from '../utils/amsMatch'
 import { formatDistanceToNow } from 'date-fns'
 import { enUS, de, es, type Locale } from 'date-fns/locale'
 import { useHATZ, useCurrencyFormatter } from '../hooks/useHATZ'
@@ -422,6 +423,54 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
   )
 }
 
+// ── AMS mismatch alert ────────────────────────────────────────────────────────
+
+function AMSPrinterAlert({ printer, spools }: { printer: PrinterConfig; spools: Spool[] }) {
+  const { t } = useTranslation()
+
+  const { data: trays = [] } = useQuery<AMSTray[]>({
+    queryKey: ['printer-ams', printer.id],
+    queryFn: () => api.getPrinterAMS(printer.id),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  })
+
+  const mismatches = trays.filter(tr =>
+    tr.ha_material &&
+    tr.ha_color_hex &&
+    tr.ha_remaining !== null &&
+    parseFloat(tr.ha_remaining) >= 5 &&
+    findBestSpoolMatch(tr, spools) === null
+  )
+
+  if (mismatches.length === 0) return null
+
+  return (
+    <div className="card border border-amber-800/50 bg-amber-950/20">
+      <h3 className="text-sm font-semibold text-amber-300 mb-3 flex items-center gap-2">
+        <AlertTriangle size={14} /> {t('dashboard.amsNoMatchCard')} — {printer.name}
+      </h3>
+      <div>
+        {mismatches.map(tr => (
+          <div key={tr.slot_key} className="flex items-center gap-3 py-2 border-b border-amber-800/30 last:border-0">
+            <span
+              className="w-3 h-3 rounded-full shrink-0 border border-white/20"
+              style={{ background: tr.ha_color_hex ?? '#888' }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-white">
+                {tr.slot_key.replace(/ams(\d+)_tray(\d+)/, 'AMS $1 · T$2')}
+                <span className="text-gray-400 ml-2">{tr.ha_material}</span>
+              </p>
+            </div>
+            <span className="text-xs text-amber-400 shrink-0">{t('dashboard.amsNoMatch')}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -433,35 +482,35 @@ export default function Dashboard() {
     refetchInterval: 30_000,
   })
 
-  const { data: haStatus } = useQuery({
-    queryKey: ['ha-status'],
-    queryFn: api.getHAStatus,
-    refetchInterval: 30_000,
-  })
-
   const { data: printers = [] } = useQuery<PrinterConfig[]>({
     queryKey: ['printers'],
     queryFn: api.getPrinters,
   })
 
+  const { data: spools = [] } = useQuery<Spool[]>({
+    queryKey: ['spools'],
+    queryFn: api.getSpools,
+    staleTime: 60_000,
+  })
+
   if (isLoading) return <div className="text-gray-500 text-sm">{t('common.loading')}</div>
   if (!stats) return null
 
+  const cloudPrinters = printers.filter(p => p.is_active && !!p.bambu_serial)
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">{t('dashboard.title')}</h2>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${
-          haStatus?.ha_available ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'
-        }`}>
-          {haStatus?.ha_available ? t('dashboard.haConnected') : t('dashboard.haOffline')}
-        </span>
-      </div>
+      <h2 className="text-lg font-bold">{t('dashboard.title')}</h2>
 
       {/* Running job — only shown when a print is active */}
       {stats.running_job && (
         <RunningJobCard job={stats.running_job} printers={printers} />
       )}
+
+      {/* AMS mismatch warnings — one card per printer with unmatched trays */}
+      {cloudPrinters.map(p => (
+        <AMSPrinterAlert key={p.id} printer={p} spools={spools} />
+      ))}
 
       {/* Combined inventory metrics */}
       <InventoryCard stats={stats} />

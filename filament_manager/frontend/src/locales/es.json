@@ -56,6 +56,8 @@
     "forceFinishConfirm": "¿Marcar esta impresión como terminada?\n\nEl uso de filamento no se calculará automáticamente — deberás ajustarlo manualmente en el historial de impresiones.",
     "recentPrints": "Impresiones recientes",
     "lowStockAlerts": "Alertas de stock bajo",
+    "amsNoMatchCard": "Filamento AMS sin coincidencia",
+    "amsNoMatch": "Sin bobina en inventario",
     "noPrints": "No hay impresiones registradas aún.",
     "noSpools": "No hay bobinas aún.",
     "allWellStocked": "Todas las bobinas bien abastecidas.",
@@ -335,7 +337,11 @@
       "noAMSData": "No se encontraron datos de bandejas AMS.",
       "amsUnit": "Unidad AMS {{n}}",
       "unassigned": "— sin asignar —",
-      "confirmDelete": "¿Eliminar impresora \"{{name}}\"?"
+      "confirmDelete": "¿Eliminar impresora \"{{name}}\"?",
+      "autoMatchAll": "Asignación automática",
+      "autoMatchTray": "Mejor coincidencia",
+      "autoMatchNone": "No hay bobina coincidente en el inventario",
+      "autoMatchResult": "{{count}} bandeja(s) asignada(s) automáticamente"
     },
     "brandWeights": {
       "title": "Pesos de bobina vacía por marca",

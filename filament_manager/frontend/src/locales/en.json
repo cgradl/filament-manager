@@ -59,6 +59,8 @@
     "noPrints": "No prints logged yet.",
     "noSpools": "No spools yet.",
     "allWellStocked": "All spools well stocked.",
+    "amsNoMatchCard": "AMS Filament Mismatch",
+    "amsNoMatch": "No spool in inventory",
     "noPurchaseData": "No purchase data yet.",
     "noFilamentData": "No filament data yet.",
     "noLocationData": "No spools with both a purchase location and price set yet.",
@@ -335,7 +337,11 @@
       "noAMSData": "No AMS tray data found.",
       "amsUnit": "AMS Unit {{n}}",
       "unassigned": "— unassigned —",
-      "confirmDelete": "Remove printer \"{{name}}\""
+      "confirmDelete": "Remove printer \"{{name}}\"",
+      "autoMatchAll": "Auto-match",
+      "autoMatchTray": "Best match",
+      "autoMatchNone": "No matching spool in inventory",
+      "autoMatchResult": "Auto-matched {{count}} tray(s)"
     },
     "brandWeights": {
       "title": "Brand Spool Tare Weights",

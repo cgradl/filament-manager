@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { PrinterConfig, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype, BambuCloudStatus, BambuCloudDevice, FilamentCatalog } from '../types'
-import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Pencil, ChevronDown, ChevronUp, ChevronsUpDown, Download, Upload, Wifi, WifiOff } from 'lucide-react'
+import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Pencil, ChevronDown, ChevronUp, ChevronsUpDown, Download, Upload, Wifi, WifiOff, Sparkles } from 'lucide-react'
 import Modal from '../components/Modal'
 import BambuCloudSection from '../components/BambuCloudSection'
+import { findBestSpoolMatch } from '../utils/amsMatch'
 
 // ── Cloud Printer Form ────────────────────────────────────────────────────────
 
@@ -326,6 +327,31 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
     },
   })
 
+  const autoMatchAllMut = useMutation({
+    mutationFn: async () => {
+      const visibleTrays = (trays ?? []).filter(t => t.ams_id === visibleUnit)
+      let matched = 0
+      for (const tray of visibleTrays) {
+        const best = findBestSpoolMatch(tray, spools as Spool[])
+        if (best && best.id !== tray.spool?.id) {
+          await api.assignAMSTray(printer.id, tray.slot_key, best.id)
+          matched++
+        }
+      }
+      return matched
+    },
+    onSuccess: (matched) => {
+      qc.invalidateQueries({ queryKey: ['printer-ams'] })
+      qc.invalidateQueries({ queryKey: ['spools'] })
+      alert(matched > 0
+        ? `${t('settings.printers.autoMatchResult', { count: matched })}`
+        : t('settings.printers.autoMatchNone'))
+    },
+    onError: (err) => {
+      alert(err instanceof Error ? err.message : 'Auto-match failed')
+    },
+  })
+
   if (isLoading) return <p className="text-xs text-gray-500 py-2">{t('settings.printers.loadingAMS')}</p>
   if (!trays?.length) return <p className="text-xs text-gray-500 py-2">{t('settings.printers.noAMSData')}</p>
 
@@ -354,6 +380,15 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
           )}
         </div>
         <div className="flex items-center gap-1">
+          <button
+            className="btn-ghost px-2 py-0.5 text-xs flex items-center gap-1"
+            onClick={() => autoMatchAllMut.mutate()}
+            disabled={autoMatchAllMut.isPending}
+            title={t('settings.printers.autoMatchAll')}
+          >
+            <Sparkles size={10} />
+            {t('settings.printers.autoMatchAll')}
+          </button>
           <button
             className="btn-ghost px-2 py-0.5 text-xs"
             onClick={() => syncAllMut.mutate()}
@@ -435,12 +470,43 @@ function AMSTrayRow({
         onChange={e => onAssign(e.target.value ? Number(e.target.value) : null)}
       >
         <option value="">{t('settings.printers.unassigned')}</option>
-        {spools.filter(s => Math.round(s.remaining_pct) > 0).map(s => (
-          <option key={s.id} value={s.id}>
-            {s.brand} {s.material}{s.subtype ? ` ${s.subtype}` : ''} · {s.color_name} ({Math.round(s.remaining_pct)}%)
-          </option>
-        ))}
+        {spools
+          .filter(s => Math.round(s.remaining_pct) > 0)
+          .sort((a, b) => {
+            const bc = a.brand.localeCompare(b.brand)
+            if (bc !== 0) return bc
+            const mc = a.material.localeCompare(b.material)
+            if (mc !== 0) return mc
+            return a.color_name.localeCompare(b.color_name)
+          })
+          .map(s => (
+            <option key={s.id} value={s.id}>
+              {s.brand} {s.material}{s.subtype ? ` ${s.subtype}` : ''} · {s.color_name} ({Math.round(s.remaining_pct)}%)
+            </option>
+          ))}
       </select>
+
+      {/* Auto-match button — only when printer reports material+color for this tray */}
+      {tray.ha_material && tray.ha_color_hex && (() => {
+        const match = findBestSpoolMatch(tray, spools)
+        const alreadyOptimal = match != null && tray.spool?.id === match.id
+        return (
+          <button
+            onClick={() => match && onAssign(match.id)}
+            disabled={!match || saving}
+            title={match
+              ? `${t('settings.printers.autoMatchTray')}: ${match.brand} ${match.material} · ${match.color_name} (${Math.round(match.remaining_pct)}%)`
+              : t('settings.printers.autoMatchNone')}
+            className={`btn-ghost p-1 shrink-0 ${
+              alreadyOptimal ? 'text-green-400 cursor-default' :
+              match ? 'text-amber-400 hover:text-amber-300' :
+              'text-gray-600 cursor-not-allowed'
+            }`}
+          >
+            <Sparkles size={10} />
+          </button>
+        )
+      })()}
 
       {tray.spool ? (
         <>
@@ -1616,11 +1682,6 @@ export default function Settings() {
     queryFn: api.getBambuCloudStatus,
     refetchInterval: 5_000,
   })
-  const { data: haStatus } = useQuery({
-    queryKey: ['ha-status'],
-    queryFn: api.getHAStatus,
-    refetchInterval: 15_000,
-  })
   const { data: versionData } = useQuery({
     queryKey: ['version'],
     queryFn: api.getVersion,
@@ -1698,13 +1759,7 @@ export default function Settings() {
       {/* ── Tab: Printers ── */}
       {mainTab === 'printers' && (
         <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              {haStatus?.ha_available
-                ? <><CheckCircle size={14} className="text-green-400" /><span className="text-sm text-green-400">{t('settings.ha.connected')}</span></>
-                : <><AlertCircle size={14} className="text-red-400" /><span className="text-sm text-red-400">{t('settings.ha.disconnected')}</span></>
-              }
-            </div>
+          <div className="flex justify-end mb-4">
             <button className="btn-primary flex items-center gap-1.5 text-xs" onClick={() => setShowForm(true)}>
               <Plus size={13} /> {t('settings.printers.addPrinter')}
             </button>

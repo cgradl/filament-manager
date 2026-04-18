@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.22.0
+
+- AMS tray assignment: spool dropdown now sorted by Brand → Material → Color
+- AMS tray assignment: per-tray ✦ button finds the best matching spool by material + color (amber = match available, green = already optimal, gray = none found); tooltip shows the candidate
+- AMS tray assignment: "Auto-match" header button assigns the best spool to all trays in the visible AMS unit at once; tiebreakers: lowest remaining weight first, then oldest purchase date (FiFo)
+- Dashboard: amber warning card shown when an AMS tray reports a filament (≥ 5% remaining) that has no matching spool in inventory
+
 ## 0.21.9
 
 - Fixed: spool weight history popup was too narrow (`max-w-2xl` → `max-w-4xl`); print name column no longer truncated

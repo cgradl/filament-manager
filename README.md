@@ -2,7 +2,7 @@
 
 A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.21.9-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.22.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -33,6 +33,7 @@ Spools, print history, and all other data are unaffected.
 - **Data export / import** — backup and restore all spools, prints, and settings as a JSON bundle; import historical print jobs directly from Bambu Lab Cloud
 - **Spool weight history** — every weight change is logged with action type, before/after values, and linked print name; viewable per spool via the history icon
 - **Spoolman export** *(experimental)* — export spool inventory in [Spoolman](https://github.com/Donkie/Spoolman)-compatible format
+- **AMS spool auto-match** — per-tray sparkle button and "Auto-match" header button find the best inventory spool by material + color; tiebreakers: lowest remaining weight first, then oldest purchase date (FiFo); Dashboard warns when a loaded AMS filament has no matching spool in inventory
 
 ---
 
