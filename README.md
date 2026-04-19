@@ -10,7 +10,7 @@ A Home Assistant add-on for tracking 3D printer filament inventory, monitoring p
 
 **The [greghesp/ha-bambulab](https://github.com/greghesp/ha-bambulab) Home Assistant integration is no longer required and is no longer supported.**
 
-If you were using the HA integration as the data source for your printer, your printer configuration will be removed on upgrade. You must reconfigure your printer using **Bambu Lab Cloud** (Settings → Experiments → Bambu Lab Cloud → connect with your Bambu account, then add your printer).
+If you were using the HA integration as the data source for your printer, your printer configuration will be removed on upgrade. You must reconfigure your printer using **Bambu Lab Cloud** (Settings → Cloud Config → Bambu Lab Cloud → connect with your Bambu account, then add your printer under Settings → Printers).
 
 Spools, print history, and all other data are unaffected.
 
@@ -19,35 +19,38 @@ Spools, print history, and all other data are unaffected.
 ## Features
 
 - **Automatic print detection** — monitors your Bambu Lab printer via Bambu Cloud MQTT; creates print records automatically when a print starts
-- **Accurate print naming** — uses the Makerworld design title (`designTitle`) when available, falls back to the slicer job title; real print start time fetched from the Bambu Cloud task API
 - **AMS filament tracking** — snapshots filament levels at print start/end; calculates grams used per spool per tray
 - **Suggested filament usage** — on print completion the app pre-fills grams used per tray for review; an optional per-printer *auto-deduct* flag applies the deduction immediately without confirmation
 - **Live print status** — active print jobs show real-time stage, progress, remaining time, and active tray from Bambu Cloud MQTT
-- **Spool inventory** — full CRUD for filament spools with brand, material, color, weight, cost, and storage location data
-- **Filament catalog** — manage a master list of filament products; bulk import via CSV (semicolon or comma, Excel UTF-8 with BOM supported)
+- **Spool inventory** — full CRUD for filament spools with brand, material, subtype, color, article number, weight, cost, purchase location, and storage location
+- **Filament catalog** — manage a master list of filament products (brand, material, subtype, color, article number, hex); CSV import and export (semicolon or comma delimited, Excel UTF-8 BOM supported); selecting a catalog entry auto-fills the spool form
+- **AMS spool auto-match** — per-tray sparkle button and "Auto-match" header button find the best inventory spool by material + color; tiebreakers: lowest remaining weight first, then oldest purchase date (FiFo); Dashboard warns when a loaded AMS tray has no matching spool in inventory
 - **Cost analytics** — per-print cost, price per kg, inventory value, and spend by purchase location
 - **Dashboard** — overview charts, low-stock alerts, and recent print history
 - **Print history search & date filter** — filter by name, printer, material, color; quick presets (this/last week/month)
 - **EN / DE / ES interface** — full translations; inherits language from your HA instance by default
 - **HA day/night theme** — follows Home Assistant light/dark mode and accent color
-- **Data export / import** — backup and restore all spools, prints, and settings as a JSON bundle; import historical print jobs directly from Bambu Lab Cloud
+- **Data export / import** — organised into four tabs: full JSON backup/restore (Filament Manager), spool CSV export/import (Spools), Bambu Cloud print history import, and experimental Spoolman export
+- **Spool CSV export / import** — export all spool data as a semicolon-delimited CSV; re-import to update or restore spools; upserts by ID
 - **Spool weight history** — every weight change is logged with action type, before/after values, and linked print name; viewable per spool via the history icon
-- **Spoolman export** *(experimental)* — export spool inventory in [Spoolman](https://github.com/Donkie/Spoolman)-compatible format
-- **AMS spool auto-match** — per-tray sparkle button and "Auto-match" header button find the best inventory spool by material + color; tiebreakers: lowest remaining weight first, then oldest purchase date (FiFo); Dashboard warns when a loaded AMS filament has no matching spool in inventory
 
 ---
 
 ## Screenshots
 
-![Dashboard](filament_manager/docs/Dashboard.png)
+![Dashboard](filament_manager/docs/dashboard.png)
 
-![Spools](filament_manager/docs/spools.png)
+![Spools](filament_manager/docs/spools1.png)
 
-![Spool Tiles](filament_manager/docs/spoolstiles.png)
+![Spool Tiles](filament_manager/docs/spools2.png)
 
 ![Print History](filament_manager/docs/prints.png)
 
-![Settings](filament_manager/docs/settings.png)
+![Settings](filament_manager/docs/settings1.png)
+![Settings](filament_manager/docs/settings2.png)
+![Settings](filament_manager/docs/settings3.png)
+![Settings](filament_manager/docs/settings4.png)
+![Settings](filament_manager/docs/settings5.png)
 
 ---
 
