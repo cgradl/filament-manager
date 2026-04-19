@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.22.10
+
+- Settings → Filament Catalog: added "Export CSV" button; exports all catalog entries as a semicolon-delimited CSV with UTF-8 BOM (Excel compatible); header row included; import already skips the header row automatically
+
+## 0.22.9
+
+- Fixed: full JSON backup crashed for any installation with a printer configured — printer config export/import referenced removed fields (`device_slug`, `ams_device_slug`, `sensor_*`) from the pre-v0.20 greghesp integration; now exports only current fields (`name`, `bambu_serial`, `bambu_source`, `ams_unit_count`, `is_active`, `auto_deduct`) and deduplicates on import by `bambu_serial`
+
+## 0.22.8
+
+- Settings → Export / Import: reorganised into four sub-tabs — Filament Manager (full JSON backup/restore), Spools (CSV export/import), Bambu Cloud (import print history), Experimental (Spoolman export); each tab has a short description of its functionality
+
+## 0.22.7
+
+- Settings → Export / Import: added "Import Spools CSV" button; accepts the CSV format produced by the export; upserts by ID (updates existing spools, creates new ones for unrecognised IDs); shows created / updated / skipped counts
+
+## 0.22.6
+
+- Settings → Export / Import: added "Export Spools as CSV" button; downloads all spool fields including computed remaining % and price/kg
+
+## 0.22.5
+
+- Spools table: added Article Number column between Color and Remaining %
+
 ## 0.22.4
 
 - Global "actions at end" setting (Appearance tab) now applies to all tables and lists in the app: Spools table, Filament Catalog table, and all Settings→Data flex lists (Brand Weights, Brands, Materials, Subtypes, Purchase Locations, Storage Locations)

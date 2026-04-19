@@ -519,7 +519,7 @@ function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete }: {
 
 // ── Table View ────────────────────────────────────────────────────────────────
 
-type SortKey = 'custom_id' | 'brand' | 'material' | 'subtype' | 'color_name' | 'remaining_pct' |
+type SortKey = 'custom_id' | 'brand' | 'material' | 'subtype' | 'color_name' | 'article_number' | 'remaining_pct' |
                'current_weight_g' | 'initial_weight_g' | 'purchase_price' |
                'price_per_kg' | 'purchased_at' | 'purchase_location' | 'storage_location' | 'ams_slot'
 type SortDir = 'asc' | 'desc'
@@ -626,8 +626,9 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete }: {
     { key: 'brand',            label: t('spools.table.brand'),        width: 'w-24' },
     { key: 'material',         label: t('spools.table.material'),     width: 'w-20' },
     { key: 'subtype',          label: t('spools.table.subtype'),      width: 'w-24' },
-    { key: 'color_name',       label: t('spools.table.color'),        width: 'w-32' },
-    { key: 'remaining_pct',    label: t('spools.table.remaining'),    width: 'w-28' },
+    { key: 'color_name',       label: t('spools.table.color'),         width: 'w-32' },
+    { key: 'article_number',   label: t('spools.table.articleNumber'), width: 'w-28' },
+    { key: 'remaining_pct',    label: t('spools.table.remaining'),     width: 'w-28' },
     { key: 'current_weight_g', label: t('spools.table.currentWeight'),width: 'w-24' },
     { key: 'initial_weight_g', label: t('spools.table.initialWeight'),width: 'w-20' },
     { key: 'purchase_price',   label: t('spools.table.price'),        width: 'w-20' },
@@ -718,6 +719,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete }: {
                     {s.color_name}
                   </span>
                 </td>
+                <td className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono">{s.article_number ?? '—'}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <div className="w-16 h-1.5 rounded-full bg-surface-3 overflow-hidden">

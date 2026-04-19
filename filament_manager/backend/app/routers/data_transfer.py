@@ -9,11 +9,13 @@ On import, existing records are never deleted — data is merged additively.
 Spool IDs in print_usages are remapped from the source database to the target database.
 """
 
+import csv
+import io
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -118,23 +120,11 @@ def export_data(db: Session = Depends(get_db)):
         "printer_configs": [
             {
                 "name": p.name,
-                "device_slug": p.device_slug,
-                "ams_device_slug": p.ams_device_slug,
+                "bambu_serial": p.bambu_serial,
+                "bambu_source": p.bambu_source,
                 "ams_unit_count": p.ams_unit_count,
                 "is_active": p.is_active,
                 "auto_deduct": p.auto_deduct,
-                "bambu_serial": p.bambu_serial,
-                "bambu_source": p.bambu_source,
-                "sensor_print_stage":    p.sensor_print_stage,
-                "sensor_print_progress": p.sensor_print_progress,
-                "sensor_remaining_time": p.sensor_remaining_time,
-                "sensor_nozzle_temp":    p.sensor_nozzle_temp,
-                "sensor_bed_temp":       p.sensor_bed_temp,
-                "sensor_current_file":   p.sensor_current_file,
-                "sensor_print_weight":   p.sensor_print_weight,
-                "sensor_active_tray":    p.sensor_active_tray,
-                "sensor_ams_active":     p.sensor_ams_active,
-                "ams_tray_pattern":      p.ams_tray_pattern,
             }
             for p in printers
         ],
@@ -163,6 +153,55 @@ def export_data(db: Session = Depends(get_db)):
     return JSONResponse(
         content=bundle,
         headers={"Content-Disposition": 'attachment; filename="filament_manager_export.json"'},
+    )
+
+
+# ── Spool CSV export ──────────────────────────────────────────────────────────
+
+CSV_COLUMNS = [
+    "id", "custom_id", "brand", "material", "subtype", "subtype2",
+    "color_name", "color_hex", "diameter_mm",
+    "initial_weight_g", "current_weight_g", "spool_weight_g", "remaining_pct",
+    "purchase_price", "price_per_kg",
+    "purchased_at", "purchase_location", "storage_location",
+    "article_number", "ams_slot", "notes",
+]
+
+@router.get("/export-spools-csv")
+def export_spools_csv(db: Session = Depends(get_db)):
+    spools = db.query(Spool).order_by(Spool.brand, Spool.material, Spool.color_name).all()
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=CSV_COLUMNS, lineterminator="\r\n")
+    writer.writeheader()
+    for s in spools:
+        writer.writerow({
+            "id":               s.id,
+            "custom_id":        s.custom_id or "",
+            "brand":            s.brand,
+            "material":         s.material,
+            "subtype":          s.subtype or "",
+            "subtype2":         s.subtype2 or "",
+            "color_name":       s.color_name,
+            "color_hex":        s.color_hex,
+            "diameter_mm":      s.diameter_mm or "",
+            "initial_weight_g": s.initial_weight_g,
+            "current_weight_g": s.current_weight_g,
+            "spool_weight_g":   s.spool_weight_g or "",
+            "remaining_pct":    s.remaining_pct,
+            "purchase_price":   s.purchase_price or "",
+            "price_per_kg":     s.price_per_kg or "",
+            "purchased_at":     _dt(s.purchased_at) or "",
+            "purchase_location": s.purchase_location or "",
+            "storage_location": s.storage_location or "",
+            "article_number":   s.article_number or "",
+            "ams_slot":         s.ams_slot or "",
+            "notes":            s.notes or "",
+        })
+    filename = f"spools_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -283,6 +322,81 @@ def export_spoolman(db: Session = Depends(get_db)):
     )
 
 
+# ── Spool CSV import ──────────────────────────────────────────────────────────
+
+def _parse_float(v: str) -> float | None:
+    try:
+        return float(v) if v.strip() else None
+    except ValueError:
+        return None
+
+def _parse_date(v: str):
+    from datetime import date
+    try:
+        return date.fromisoformat(v.strip()[:10]) if v.strip() else None
+    except ValueError:
+        return None
+
+@router.post("/import-spools-csv")
+async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    content = await file.read()
+    text = content.decode("utf-8-sig")  # strips BOM if present
+    reader = csv.DictReader(io.StringIO(text))
+
+    # Columns we write back (skip computed remaining_pct, price_per_kg)
+    WRITABLE = {
+        "custom_id", "brand", "material", "subtype", "subtype2",
+        "color_name", "color_hex", "diameter_mm",
+        "initial_weight_g", "current_weight_g", "spool_weight_g",
+        "purchase_price", "purchased_at", "purchase_location",
+        "storage_location", "article_number", "ams_slot", "notes",
+    }
+    FLOAT_COLS = {"diameter_mm", "initial_weight_g", "current_weight_g", "spool_weight_g", "purchase_price"}
+    INT_COLS: set[str] = set()
+
+    created = updated = skipped = 0
+
+    for row in reader:
+        brand = (row.get("brand") or "").strip()
+        material = (row.get("material") or "").strip()
+        color_name = (row.get("color_name") or "").strip()
+        color_hex = (row.get("color_hex") or "").strip()
+        if not brand or not material or not color_name or not color_hex:
+            skipped += 1
+            continue
+
+        # Build field dict
+        fields: dict = {}
+        for col in WRITABLE:
+            raw = (row.get(col) or "").strip()
+            if col in FLOAT_COLS:
+                fields[col] = _parse_float(raw)
+            elif col == "purchased_at":
+                fields[col] = _parse_date(raw)
+            else:
+                fields[col] = raw or None
+
+        # Upsert: update if id matches an existing spool, else create
+        raw_id = (row.get("id") or "").strip()
+        existing = None
+        if raw_id:
+            try:
+                existing = db.get(Spool, int(raw_id))
+            except (ValueError, TypeError):
+                pass
+
+        if existing:
+            for k, v in fields.items():
+                setattr(existing, k, v)
+            updated += 1
+        else:
+            db.add(Spool(**fields))
+            created += 1
+
+    db.commit()
+    return {"created": created, "updated": updated, "skipped": skipped}
+
+
 # ── import ────────────────────────────────────────────────────────────────────
 
 class ImportBundle(BaseModel):
@@ -382,31 +496,23 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
 
     db.flush()
 
-    # ── printer configs (skip if same device_slug already exists) ─────────────
-    existing_slugs = {r.device_slug for r in db.query(PrinterConfig).all()}
+    # ── printer configs (skip if same bambu_serial already exists) ───────────
+    existing_serials = {r.bambu_serial for r in db.query(PrinterConfig).all() if r.bambu_serial}
     for p in bundle.printer_configs:
-        if p.get("device_slug") and p["device_slug"] not in existing_slugs:
-            db.add(PrinterConfig(
-                name=p.get("name", p["device_slug"]),
-                device_slug=p["device_slug"],
-                ams_device_slug=p.get("ams_device_slug"),
-                ams_unit_count=p.get("ams_unit_count", 1),
-                is_active=p.get("is_active", True),
-                auto_deduct=p.get("auto_deduct", False),
-                bambu_serial=p.get("bambu_serial"),
-                bambu_source=p.get("bambu_source", "ha"),
-                sensor_print_stage=p.get("sensor_print_stage"),
-                sensor_print_progress=p.get("sensor_print_progress"),
-                sensor_remaining_time=p.get("sensor_remaining_time"),
-                sensor_nozzle_temp=p.get("sensor_nozzle_temp"),
-                sensor_bed_temp=p.get("sensor_bed_temp"),
-                sensor_current_file=p.get("sensor_current_file"),
-                sensor_print_weight=p.get("sensor_print_weight"),
-                sensor_active_tray=p.get("sensor_active_tray"),
-                sensor_ams_active=p.get("sensor_ams_active"),
-                ams_tray_pattern=p.get("ams_tray_pattern"),
-            ))
-            stats["printer_configs"] += 1
+        serial = p.get("bambu_serial")
+        if serial and serial in existing_serials:
+            continue
+        db.add(PrinterConfig(
+            name=p.get("name", serial or "Imported printer"),
+            bambu_serial=serial,
+            bambu_source=p.get("bambu_source", "cloud"),
+            ams_unit_count=p.get("ams_unit_count", 1),
+            is_active=p.get("is_active", True),
+            auto_deduct=p.get("auto_deduct", False),
+        ))
+        if serial:
+            existing_serials.add(serial)
+        stats["printer_configs"] += 1
 
     db.flush()
 

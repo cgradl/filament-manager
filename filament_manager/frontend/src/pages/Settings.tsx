@@ -853,11 +853,16 @@ function DataTransferSection() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
+  const csvSpoolsRef = useRef<HTMLInputElement>(null)
   const [exporting, setExporting] = useState(false)
+  const [exportingSpoolsCsv, setExportingSpoolsCsv] = useState(false)
   const [exportingSpoolman, setExportingSpoolman] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<Record<string, number> | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  const [importingSpoolsCsv, setImportingSpoolsCsv] = useState(false)
+  const [importSpoolsCsvResult, setImportSpoolsCsvResult] = useState<{ created: number; updated: number; skipped: number } | null>(null)
+  const [importSpoolsCsvError, setImportSpoolsCsvError] = useState<string | null>(null)
   const [importingCloud, setImportingCloud] = useState(false)
   const [cloudImportResult, setCloudImportResult] = useState<{ imported: number; skipped: number; total: number } | null>(null)
   const [cloudImportError, setCloudImportError] = useState<string | null>(null)
@@ -882,6 +887,41 @@ function DataTransferSection() {
       alert('Export failed: ' + (e instanceof Error ? e.message : String(e)))
     } finally {
       setExporting(false)
+    }
+  }
+
+  const handleExportSpoolsCsv = async () => {
+    setExportingSpoolsCsv(true)
+    try {
+      const blob = await api.exportSpoolsCsv()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `spools_${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e: unknown) {
+      alert('Export failed: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setExportingSpoolsCsv(false)
+    }
+  }
+
+  const handleImportSpoolsCsv = async (e: { target: HTMLInputElement }) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportingSpoolsCsv(true)
+    setImportSpoolsCsvResult(null)
+    setImportSpoolsCsvError(null)
+    try {
+      const result = await api.importSpoolsCsv(file)
+      setImportSpoolsCsvResult(result)
+      qc.invalidateQueries({ queryKey: ['spools'] })
+    } catch (err: unknown) {
+      setImportSpoolsCsvError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setImportingSpoolsCsv(false)
+      if (csvSpoolsRef.current) csvSpoolsRef.current.value = ''
     }
   }
 
@@ -939,80 +979,155 @@ function DataTransferSection() {
     }
   }
 
+  const [transferTab, setTransferTab] = useState<'fm' | 'spools' | 'bambu' | 'experimental'>('fm')
+
+  const TRANSFER_TABS = [
+    { id: 'fm'           as const, label: t('settings.dataTransfer.tabs.fm') },
+    { id: 'spools'       as const, label: t('settings.dataTransfer.tabs.spools') },
+    { id: 'bambu'        as const, label: t('settings.dataTransfer.tabs.bambu') },
+    { id: 'experimental' as const, label: t('settings.dataTransfer.tabs.experimental') },
+  ]
+
   return (
     <div className="card">
-      <h3 className="text-sm font-semibold text-gray-300 mb-1">{t('settings.dataTransfer.title')}</h3>
-      <p className="text-xs text-gray-500 mb-4">{t('settings.dataTransfer.exportHint')}</p>
+      <h3 className="text-sm font-semibold text-gray-300 mb-3">{t('settings.dataTransfer.title')}</h3>
 
-      <div className="flex flex-wrap gap-3 mb-4">
-        <button onClick={handleExport} disabled={exporting} className="btn-primary flex items-center gap-2">
-          <Download size={14} />
-          {exporting ? t('settings.dataTransfer.exporting') : t('settings.dataTransfer.exportBtn')}
-        </button>
-
-        <button onClick={handleExportSpoolman} disabled={exportingSpoolman} className="btn-ghost flex items-center gap-2">
-          <Download size={14} />
-          {exportingSpoolman ? t('settings.dataTransfer.exporting') : t('settings.dataTransfer.exportSpoolmanBtn')}
-          <span className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-900/60 text-yellow-400 border border-yellow-700">
-            {t('settings.dataTransfer.experimental')}
-          </span>
-        </button>
-
-        <label className={`btn-ghost flex items-center gap-2 cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
-          <Upload size={14} />
-          {importing ? t('settings.dataTransfer.importing') : t('settings.dataTransfer.importBtn')}
-          <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} disabled={importing} />
-        </label>
-
-        <button
-          onClick={handleCloudImport}
-          disabled={importingCloud || !cloudConnected}
-          title={!cloudConnected ? 'Connect to Bambu Cloud first (Settings → Bambu Cloud)' : undefined}
-          className="btn-ghost flex items-center gap-2 disabled:opacity-40"
-        >
-          <Download size={14} />
-          {importingCloud ? t('settings.dataTransfer.importingCloud') : t('settings.dataTransfer.importCloudBtn')}
-        </button>
+      {/* Sub-tab bar */}
+      <div className="flex border-b border-surface-3 gap-0 mb-5">
+        {TRANSFER_TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setTransferTab(tab.id)}
+            className={`pb-2 pt-0.5 px-3 text-xs font-medium border-b-2 transition-colors -mb-px ${
+              transferTab === tab.id
+                ? 'border-blue-500 text-white'
+                : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {cloudImportResult && (
-        <div className="rounded-lg bg-green-900/30 border border-green-700 p-3 text-sm text-green-300 mb-3">
-          <CheckCircle size={14} className="inline mr-1.5 mb-0.5" />
-          {t('settings.dataTransfer.importCloudResult', cloudImportResult)}
-        </div>
-      )}
-
-      {cloudImportError && (
-        <div className="rounded-lg bg-red-900/30 border border-red-700 p-3 text-sm text-red-300 flex items-start gap-2 mb-3">
-          <AlertCircle size={14} className="mt-0.5 shrink-0" />
-          <span>{t('settings.dataTransfer.importCloudError', { error: cloudImportError })}</span>
-        </div>
-      )}
-
-      {importResult && (
-        <div className="rounded-lg bg-green-900/30 border border-green-700 p-4 text-sm text-green-300 mb-3">
-          <div className="flex items-center gap-2 font-medium mb-2">
-            <CheckCircle size={16} /> {t('settings.dataTransfer.importSuccessTitle')}
+      {/* ── Tab: Filament Manager ── */}
+      {transferTab === 'fm' && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-400">{t('settings.dataTransfer.fmDesc')}</p>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={handleExport} disabled={exporting} className="btn-primary flex items-center gap-2">
+              <Download size={14} />
+              {exporting ? t('settings.dataTransfer.exporting') : t('settings.dataTransfer.exportBtn')}
+            </button>
+            <label className={`btn-ghost flex items-center gap-2 cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+              <Upload size={14} />
+              {importing ? t('settings.dataTransfer.importing') : t('settings.dataTransfer.importBtn')}
+              <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} disabled={importing} />
+            </label>
           </div>
-          <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-green-400">
-            {Object.entries(importResult).map(([key, count]) => (
-              <li key={key} className="flex justify-between">
-                <span className="capitalize">{key.replace(/_/g, ' ')}</span>
-                <span className="font-medium">{count}</span>
-              </li>
-            ))}
-          </ul>
+          {importResult && (
+            <div className="rounded-lg bg-green-900/30 border border-green-700 p-4 text-sm text-green-300">
+              <div className="flex items-center gap-2 font-medium mb-2">
+                <CheckCircle size={16} /> {t('settings.dataTransfer.importSuccessTitle')}
+              </div>
+              <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-green-400">
+                {Object.entries(importResult).map(([key, count]) => (
+                  <li key={key} className="flex justify-between">
+                    <span className="capitalize">{key.replace(/_/g, ' ')}</span>
+                    <span className="font-medium">{count}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {importError && (
+            <div className="rounded-lg bg-red-900/30 border border-red-700 p-4 text-sm text-red-300 flex items-start gap-2">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <span>{importError}</span>
+            </div>
+          )}
+          <p className="text-xs text-gray-500">{t('settings.dataTransfer.importNote')}</p>
         </div>
       )}
 
-      {importError && (
-        <div className="rounded-lg bg-red-900/30 border border-red-700 p-4 text-sm text-red-300 flex items-start gap-2 mb-3">
-          <AlertCircle size={16} className="mt-0.5 shrink-0" />
-          <span>{importError}</span>
+      {/* ── Tab: Spools CSV ── */}
+      {transferTab === 'spools' && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-400">{t('settings.dataTransfer.spoolsDesc')}</p>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={handleExportSpoolsCsv} disabled={exportingSpoolsCsv} className="btn-primary flex items-center gap-2">
+              <Download size={14} />
+              {exportingSpoolsCsv ? t('settings.dataTransfer.exporting') : t('settings.dataTransfer.exportSpoolsCsvBtn')}
+            </button>
+            <label className={`btn-ghost flex items-center gap-2 cursor-pointer ${importingSpoolsCsv ? 'opacity-50 pointer-events-none' : ''}`}>
+              <Upload size={14} />
+              {importingSpoolsCsv ? t('settings.dataTransfer.importing') : t('settings.dataTransfer.importSpoolsCsvBtn')}
+              <input ref={csvSpoolsRef} type="file" accept=".csv" className="hidden" onChange={handleImportSpoolsCsv} disabled={importingSpoolsCsv} />
+            </label>
+          </div>
+          {importSpoolsCsvResult && (
+            <div className="rounded-lg bg-green-900/30 border border-green-700 p-3 text-sm text-green-300 flex items-center justify-between">
+              <span>{t('settings.dataTransfer.importSpoolsCsvResult', { created: importSpoolsCsvResult.created, updated: importSpoolsCsvResult.updated, skipped: importSpoolsCsvResult.skipped })}</span>
+              <button className="ml-4 text-green-400 hover:text-white" onClick={() => setImportSpoolsCsvResult(null)}>✕</button>
+            </div>
+          )}
+          {importSpoolsCsvError && (
+            <div className="rounded-lg bg-red-900/30 border border-red-700 p-3 text-sm text-red-300 flex items-start gap-2">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <span>{importSpoolsCsvError}</span>
+            </div>
+          )}
         </div>
       )}
 
-      <p className="text-xs text-gray-500">{t('settings.dataTransfer.importNote')}</p>
+      {/* ── Tab: Bambu Cloud ── */}
+      {transferTab === 'bambu' && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-400">{t('settings.dataTransfer.bambuDesc')}</p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleCloudImport}
+              disabled={importingCloud || !cloudConnected}
+              title={!cloudConnected ? t('settings.dataTransfer.bambuNotConnected') : undefined}
+              className="btn-primary flex items-center gap-2 disabled:opacity-40"
+            >
+              <Download size={14} />
+              {importingCloud ? t('settings.dataTransfer.importingCloud') : t('settings.dataTransfer.importCloudBtn')}
+            </button>
+          </div>
+          {!cloudConnected && (
+            <p className="text-xs text-yellow-500">{t('settings.dataTransfer.bambuNotConnected')}</p>
+          )}
+          {cloudImportResult && (
+            <div className="rounded-lg bg-green-900/30 border border-green-700 p-3 text-sm text-green-300">
+              <CheckCircle size={14} className="inline mr-1.5 mb-0.5" />
+              {t('settings.dataTransfer.importCloudResult', cloudImportResult)}
+            </div>
+          )}
+          {cloudImportError && (
+            <div className="rounded-lg bg-red-900/30 border border-red-700 p-3 text-sm text-red-300 flex items-start gap-2">
+              <AlertCircle size={14} className="mt-0.5 shrink-0" />
+              <span>{t('settings.dataTransfer.importCloudError', { error: cloudImportError })}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Experimental ── */}
+      {transferTab === 'experimental' && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-400">{t('settings.dataTransfer.experimentalDesc')}</p>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={handleExportSpoolman} disabled={exportingSpoolman} className="btn-ghost flex items-center gap-2">
+              <Download size={14} />
+              {exportingSpoolman ? t('settings.dataTransfer.exporting') : t('settings.dataTransfer.exportSpoolmanBtn')}
+              <span className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-900/60 text-yellow-400 border border-yellow-700">
+                {t('settings.dataTransfer.experimental')}
+              </span>
+            </button>
+          </div>
+          <p className="text-xs text-gray-500">{t('settings.dataTransfer.exportSpoolmanHint')}</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -1144,6 +1259,28 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
     onSuccess: (result) => { inv(); setImportResult(result) },
   })
 
+  const handleExportCatalogCsv = () => {
+    const header = ['Brand', 'Material', 'Subtype', 'Subtype 2', 'Color name', 'Article number', 'Hex-Code']
+    const q = (v: string) => `"${v.replace(/"/g, '""')}"`
+    const body = catalog.map(e => [
+      q(e.brand),
+      q(e.material),
+      q(e.subtype ?? ''),
+      q(e.subtype2 ?? ''),
+      q(e.color_name),
+      q(e.article_number ?? ''),
+      q(e.color_hex),
+    ].join(';'))
+    const csv = '\uFEFF' + [header.join(';'), ...body].join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `filament_catalog_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const handleCsvFile = (file: File) => {
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -1156,8 +1293,11 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
       // Strip surrounding quotes — handles Excel-quoted cells
       const unquote = (s: string) => s.trim().replace(/^["']|["']$/g, '')
       // Fixed column order: Brand;Material;Subtype;Subtype 2;Color name;Article number;Hex-Code
-      // No header row is required — all lines are treated as data.
-      const rows = lines.map(line => {
+      // Skip header row if first cell is "brand" (exported files include a header)
+      const dataLines = unquote(lines[0].split(delim)[0]).toLowerCase() === 'brand'
+        ? lines.slice(1)
+        : lines
+      const rows = dataLines.map(line => {
         const c = line.split(delim).map(unquote)
         return {
           brand:          c[0] ?? '',
@@ -1219,6 +1359,13 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
             className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) { handleCsvFile(f); e.target.value = '' } }}
           />
+          <button
+            className="btn-ghost text-xs px-2 py-1 flex items-center gap-1"
+            onClick={handleExportCatalogCsv}
+            disabled={catalog.length === 0}
+          >
+            <Download size={12} /> {t('settings.filamentCatalog.exportCsv')}
+          </button>
           <button
             className="btn-ghost text-xs px-2 py-1 flex items-center gap-1"
             onClick={() => { setImportResult(null); csvInputRef.current?.click() }}

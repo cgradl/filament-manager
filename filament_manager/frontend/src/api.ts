@@ -191,6 +191,12 @@ export const api = {
 
   // Data transfer
   exportData: () => fetch(`${BASE}/data/export`).then(r => r.blob()),
+  exportSpoolsCsv: () => fetch(`${BASE}/data/export-spools-csv`).then(r => r.blob()),
+  importSpoolsCsv: (file: File) => {
+    const fd = new FormData(); fd.append('file', file)
+    return fetch(`${BASE}/data/import-spools-csv`, { method: 'POST', body: fd })
+      .then(r => r.ok ? r.json() : r.json().then((e: { detail: string }) => { throw new Error(e.detail) }))
+  },
   exportSpoolman: () => fetch(`${BASE}/data/export-spoolman`).then(r => r.blob()),
   importData: (bundle: unknown) =>
     request<{ ok: boolean; imported: Record<string, number> }>('data/import', {
