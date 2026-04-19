@@ -612,7 +612,7 @@ function PrinterCard({ printer, onEdit, onDelete }: {
 
 // ── Brand Spool Weights ───────────────────────────────────────────────────────
 
-function BrandWeightsSection() {
+function BrandWeightsSection({ actionsLast }: { actionsLast: boolean }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [newBrand, setNewBrand] = useState('')
@@ -707,10 +707,20 @@ function BrandWeightsSection() {
               </>
             ) : (
               <>
+                {!actionsLast && (
+                  <>
+                    <button className="btn-ghost p-1" onClick={() => startEdit(e)}><Pencil size={12} /></button>
+                    <button className="btn-ghost p-1 text-red-400" onClick={() => deleteMut.mutate(e.id)}><Trash2 size={12} /></button>
+                  </>
+                )}
                 <span className="flex-1 text-sm text-white">{e.brand}</span>
                 <span className="text-sm text-gray-300 tabular-nums">{e.spool_weight_g.toFixed(0)} g</span>
-                <button className="btn-ghost p-1" onClick={() => startEdit(e)}><Pencil size={12} /></button>
-                <button className="btn-ghost p-1 text-red-400" onClick={() => deleteMut.mutate(e.id)}><Trash2 size={12} /></button>
+                {actionsLast && (
+                  <>
+                    <button className="btn-ghost p-1" onClick={() => startEdit(e)}><Pencil size={12} /></button>
+                    <button className="btn-ghost p-1 text-red-400" onClick={() => deleteMut.mutate(e.id)}><Trash2 size={12} /></button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -732,6 +742,7 @@ function NameListSection({
   deleteFn,
   placeholder,
   noEntries,
+  actionsLast,
 }: {
   title: string
   hint?: string
@@ -742,6 +753,7 @@ function NameListSection({
   deleteFn: (id: number) => Promise<void>
   placeholder: string
   noEntries: string
+  actionsLast: boolean
 }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -813,9 +825,19 @@ function NameListSection({
               </>
             ) : (
               <>
+                {!actionsLast && (
+                  <>
+                    <button className="btn-ghost p-1" onClick={() => { setEditingId(e.id); setEditName(e.name) }}><Pencil size={12} /></button>
+                    <button className="btn-ghost p-1 text-red-400" onClick={() => deleteMut.mutate(e.id)}><Trash2 size={12} /></button>
+                  </>
+                )}
                 <span className="flex-1 text-sm text-white">{e.name}</span>
-                <button className="btn-ghost p-1" onClick={() => { setEditingId(e.id); setEditName(e.name) }}><Pencil size={12} /></button>
-                <button className="btn-ghost p-1 text-red-400" onClick={() => deleteMut.mutate(e.id)}><Trash2 size={12} /></button>
+                {actionsLast && (
+                  <>
+                    <button className="btn-ghost p-1" onClick={() => { setEditingId(e.id); setEditName(e.name) }}><Pencil size={12} /></button>
+                    <button className="btn-ghost p-1 text-red-400" onClick={() => deleteMut.mutate(e.id)}><Trash2 size={12} /></button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -1015,7 +1037,7 @@ function CatalogSortIcon({ col, sort }: { col: CatalogSortKey; sort: { key: Cata
 }
 
 // Module-level component — NOT defined inside FilamentDataSection to avoid remount on every render
-function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands, materials, subtypes }: {
+function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands, materials, subtypes, actionsLast }: {
   entry: FilamentCatalog
   editForm: CatalogEntry
   setEditForm: (f: CatalogEntry) => void
@@ -1024,18 +1046,22 @@ function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands
   brands: FilamentSubtype[]
   materials: FilamentSubtype[]
   subtypes: FilamentSubtype[]
+  actionsLast: boolean
 }) {
   const { t } = useTranslation()
   const set = (k: keyof CatalogEntry, v: string) => setEditForm({ ...editForm, [k]: v })
   const canSave = editForm.brand.trim() && editForm.material.trim() && editForm.color_name.trim()
+  const actionCell = (
+    <td className="px-2 py-1">
+      <div className="flex gap-1">
+        <button className="btn-primary text-xs px-2 py-0.5" onClick={onSave} disabled={!canSave}>{t('common.save')}</button>
+        <button className="btn-ghost text-xs px-2 py-0.5" onClick={onCancel}>{t('common.cancel')}</button>
+      </div>
+    </td>
+  )
   return (
     <tr className="border-b border-surface-3 bg-surface-2">
-      <td className="px-2 py-1">
-        <div className="flex gap-1">
-          <button className="btn-primary text-xs px-2 py-0.5" onClick={onSave} disabled={!canSave}>{t('common.save')}</button>
-          <button className="btn-ghost text-xs px-2 py-0.5" onClick={onCancel}>{t('common.cancel')}</button>
-        </div>
-      </td>
+      {!actionsLast && actionCell}
       <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.brand} onChange={e => set('brand', e.target.value)}>
         <option value="">—</option>{brands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
       </select></td>
@@ -1056,11 +1082,12 @@ function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands
         </div>
       </td>
       <td className="px-2 py-1"><input className="input text-xs py-0.5 w-full" value={editForm.article_number ?? ''} onChange={e => set('article_number', e.target.value)} /></td>
+      {actionsLast && actionCell}
     </tr>
   )
 }
 
-function FilamentDataSection() {
+function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [showAdd, setShowAdd] = useState(false)
@@ -1281,7 +1308,7 @@ function FilamentDataSection() {
         <table className="w-full text-xs text-left" style={{ minWidth: '700px' }}>
           <thead>
             <tr className="border-b border-surface-3">
-              <th className="px-3 py-2 w-16" />
+              {!actionsLast && <th className="px-3 py-2 w-16" />}
               {([
                 ['brand',          t('settings.filamentCatalog.brand')],
                 ['material',       t('settings.filamentCatalog.material')],
@@ -1301,15 +1328,18 @@ function FilamentDataSection() {
                   </span>
                 </th>
               ))}
+              {actionsLast && <th className="px-3 py-2 w-16" />}
             </tr>
             <tr className="border-b border-surface-3 bg-surface-3/30">
-              <td className="px-2 py-1">
-                <button
-                  className="text-xs text-gray-500 hover:text-white"
-                  onClick={() => setFilters({})}
-                  title={t('common.clear')}
-                >✕</button>
-              </td>
+              {!actionsLast && (
+                <td className="px-2 py-1">
+                  <button
+                    className="text-xs text-gray-500 hover:text-white"
+                    onClick={() => setFilters({})}
+                    title={t('common.clear')}
+                  >✕</button>
+                </td>
+              )}
               {(['brand', 'material', 'subtype', 'subtype2', 'color_name', 'color_hex', 'article_number'] as CatalogSortKey[]).map(key => (
                 <td key={key} className="px-2 py-1">
                   <input
@@ -1320,6 +1350,15 @@ function FilamentDataSection() {
                   />
                 </td>
               ))}
+              {actionsLast && (
+                <td className="px-2 py-1">
+                  <button
+                    className="text-xs text-gray-500 hover:text-white"
+                    onClick={() => setFilters({})}
+                    title={t('common.clear')}
+                  >✕</button>
+                </td>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -1339,15 +1378,18 @@ function FilamentDataSection() {
                 brands={brands}
                 materials={materials}
                 subtypes={subtypes}
+                actionsLast={actionsLast}
               />
             ) : (
               <tr key={entry.id} className="border-b border-surface-3/50 hover:bg-surface-3/40 transition-colors">
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <div className="flex gap-1">
-                    <button className="btn-ghost p-1 text-gray-400 hover:text-white" onClick={() => startEdit(entry)}><Pencil size={12} /></button>
-                    <button className="btn-ghost p-1 text-red-400 hover:text-red-300" onClick={() => deleteMut.mutate(entry.id)}><Trash2 size={12} /></button>
-                  </div>
-                </td>
+                {!actionsLast && (
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="flex gap-1">
+                      <button className="btn-ghost p-1 text-gray-400 hover:text-white" onClick={() => startEdit(entry)}><Pencil size={12} /></button>
+                      <button className="btn-ghost p-1 text-red-400 hover:text-red-300" onClick={() => deleteMut.mutate(entry.id)}><Trash2 size={12} /></button>
+                    </div>
+                  </td>
+                )}
                 <td className="px-3 py-2 font-medium text-white whitespace-nowrap">{entry.brand}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{entry.material}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-gray-400">{entry.subtype ?? '—'}</td>
@@ -1360,6 +1402,14 @@ function FilamentDataSection() {
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap font-mono text-gray-400">{entry.color_hex}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-gray-400">{entry.article_number ?? '—'}</td>
+                {actionsLast && (
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="flex gap-1">
+                      <button className="btn-ghost p-1 text-gray-400 hover:text-white" onClick={() => startEdit(entry)}><Pencil size={12} /></button>
+                      <button className="btn-ghost p-1 text-red-400 hover:text-red-300" onClick={() => deleteMut.mutate(entry.id)}><Trash2 size={12} /></button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -1723,12 +1773,12 @@ export default function Settings() {
 
   const isFilamentData = mainTab === 'data' && dataTab === 'filamentData'
 
-  const [spoolsActionsLast, setSpoolsActionsLast] = useState(
-    () => localStorage.getItem('fm_spools_actions_last') === 'true'
+  const [actionsLast, setActionsLast] = useState(
+    () => localStorage.getItem('fm_actions_last') === 'true'
   )
-  const toggleSpoolsActionsLast = (val: boolean) => {
-    setSpoolsActionsLast(val)
-    localStorage.setItem('fm_spools_actions_last', String(val))
+  const toggleActionsLast = (val: boolean) => {
+    setActionsLast(val)
+    localStorage.setItem('fm_actions_last', String(val))
   }
 
   return (
@@ -1829,7 +1879,7 @@ export default function Settings() {
 
             {!isFilamentData && (
               <div className="mt-5">
-                {dataTab === 'brandWeights' && <BrandWeightsSection />}
+                {dataTab === 'brandWeights' && <BrandWeightsSection actionsLast={actionsLast} />}
                 {dataTab === 'brands' && (
                   <NameListSection
                     title={t('settings.brands.title')}
@@ -1840,6 +1890,7 @@ export default function Settings() {
                     deleteFn={api.deleteFilamentBrand}
                     placeholder={t('settings.brands.placeholder')}
                     noEntries={t('settings.brands.noEntries')}
+                    actionsLast={actionsLast}
                   />
                 )}
                 {dataTab === 'materials' && (
@@ -1852,6 +1903,7 @@ export default function Settings() {
                     deleteFn={api.deleteFilamentMaterial}
                     placeholder={t('settings.materials.placeholder')}
                     noEntries={t('settings.materials.noEntries')}
+                    actionsLast={actionsLast}
                   />
                 )}
                 {dataTab === 'subtypes' && (
@@ -1864,6 +1916,7 @@ export default function Settings() {
                     deleteFn={api.deleteFilamentSubtype}
                     placeholder={t('settings.subtypes.placeholder')}
                     noEntries={t('settings.subtypes.noEntries')}
+                    actionsLast={actionsLast}
                   />
                 )}
                 {dataTab === 'locations' && (
@@ -1876,6 +1929,7 @@ export default function Settings() {
                     deleteFn={api.deletePurchaseLocation}
                     placeholder={t('settings.purchaseLocations.placeholder')}
                     noEntries={t('settings.purchaseLocations.noEntries')}
+                    actionsLast={actionsLast}
                   />
                 )}
                 {dataTab === 'storageLocations' && (
@@ -1888,6 +1942,7 @@ export default function Settings() {
                     deleteFn={api.deleteStorageLocation}
                     placeholder={t('settings.storageLocations.placeholder')}
                     noEntries={t('settings.storageLocations.noEntries')}
+                    actionsLast={actionsLast}
                   />
                 )}
               </div>
@@ -1895,7 +1950,7 @@ export default function Settings() {
           </div>
 
           {/* Filament Data renders outside the card for full-width table */}
-          {isFilamentData && <FilamentDataSection />}
+          {isFilamentData && <FilamentDataSection actionsLast={actionsLast} />}
         </>
       )}
 
@@ -1908,15 +1963,15 @@ export default function Settings() {
           <h3 className="text-sm font-semibold text-gray-300">{t('settings.appearance.title')}</h3>
           <div className="flex items-start gap-3">
             <input
-              id="spools-actions-last"
+              id="actions-last"
               type="checkbox"
               className="mt-0.5 accent-blue-500"
-              checked={spoolsActionsLast}
-              onChange={e => toggleSpoolsActionsLast(e.target.checked)}
+              checked={actionsLast}
+              onChange={e => toggleActionsLast(e.target.checked)}
             />
-            <label htmlFor="spools-actions-last" className="cursor-pointer">
-              <p className="text-sm text-gray-200">{t('settings.appearance.spoolsActionsLast')}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{t('settings.appearance.spoolsActionsLastHint')}</p>
+            <label htmlFor="actions-last" className="cursor-pointer">
+              <p className="text-sm text-gray-200">{t('settings.appearance.actionsLast')}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{t('settings.appearance.actionsLastHint')}</p>
             </label>
           </div>
         </div>

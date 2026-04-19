@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.4
+
+- Global "actions at end" setting (Appearance tab) now applies to all tables and lists in the app: Spools table, Filament Catalog table, and all Settings→Data flex lists (Brand Weights, Brands, Materials, Subtypes, Purchase Locations, Storage Locations)
+- Renamed localStorage key from `fm_spools_actions_last` to `fm_actions_last`; existing preference is reset to default (actions at start)
+
 ## 0.22.3
 
 - Spool form: color hex field now validates for a valid `#rrggbb` format; red border + error message shown on invalid input; Save button disabled until corrected

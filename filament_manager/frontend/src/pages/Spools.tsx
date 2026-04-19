@@ -536,7 +536,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete }: {
 }) {
   const { t } = useTranslation()
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'ams_slot', dir: 'asc' })
-  const actionsLast = localStorage.getItem('fm_spools_actions_last') === 'true'
+  const actionsLast = localStorage.getItem('fm_actions_last') === 'true'
   const [filters, setFilters] = useState<Partial<Record<SortKey, string>>>({})
 
   const setFilter = (k: SortKey, v: string) =>

@@ -256,8 +256,8 @@
     },
     "appearance": {
       "title": "Visualización",
-      "spoolsActionsLast": "Tabla de bobinas: columna de acciones al final",
-      "spoolsActionsLastHint": "Mover los iconos de editar / duplicar / historial / eliminar a la última columna en lugar de la primera"
+      "actionsLast": "Tablas y listas: acciones al final",
+      "actionsLastHint": "Mover los iconos de editar / duplicar / historial / eliminar a la última columna / al final de la lista en lugar del inicio"
     },
     "dataTabs": {
       "brandWeights": "Pesos de Bobina",

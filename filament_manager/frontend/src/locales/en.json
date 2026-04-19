@@ -256,8 +256,8 @@
     },
     "appearance": {
       "title": "Display",
-      "spoolsActionsLast": "Spools table: actions column at end",
-      "spoolsActionsLastHint": "Move the edit / duplicate / history / delete icons to the last column instead of the first"
+      "actionsLast": "Tables and lists: actions at end",
+      "actionsLastHint": "Move the edit / duplicate / history / delete icons to the last column / end of list instead of the first"
     },
     "dataTabs": {
       "brandWeights": "Spool Weights",
