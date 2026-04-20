@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.2
+
+- Security: reconnect endpoint no longer exposes internal exception messages to the client (CWE-209); error is logged server-side only and a generic message is returned
+
 ## 0.23.1
 
 - Security: email addresses are now masked in all log output (e.g. `c*****n@example.com`) — fixes CodeQL CWE-532 clear-text logging of sensitive data

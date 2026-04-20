@@ -8,6 +8,7 @@ DELETE /api/bambu-cloud/logout        — disconnect + delete credentials
 GET  /api/bambu-cloud/devices         — list cloud-bound printers
 POST /api/bambu-cloud/import-prints   — import historical print jobs from cloud task API
 """
+import logging
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -16,6 +17,8 @@ from sqlalchemy.orm import Session
 
 from .. import bambu_cloud_client
 from ..database import get_db
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bambu-cloud", tags=["bambu-cloud"])
 
@@ -151,7 +154,8 @@ async def force_reconnect() -> dict:
         await bambu_cloud_client.reconnect()
         return {"ok": True}
     except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+        log.error("Bambu Cloud reconnect failed: %s", exc)
+        return {"ok": False, "error": "Reconnect failed — check server logs for details"}
 
 
 def _parse_task_time(value) -> datetime | None:
