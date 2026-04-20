@@ -32,6 +32,19 @@ from fastapi import HTTPException
 
 log = logging.getLogger(__name__)
 
+
+def _mask_email(email: str) -> str:
+    """Return a masked version of an email address for safe logging, e.g. c*****n@example.com."""
+    if not email or "@" not in email:
+        return "***"
+    local, domain = email.split("@", 1)
+    if len(local) <= 2:
+        masked = local[0] + "*"
+    else:
+        masked = local[0] + "*" * (len(local) - 2) + local[-1]
+    return f"{masked}@{domain}"
+
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 CRED_FILE = "/data/.bambu_cloud.json"
@@ -634,7 +647,7 @@ async def _reauthenticate() -> None:
     _status["status"] = "connected"
     _status["email"] = email
     _status["error"] = None
-    log.info("Bambu Cloud token refreshed for %s — restarting MQTT", email)
+    log.info("Bambu Cloud token refreshed for %s — restarting MQTT", _mask_email(email))
     await _connect_mqtt_for_cloud_printers(email, new_token)
     # Clear flag AFTER new clients are registered so the rc=5 handler on any
     # lingering old client cannot restart re-auth before the new client is in place.
@@ -756,7 +769,7 @@ async def startup() -> None:
         return
 
     if _is_token_valid(token):
-        log.info("Bambu Cloud: token still valid, reconnecting as %s", email)
+        log.info("Bambu Cloud: token still valid, reconnecting as %s", _mask_email(email))
         _status["status"] = "connected"
         _status["email"] = email
         _status["error"] = None
@@ -766,7 +779,7 @@ async def startup() -> None:
     else:
         # Token expired — attempt silent re-auth using saved password before starting MQTT.
         # This avoids the rc=5 → 2FA loop on every container restart with a stale token.
-        log.info("Bambu Cloud: saved token expired for %s — attempting re-auth", email)
+        log.info("Bambu Cloud: saved token expired for %s — attempting re-auth", _mask_email(email))
         _reauth_in_progress = True
         await _reauthenticate()
 
@@ -869,7 +882,7 @@ async def verify_2fa(code: str) -> None:
     await _connect_mqtt_for_cloud_printers(email, token)
     # Clear flag AFTER new clients are registered (same ordering as _reauthenticate)
     _reauth_in_progress = False
-    log.info("Bambu Cloud: login complete for %s (region=%s)", email, region)
+    log.info("Bambu Cloud: login complete for %s (region=%s)", _mask_email(email), region)
 
 
 async def logout() -> None:

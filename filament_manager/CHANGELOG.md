@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.1
+
+- Security: email addresses are now masked in all log output (e.g. `c*****n@example.com`) — fixes CodeQL CWE-532 clear-text logging of sensitive data
+
 ## 0.23.0
 
 - Settings → Appearance: new "Regional Settings" section — timezone, currency, and country can now be overridden independently of Home Assistant; overrides are stored in the database and take precedence over HA-derived values; leave blank to inherit from HA as before
