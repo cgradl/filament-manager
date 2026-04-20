@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import (
-    Spool, PrintJob, PrintUsage,
+    Spool, PrintJob, PrintUsage, Project,
     BrandSpoolWeight, FilamentMaterial, FilamentSubtype, FilamentBrand,
     PurchaseLocation, StorageLocation, PrinterConfig, FilamentCatalog, UserPreferences, MATERIAL_DENSITY,
 )
@@ -92,6 +92,7 @@ def _job_dict(j: PrintJob) -> dict:
         "error_code": j.error_code,
         "print_weight_g": j.print_weight_g,
         "suggested_usages": j.suggested_usages,
+        "fm_project_id": j.fm_project_id,
         "created_at": _dt(j.created_at),
         "usages": [_usage_dict(u) for u in j.usages],
     }
@@ -103,6 +104,7 @@ def _job_dict(j: PrintJob) -> dict:
 def export_data(db: Session = Depends(get_db)):
     spools          = db.query(Spool).order_by(Spool.id).all()
     jobs            = db.query(PrintJob).order_by(PrintJob.id).all()
+    projects        = db.query(Project).order_by(Project.id).all()
     printers        = db.query(PrinterConfig).order_by(PrinterConfig.id).all()
     bw              = db.query(BrandSpoolWeight).order_by(BrandSpoolWeight.brand).all()
     materials       = db.query(FilamentMaterial).order_by(FilamentMaterial.name).all()
@@ -117,6 +119,7 @@ def export_data(db: Session = Depends(get_db)):
         "version": EXPORT_VERSION,
         "exported_at": datetime.utcnow().isoformat(),
         "spools": [_spool_dict(s) for s in spools],
+        "projects": [{"id": p.id, "name": p.name, "description": p.description, "created_at": _dt(p.created_at)} for p in projects],
         "print_jobs": [_job_dict(j) for j in jobs],
         "printer_configs": [
             {
@@ -408,6 +411,7 @@ async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(
 class ImportBundle(BaseModel):
     version: int
     spools: list[dict[str, Any]] = []
+    projects: list[dict[str, Any]] = []
     print_jobs: list[dict[str, Any]] = []
     printer_configs: list[dict[str, Any]] = []
     settings: dict[str, Any] = {}
@@ -421,6 +425,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
 
     stats: dict[str, int] = {
         "spools": 0,
+        "projects": 0,
         "print_jobs": 0,
         "print_usages": 0,
         "printer_configs": 0,
@@ -568,6 +573,21 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             spool_id_map[old_id] = new_spool.id
         stats["spools"] += 1
 
+    # ── projects: import and build old_id → new_id map ───────────────────────
+    project_id_map: dict[int, int] = {}
+    for proj_data in bundle.projects:
+        old_id = proj_data.get("id")
+        new_proj = Project(
+            name=proj_data.get("name", "Imported project"),
+            description=proj_data.get("description"),
+            created_at=_parse_dt(proj_data.get("created_at")) or datetime.utcnow(),
+        )
+        db.add(new_proj)
+        db.flush()
+        if old_id is not None:
+            project_id_map[old_id] = new_proj.id
+        stats["projects"] += 1
+
     # ── print jobs + usages: remap spool IDs ──────────────────────────────────
     for job_data in bundle.print_jobs:
         job = PrintJob(
@@ -592,6 +612,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             error_code=job_data.get("error_code"),
             print_weight_g=job_data.get("print_weight_g"),
             suggested_usages=job_data.get("suggested_usages"),
+            fm_project_id=project_id_map.get(job_data["fm_project_id"]) if job_data.get("fm_project_id") else None,
             created_at=_parse_dt(job_data.get("created_at")) or datetime.utcnow(),
         )
         db.add(job)

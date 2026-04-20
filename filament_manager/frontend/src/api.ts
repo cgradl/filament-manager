@@ -15,7 +15,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 // ── Spools ───────────────────────────────────────────────────────────────────
-import type { Spool, PrintJob, PrinterConfig, PrinterStatus, DashboardStats, FilamentSubtype } from './types'
+import type { Spool, PrintJob, PrinterConfig, PrinterStatus, DashboardStats, FilamentSubtype, Project, ProjectDetail } from './types'
 
 export const api = {
   // Spools
@@ -33,6 +33,20 @@ export const api = {
     request<import('./types').SpoolAuditEntry>(`spools/${spoolId}/audit/${entryId}/correct`, { method: 'POST' }),
   getMaterials: () => request<string[]>('spools/materials/list'),
   getSubtypes: () => request<string[]>('spools/subtypes/list'),
+
+  // Projects
+  getProjects: () => request<Project[]>('projects'),
+  getProject: (id: number) => request<ProjectDetail>(`projects/${id}`),
+  createProject: (data: { name: string; description?: string | null }) =>
+    request<Project>('projects', { method: 'POST', body: JSON.stringify(data) }),
+  updateProject: (id: number, data: { name?: string; description?: string | null }) =>
+    request<Project>(`projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteProject: (id: number) =>
+    request<void>(`projects/${id}`, { method: 'DELETE' }),
+  assignPrintsToProject: (projectId: number, jobIds: number[]) =>
+    request<Project>(`projects/${projectId}/assign`, { method: 'POST', body: JSON.stringify({ job_ids: jobIds }) }),
+  unassignPrintsFromProject: (projectId: number, jobIds: number[]) =>
+    request<Project>(`projects/${projectId}/unassign`, { method: 'POST', body: JSON.stringify({ job_ids: jobIds }) }),
 
   // Prints
   getPrints: (limit = 50, offset = 0, search?: string, dateFrom?: string, dateTo?: string, tz?: string) => {

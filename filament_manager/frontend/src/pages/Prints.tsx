@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { PrintJob, Spool, AMSTray, PrinterConfig, SuggestedUsage, PrinterStatus } from '../types'
-import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search, CalendarDays } from 'lucide-react'
+import type { PrintJob, Spool, AMSTray, PrinterConfig, SuggestedUsage, PrinterStatus, Project } from '../types'
+import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search, CalendarDays, FolderOpen } from 'lucide-react'
 import Modal from '../components/Modal'
 import { useHATZ } from '../hooks/useHATZ'
 import { formatDateTimeTZ, nowInTZ, utcToLocalInput, localInputToUTC } from '../utils/time'
@@ -143,10 +143,16 @@ function PrintForm({
   const [deductWeight, setDeductWeight] = useState(true)
   // For existing jobs usages start read-only; new jobs go straight to edit mode
   const [usageEditMode, setUsageEditMode] = useState(!initial)
+  const [fmProjectId, setFmProjectId] = useState<number | ''>(initial?.fm_project_id ?? '')
 
   const { data: printers = [] } = useQuery<PrinterConfig[]>({
     queryKey: ['printers'],
     queryFn: api.getPrinters,
+  })
+
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ['projects'],
+    queryFn: api.getProjects,
   })
 
   useEffect(() => {
@@ -215,6 +221,7 @@ function PrintForm({
       success,
       notes: notes || null,
       printer_name: selectedPrinter?.name ?? null,
+      fm_project_id: fmProjectId || null,
     }
     // Only send usages when the user explicitly entered edit mode — otherwise the
     // backend would revert and re-apply existing usages unchanged, creating noisy
@@ -292,6 +299,22 @@ function PrintForm({
               )}
             </div>
           </div>
+
+          {projects.length > 0 && (
+            <div>
+              <label className="label flex items-center gap-1"><FolderOpen size={12} /> {t('prints.form.project')}</label>
+              <select
+                className="input"
+                value={fmProjectId}
+                onChange={e => setFmProjectId(e.target.value ? Number(e.target.value) : '')}
+              >
+                <option value="">{t('common.none')}</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="flex items-center gap-6">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -628,6 +651,11 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
             {job.source === 'auto' && (
               <span className="text-xs bg-blue-900 text-blue-300 px-1.5 py-0.5 rounded flex items-center gap-0.5 shrink-0">
                 <Zap size={9} /> auto
+              </span>
+            )}
+            {job.project_name && (
+              <span className="text-xs bg-surface-3 text-gray-300 px-1.5 py-0.5 rounded shrink-0">
+                {job.project_name}
               </span>
             )}
           </div>

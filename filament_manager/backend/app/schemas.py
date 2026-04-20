@@ -83,6 +83,38 @@ class PrintUsageOut(PrintUsageBase):
     spool: SpoolOut | None = None
 
 
+# ── Project ──────────────────────────────────────────────────────────────────
+
+class ProjectCreate(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class ProjectOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    description: str | None
+    print_count: int
+    total_duration_seconds: int
+    total_cost: float
+    total_grams: float
+    nozzle_diameters: list[str]
+    materials: list[str]
+    date_first: datetime | None
+    date_last: datetime | None
+    created_at: datetime
+
+
+class ProjectDetailOut(ProjectOut):
+    print_jobs: list['PrintJobOut'] = []
+
+
 # ── PrintJob ─────────────────────────────────────────────────────────────────
 
 class PrintJobBase(BaseModel):
@@ -100,6 +132,7 @@ class PrintJobBase(BaseModel):
 class PrintJobCreate(PrintJobBase):
     usages: list[PrintUsageCreate] = []
     deduct_weight: bool = True
+    fm_project_id: int | None = None
 
 
 class PrintJobUpdate(BaseModel):
@@ -114,6 +147,7 @@ class PrintJobUpdate(BaseModel):
     printer_name: str | None = None
     usages: list[PrintUsageCreate] | None = None
     deduct_weight: bool = True
+    fm_project_id: int | None = None
 
 
 class PrintJobOut(PrintJobBase):
@@ -126,6 +160,8 @@ class PrintJobOut(PrintJobBase):
     duration_hours: float | None
     usages: list[PrintUsageOut] = []
     created_at: datetime
+    fm_project_id: int | None = None
+    project_name: str | None = None
 
     # Bambu Cloud / MQTT enrichment fields (None for manual/HA-tracked jobs)
     task_id: str | None = None

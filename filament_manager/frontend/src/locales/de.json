@@ -3,6 +3,7 @@
     "dashboard": "Übersicht",
     "spools": "Spulen",
     "prints": "Drucke",
+    "projects": "Projekte",
     "settings": "Einstellungen",
     "appName": "Filament Manager",
     "appSub": "3D-Druck Tracker"
@@ -190,6 +191,7 @@
       "duration": "Dauer (Stunden)",
       "printer": "Drucker",
       "printSucceeded": "Druck erfolgreich",
+      "project": "Projekt",
       "deductFromSpool": "Von Spule abziehen",
       "filamentUsed": "Verwendetes Filament",
       "loadFromAMS": "Aus AMS laden",
@@ -448,5 +450,27 @@
       "importCloudResult": "{{imported}} von {{total}} Cloud-Drucken importiert ({{skipped}} bereits vorhanden).",
       "importCloudError": "Cloud-Import fehlgeschlagen: {{error}}"
     }
+  },
+  "projects": {
+    "title": "Projekte",
+    "subtitle": "Druckjobs in Projekten für Kosten- und Materialauswertung gruppieren",
+    "new": "Neues Projekt",
+    "newTitle": "Projekt erstellen",
+    "editTitle": "Projekt bearbeiten",
+    "deleteTitle": "Projekt löschen",
+    "name": "Projektname",
+    "namePlaceholder": "z.B. Gehäuse-Bau",
+    "description": "Beschreibung",
+    "descriptionPlaceholder": "Optionale Notizen zu diesem Projekt",
+    "prints": "Drucke",
+    "noPrints": "Noch keine Drucke zugewiesen. Auf das Ebenen-Symbol klicken, um Drucke zuzuweisen.",
+    "empty": "Noch keine Projekte vorhanden.",
+    "createFirst": "Erstes Projekt erstellen",
+    "deleteConfirm": "Projekt \"{{name}}\" löschen?",
+    "deleteNote": "Das Projekt wird gelöscht. Zugehörige Drucke bleiben erhalten, sind aber keinem Projekt mehr zugeordnet.",
+    "managePrints": "Drucke verwalten",
+    "assignPrints": "Drucke zuweisen — {{name}}",
+    "assignHint": "Drucke auswählen, die zu diesem Projekt gehören sollen. Es werden nur nicht zugewiesene Drucke und bereits in diesem Projekt enthaltene Drucke angezeigt.",
+    "selected": "ausgewählt"
   }
 }

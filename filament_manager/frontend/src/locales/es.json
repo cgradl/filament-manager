@@ -3,6 +3,7 @@
     "dashboard": "Panel",
     "spools": "Bobinas",
     "prints": "Impresiones",
+    "projects": "Proyectos",
     "settings": "Ajustes",
     "appName": "Filament Manager",
     "appSub": "Rastreador de impresión 3D"
@@ -190,6 +191,7 @@
       "duration": "Duración (horas)",
       "printer": "Impresora",
       "printSucceeded": "Impresión exitosa",
+      "project": "Proyecto",
       "deductFromSpool": "Descontar de bobina",
       "filamentUsed": "Filamento utilizado",
       "loadFromAMS": "Cargar desde AMS",
@@ -448,5 +450,27 @@
       "importCloudResult": "{{imported}} de {{total}} trabajos importados ({{skipped}} ya existían).",
       "importCloudError": "Error al importar desde la nube: {{error}}"
     }
+  },
+  "projects": {
+    "title": "Proyectos",
+    "subtitle": "Agrupa trabajos de impresión en proyectos para rastrear costes y materiales",
+    "new": "Nuevo proyecto",
+    "newTitle": "Crear proyecto",
+    "editTitle": "Editar proyecto",
+    "deleteTitle": "Eliminar proyecto",
+    "name": "Nombre del proyecto",
+    "namePlaceholder": "p.ej. Construcción de carcasa",
+    "description": "Descripción",
+    "descriptionPlaceholder": "Notas opcionales sobre este proyecto",
+    "prints": "impresiones",
+    "noPrints": "Aún no hay impresiones asignadas. Haz clic en el icono de capas para asignar impresiones.",
+    "empty": "Aún no hay proyectos.",
+    "createFirst": "Crea tu primer proyecto",
+    "deleteConfirm": "¿Eliminar el proyecto \"{{name}}\"?",
+    "deleteNote": "El proyecto será eliminado. Las impresiones asignadas se conservarán pero ya no estarán vinculadas a ningún proyecto.",
+    "managePrints": "Gestionar impresiones",
+    "assignPrints": "Asignar impresiones — {{name}}",
+    "assignHint": "Selecciona las impresiones que pertenecen a este proyecto. Solo se muestran las impresiones sin asignar y las ya incluidas en este proyecto.",
+    "selected": "seleccionadas"
   }
 }

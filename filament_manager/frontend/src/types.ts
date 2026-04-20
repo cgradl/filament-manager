@@ -61,8 +61,29 @@ export interface PrintJob {
   total_cost: number
   usages: PrintUsage[]
   created_at: string
+  fm_project_id: number | null
+  project_name: string | null
   print_weight_g: number | null
   suggested_usages: SuggestedUsage[] | null
+}
+
+export interface Project {
+  id: number
+  name: string
+  description: string | null
+  print_count: number
+  total_duration_seconds: number
+  total_cost: number
+  total_grams: number
+  nozzle_diameters: string[]
+  materials: string[]
+  date_first: string | null
+  date_last: string | null
+  created_at: string
+}
+
+export interface ProjectDetail extends Project {
+  print_jobs: PrintJob[]
 }
 
 export interface PrinterConfig {

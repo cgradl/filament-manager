@@ -6,7 +6,7 @@ from sqlalchemy import or_, func, select as sa_select
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
-from ..models import PrintJob, PrintUsage, Spool, SpoolAudit
+from ..models import PrintJob, PrintUsage, Spool, SpoolAudit, Project
 from ..schemas import PrintJobCreate, PrintJobOut, PrintJobUpdate
 
 router = APIRouter(prefix="/api/prints", tags=["prints"])
@@ -16,7 +16,8 @@ def _load_job(db: Session, job_id: int) -> PrintJob:
     job = (
         db.query(PrintJob)
         .options(
-            joinedload(PrintJob.usages).joinedload(PrintUsage.spool)
+            joinedload(PrintJob.usages).joinedload(PrintUsage.spool),
+            joinedload(PrintJob.project),
         )
         .filter(PrintJob.id == job_id)
         .first()
@@ -100,7 +101,10 @@ def list_prints(
 ):
     q = _apply_filters(db.query(PrintJob), search, date_from, date_to, timezone)
     jobs = (
-        q.options(joinedload(PrintJob.usages).joinedload(PrintUsage.spool))
+        q.options(
+            joinedload(PrintJob.usages).joinedload(PrintUsage.spool),
+            joinedload(PrintJob.project),
+        )
         .order_by(PrintJob.started_at.desc())
         .offset(offset)
         .limit(limit)
@@ -111,6 +115,8 @@ def list_prints(
 
 @router.post("", response_model=PrintJobOut, status_code=201)
 def create_print(body: PrintJobCreate, db: Session = Depends(get_db)):
+    if body.fm_project_id and not db.get(Project, body.fm_project_id):
+        raise HTTPException(404, f"Project {body.fm_project_id} not found")
     job = PrintJob(
         name=body.name,
         model_name=body.model_name,
@@ -122,6 +128,7 @@ def create_print(body: PrintJobCreate, db: Session = Depends(get_db)):
         notes=body.notes,
         printer_name=body.printer_name,
         source="manual",
+        fm_project_id=body.fm_project_id,
     )
     db.add(job)
     db.flush()
@@ -166,7 +173,11 @@ def update_print(job_id: int, body: PrintJobUpdate, db: Session = Depends(get_db
     if not job:
         raise HTTPException(404, "Print job not found")
 
-    for field, value in body.model_dump(exclude_unset=True, exclude={"usages"}).items():
+    updates = body.model_dump(exclude_unset=True, exclude={"usages", "deduct_weight"})
+    if "fm_project_id" in updates and updates["fm_project_id"] is not None:
+        if not db.get(Project, updates["fm_project_id"]):
+            raise HTTPException(404, f"Project {updates['fm_project_id']} not found")
+    for field, value in updates.items():
         setattr(job, field, value)
 
     if body.usages is not None:

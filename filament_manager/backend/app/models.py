@@ -70,6 +70,19 @@ class Spool(Base):
         return None
 
 
+class Project(Base):
+    """User-defined project that groups multiple print jobs."""
+    __tablename__ = "projects"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    name        = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    print_jobs = relationship("PrintJob", back_populates="project")
+
+
 class PrintJob(Base):
     __tablename__ = "print_jobs"
 
@@ -98,7 +111,9 @@ class PrintJob(Base):
     error_code = Column(String, nullable=True)     # mc_print_error_code on failure
     print_weight_g = Column(Float, nullable=True)  # total filament weight (g) reported by printer/cloud
     suggested_usages = Column(JSON, nullable=True)  # cloud-sourced per-tray usage hints [{ams_slot, grams, filament_type, color}]
+    fm_project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
 
+    project = relationship("Project", back_populates="print_jobs")
     usages = relationship(
         "PrintUsage", back_populates="print_job", cascade="all, delete-orphan"
     )
@@ -116,6 +131,10 @@ class PrintJob(Base):
         if self.duration_seconds:
             return round(self.duration_seconds / 3600, 2)
         return None
+
+    @property
+    def project_name(self) -> str | None:
+        return self.project.name if self.project else None
 
 
 class PrintUsage(Base):

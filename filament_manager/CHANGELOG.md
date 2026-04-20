@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.0
+
+- New: **Print Projects** — group print jobs into named projects for cost and material tracking; separate Projects page in the navigation; each project card shows print count, total filament, total cost, print duration, materials, and nozzle diameters; click to expand and see the full list of assigned prints
+- Assign prints to a project from the Projects page (manage-prints dialog shows all unassigned prints), or select a project directly in the print job create/edit form
+- Projects are fully included in the JSON backup/restore; project IDs are remapped correctly on import
+- `nozzle_diameter` from Bambu Cloud MQTT is shown per print inside expanded project cards
+
 ## 0.23.2
 
 - Security: reconnect endpoint no longer exposes internal exception messages to the client (CWE-209); error is logged server-side only and a generic message is returned

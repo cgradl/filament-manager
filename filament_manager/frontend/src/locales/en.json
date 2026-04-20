@@ -3,6 +3,7 @@
     "dashboard": "Dashboard",
     "spools": "Spools",
     "prints": "Prints",
+    "projects": "Projects",
     "settings": "Settings",
     "appName": "Filament Manager",
     "appSub": "3D Print Tracker"
@@ -190,6 +191,7 @@
       "duration": "Duration (hours)",
       "printer": "Printer",
       "printSucceeded": "Print succeeded",
+      "project": "Project",
       "deductFromSpool": "Deduct from spool",
       "filamentUsed": "Filament Used",
       "loadFromAMS": "Load from AMS",
@@ -448,5 +450,27 @@
       "importCloudResult": "Imported {{imported}} of {{total}} cloud jobs ({{skipped}} already existed).",
       "importCloudError": "Cloud import failed: {{error}}"
     }
+  },
+  "projects": {
+    "title": "Projects",
+    "subtitle": "Group print jobs into projects for cost and material tracking",
+    "new": "New Project",
+    "newTitle": "Create Project",
+    "editTitle": "Edit Project",
+    "deleteTitle": "Delete Project",
+    "name": "Project name",
+    "namePlaceholder": "e.g. Enclosure build",
+    "description": "Description",
+    "descriptionPlaceholder": "Optional notes about this project",
+    "prints": "prints",
+    "noPrints": "No prints assigned yet. Click the layers icon to assign prints.",
+    "empty": "No projects yet.",
+    "createFirst": "Create your first project",
+    "deleteConfirm": "Delete project \"{{name}}\"?",
+    "deleteNote": "The project will be deleted. Prints assigned to it will remain but will no longer be linked to a project.",
+    "managePrints": "Manage prints",
+    "assignPrints": "Assign prints — {{name}}",
+    "assignHint": "Check prints to include in this project. Only unassigned prints and prints already in this project are shown.",
+    "selected": "selected"
   }
 }

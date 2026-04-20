@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  LayoutDashboard, Layers, Printer, Settings,
+  LayoutDashboard, Layers, Printer, Settings, FolderOpen,
   ChevronLeft, ChevronRight, Menu, X, Globe,
 } from 'lucide-react'
 
@@ -71,6 +71,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { to: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
     { to: '/spools',    icon: Layers,          label: t('nav.spools') },
     { to: '/prints',    icon: Printer,         label: t('nav.prints') },
+    { to: '/projects',  icon: FolderOpen,      label: t('nav.projects') },
     { to: '/settings',  icon: Settings,        label: t('nav.settings') },
   ]
 

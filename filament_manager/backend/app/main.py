@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from .database import engine, Base
-from .routers import spools, prints, printers, dashboard, app_settings, data_transfer, bambu_cloud
+from .routers import spools, prints, printers, dashboard, app_settings, data_transfer, bambu_cloud, projects
 from . import bambu_cloud_client
 
 logging.basicConfig(level=logging.INFO)
@@ -144,6 +144,14 @@ async def lifespan(app: FastAPI):
             conn.execute(text("ALTER TABLE print_jobs ADD COLUMN suggested_usages TEXT"))
             conn.commit()
             log.info("Migration: added print_jobs.suggested_usages")
+
+        # print_jobs: add fm_project_id if missing
+        if "fm_project_id" not in job_cols:
+            conn.execute(text(
+                "ALTER TABLE print_jobs ADD COLUMN fm_project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL"
+            ))
+            conn.commit()
+            log.info("Migration: added print_jobs.fm_project_id")
 
         # print_usages: make spool_id nullable (SQLite can't ALTER COLUMN — rebuild table)
         usage_cols_info = insp.get_columns("print_usages")
@@ -314,6 +322,7 @@ app.add_middleware(
 app.include_router(spools.router)
 app.include_router(prints.router)
 app.include_router(printers.router)
+app.include_router(projects.router)
 app.include_router(dashboard.router)
 app.include_router(app_settings.router)
 app.include_router(data_transfer.router)
