@@ -64,6 +64,7 @@ export interface PrintJob {
   fm_project_id: number | null
   project_name: string | null
   print_weight_g: number | null
+  nozzle_diameter: string | null
   suggested_usages: SuggestedUsage[] | null
 }
 

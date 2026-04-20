@@ -4,9 +4,31 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { Project, ProjectDetail, PrintJob } from '../types'
 import { Plus, Pencil, Trash2, X, FolderOpen, ChevronDown, ChevronRight, Layers } from 'lucide-react'
-import Modal from '../components/Modal'
 import { useHATZ } from '../hooks/useHATZ'
 import { formatDateTimeTZ } from '../utils/time'
+
+// ── Inline modal shell (matches Prints.tsx pattern) ───────────────────────────
+
+function ModalShell({ title, onClose, wide, children }: {
+  title: string
+  onClose: () => void
+  wide?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className={`bg-surface-2 border border-surface-3 rounded-2xl w-full ${wide ? 'max-w-2xl' : 'max-w-md'} max-h-[90vh] overflow-y-auto`}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-3">
+          <h2 className="font-semibold">{title}</h2>
+          <button onClick={onClose} className="btn-ghost p-1"><X size={16} /></button>
+        </div>
+        <div className="p-5">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── Project Form ──────────────────────────────────────────────────────────────
 
@@ -26,9 +48,9 @@ function ProjectForm({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-gray-400 mb-1">{t('projects.name')} *</label>
+        <label className="label">{t('projects.name')} *</label>
         <input
-          className="input w-full"
+          className="input"
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder={t('projects.namePlaceholder')}
@@ -36,9 +58,9 @@ function ProjectForm({
         />
       </div>
       <div>
-        <label className="block text-xs text-gray-400 mb-1">{t('projects.description')}</label>
+        <label className="label">{t('projects.description')}</label>
         <textarea
-          className="input w-full h-20 resize-none"
+          className="input h-20 resize-none"
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder={t('projects.descriptionPlaceholder')}
@@ -78,7 +100,6 @@ function AssignPrintsModal({
     queryFn: () => api.getPrints(1000, 0),
   })
 
-  // Show unassigned prints + prints already in this project
   const eligible = allPrints.filter(j => !j.fm_project_id || j.fm_project_id === project.id)
 
   const [selected, setSelected] = useState<Set<number>>(new Set(assignedIds))
@@ -104,7 +125,7 @@ function AssignPrintsModal({
   })
 
   return (
-    <Modal title={t('projects.assignPrints', { name: project.name })} onClose={onClose} maxWidth="max-w-2xl">
+    <ModalShell title={t('projects.assignPrints', { name: project.name })} onClose={onClose} wide>
       <div className="space-y-3">
         <p className="text-xs text-gray-400">{t('projects.assignHint')}</p>
         <div className="max-h-96 overflow-y-auto space-y-1">
@@ -149,7 +170,7 @@ function AssignPrintsModal({
           </div>
         </div>
       </div>
-    </Modal>
+    </ModalShell>
   )
 }
 
@@ -181,7 +202,6 @@ function ProjectCard({
 
   return (
     <div className="card">
-      {/* Header row */}
       <div
         className="flex items-center gap-3 cursor-pointer"
         onClick={() => setExpanded(e => !e)}
@@ -200,7 +220,6 @@ function ProjectCard({
           )}
         </div>
 
-        {/* Stats */}
         <div className="hidden sm:flex items-center gap-4 text-xs text-gray-400 shrink-0">
           {project.total_grams > 0 && (
             <span>{(project.total_grams / 1000).toFixed(2)} {t('common.kg')}</span>
@@ -214,10 +233,9 @@ function ProjectCard({
           )}
         </div>
 
-        {/* Actions */}
         <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
           <button
-            className="btn-ghost p-1.5 text-xs"
+            className="btn-ghost p-1.5"
             onClick={onManagePrints}
             title={t('projects.managePrints')}
           >
@@ -232,7 +250,6 @@ function ProjectCard({
         </div>
       </div>
 
-      {/* Expanded: print job list */}
       {expanded && (
         <div className="mt-3 pt-3 border-t border-surface-3">
           {!detail && (
@@ -251,7 +268,6 @@ function ProjectCard({
 }
 
 function PrintJobRow({ job }: { job: PrintJob }) {
-  const { t } = useTranslation()
   const tz = useHATZ()
   return (
     <div className="flex items-center gap-3 py-1.5 text-sm border-b border-surface-3 last:border-0">
@@ -310,7 +326,6 @@ export default function Projects() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">{t('projects.title')}</h1>
@@ -322,7 +337,6 @@ export default function Projects() {
         </button>
       </div>
 
-      {/* List */}
       {isLoading && <p className="text-sm text-gray-400">{t('common.loading')}</p>}
       {!isLoading && projects.length === 0 && (
         <div className="card text-center py-12">
@@ -343,30 +357,27 @@ export default function Projects() {
         />
       ))}
 
-      {/* Create modal */}
       {showForm && (
-        <Modal title={t('projects.newTitle')} onClose={() => setShowForm(false)}>
+        <ModalShell title={t('projects.newTitle')} onClose={() => setShowForm(false)}>
           <ProjectForm
             onSave={data => createMut.mutate(data)}
             onCancel={() => setShowForm(false)}
           />
-        </Modal>
+        </ModalShell>
       )}
 
-      {/* Edit modal */}
       {editing && (
-        <Modal title={t('projects.editTitle')} onClose={() => setEditing(null)}>
+        <ModalShell title={t('projects.editTitle')} onClose={() => setEditing(null)}>
           <ProjectForm
             initial={editing}
             onSave={data => updateMut.mutate(data)}
             onCancel={() => setEditing(null)}
           />
-        </Modal>
+        </ModalShell>
       )}
 
-      {/* Delete confirmation */}
       {deleting && (
-        <Modal title={t('projects.deleteTitle')} onClose={() => setDeleting(null)}>
+        <ModalShell title={t('projects.deleteTitle')} onClose={() => setDeleting(null)}>
           <p className="text-sm text-gray-300 mb-4">
             {t('projects.deleteConfirm', { name: deleting.name })}
           </p>
@@ -383,10 +394,9 @@ export default function Projects() {
               {t('common.delete')}
             </button>
           </div>
-        </Modal>
+        </ModalShell>
       )}
 
-      {/* Assign prints modal */}
       {managingPrints && managingDetail && (
         <AssignPrintsModal
           project={managingDetail}
