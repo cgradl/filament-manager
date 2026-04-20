@@ -186,6 +186,7 @@
       "printName": "Print Name",
       "modelFile": "Model File",
       "description": "Description",
+      "url": "Model URL",
       "startedAt": "Started At",
       "finishedAt": "Finished At",
       "duration": "Duration (hours)",

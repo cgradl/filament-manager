@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.26.0
+
+- New: **Print description display** — descriptions are now shown beneath the print name in Print History
+- New: **Model URL field** — each print job can have a URL (e.g. a MakerWorld link); shown as a clickable external-link icon next to the print name
+- New: **`design_title` stored** — the Bambu Cloud `designTitle` (MakerWorld model name) is now stored on auto-detected print jobs; shown as a subtitle when it differs from the print name
+- Fix: tasks JSON data file excluded from git repository
+
 ## 0.25.0
 
 - New: **Home Assistant sensor entities** — the add-on now pushes three sensor states directly to HA via the Supervisor States API (no additional HA configuration required):

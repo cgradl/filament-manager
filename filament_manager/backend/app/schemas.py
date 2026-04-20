@@ -121,6 +121,7 @@ class PrintJobBase(BaseModel):
     name: str
     model_name: str | None = None
     description: str | None = None
+    url: str | None = None
     started_at: datetime
     finished_at: datetime | None = None
     duration_seconds: int | None = None
@@ -139,6 +140,7 @@ class PrintJobUpdate(BaseModel):
     name: str | None = None
     model_name: str | None = None
     description: str | None = None
+    url: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
     duration_seconds: int | None = None
@@ -174,6 +176,7 @@ class PrintJobOut(PrintJobBase):
     error_code: str | None = None
     print_weight_g: float | None = None
     suggested_usages: list | None = None
+    design_title: str | None = None
 
 
 # ── Dashboard ────────────────────────────────────────────────────────────────

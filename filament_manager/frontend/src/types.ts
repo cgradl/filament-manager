@@ -66,6 +66,8 @@ export interface PrintJob {
   print_weight_g: number | null
   nozzle_diameter: string | null
   suggested_usages: SuggestedUsage[] | null
+  design_title: string | null
+  url: string | null
 }
 
 export interface Project {

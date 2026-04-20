@@ -186,6 +186,7 @@
       "printName": "Druckname",
       "modelFile": "Modelldatei",
       "description": "Beschreibung",
+      "url": "Modell-URL",
       "startedAt": "Gestartet um",
       "finishedAt": "Beendet um",
       "duration": "Dauer (Stunden)",

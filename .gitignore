@@ -27,3 +27,6 @@ CLAUDE.md
 
 # Local planning docs
 *_INTEGRATION.md
+
+# Large data files not needed in repo
+filament_manager/docs/tasks_*.json

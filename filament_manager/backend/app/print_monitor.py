@@ -304,6 +304,7 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str, 
         job = PrintJob(
             name=display_name,
             model_name=subtask_name or None,
+            design_title=design_title or None,
             started_at=real_started_at or datetime.now(timezone.utc),
             source="auto",
             printer_name=printer.name,

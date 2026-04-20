@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { PrintJob, Spool, AMSTray, PrinterConfig, SuggestedUsage, PrinterStatus, Project } from '../types'
-import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search, CalendarDays, FolderOpen } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search, CalendarDays, FolderOpen, ExternalLink } from 'lucide-react'
 import Modal from '../components/Modal'
 import { useHATZ } from '../hooks/useHATZ'
 import { formatDateTimeTZ, nowInTZ, utcToLocalInput, localInputToUTC } from '../utils/time'
@@ -120,6 +120,7 @@ function PrintForm({
   const [success, setSuccess] = useState(initial?.success ?? true)
   const [printerId, setPrinterId] = useState<number | ''>('')
   const [notes, setNotes] = useState(initial?.notes ?? '')
+  const [url, setUrl] = useState(initial?.url ?? '')
   const [usages, setUsages] = useState<UsageRow[]>(() => {
     // Confirmed usages take priority
     if (initial?.usages && initial.usages.length > 0) {
@@ -215,6 +216,7 @@ function PrintForm({
       name,
       model_name: modelName || null,
       description: description || null,
+      url: url || null,
       started_at: localInputToUTC(startedAt, tz),
       finished_at: finishedAt ? localInputToUTC(finishedAt, tz) : null,
       duration_seconds: durationH ? Math.round(parseFloat(durationH) * 3600) : null,
@@ -254,6 +256,11 @@ function PrintForm({
           <div>
             <label className="label">{t('prints.form.description')}</label>
             <input className="input" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">{t('prints.form.url')}</label>
+            <input className="input" type="url" value={url} onChange={e => setUrl(e.target.value)}
+              placeholder="https://makerworld.com/…" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -637,6 +644,7 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
   const [expanded, setExpanded] = useState(false)
   const needsUsage = job.source === 'auto' && job.finished_at && job.total_grams === 0 && job.suggested_usages !== null
   const showModel = job.model_name && job.model_name !== job.name
+  const showDesignTitle = job.design_title && job.design_title !== job.name
 
   return (
     <div className="card cursor-pointer" onClick={() => setExpanded(e => !e)}>
@@ -658,13 +666,34 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
                 {job.project_name}
               </span>
             )}
+            {job.url && (
+              <a
+                href={job.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="text-gray-500 hover:text-blue-400 shrink-0"
+                title={job.url}
+              >
+                <ExternalLink size={11} />
+              </a>
+            )}
           </div>
           <p className="text-xs text-gray-500">
             {formatDateTimeTZ(job.started_at, tz)}
             {job.printer_name && ` · ${job.printer_name}`}
             {job.duration_hours && ` · ${job.duration_hours}h`}
           </p>
-          {showModel && (
+          {job.description && (
+            <p className="text-xs text-gray-400 mt-0.5 truncate">{job.description}</p>
+          )}
+          {showDesignTitle && (
+            <p className="text-xs text-gray-600 flex items-center gap-1 mt-0.5">
+              <FileText size={10} />
+              {job.design_title}
+            </p>
+          )}
+          {showModel && !showDesignTitle && (
             <p className="text-xs text-gray-600 flex items-center gap-1 mt-0.5">
               <FileText size={10} />
               {job.model_name}

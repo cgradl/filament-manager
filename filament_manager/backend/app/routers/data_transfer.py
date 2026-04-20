@@ -92,6 +92,8 @@ def _job_dict(j: PrintJob) -> dict:
         "error_code": j.error_code,
         "print_weight_g": j.print_weight_g,
         "suggested_usages": j.suggested_usages,
+        "design_title": j.design_title,
+        "url": j.url,
         "fm_project_id": j.fm_project_id,
         "created_at": _dt(j.created_at),
         "usages": [_usage_dict(u) for u in j.usages],
@@ -615,6 +617,8 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             error_code=job_data.get("error_code"),
             print_weight_g=job_data.get("print_weight_g"),
             suggested_usages=job_data.get("suggested_usages"),
+            design_title=job_data.get("design_title"),
+            url=job_data.get("url"),
             fm_project_id=project_id_map.get(job_data["fm_project_id"]) if job_data.get("fm_project_id") else None,
             created_at=_parse_dt(job_data.get("created_at")) or datetime.utcnow(),
         )
