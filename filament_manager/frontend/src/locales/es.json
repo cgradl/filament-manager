@@ -258,7 +258,17 @@
     "appearance": {
       "title": "Visualización",
       "actionsLast": "Tablas y listas: acciones al final",
-      "actionsLastHint": "Mover los iconos de editar / duplicar / historial / eliminar a la última columna / al final de la lista en lugar del inicio"
+      "actionsLastHint": "Mover los iconos de editar / duplicar / historial / eliminar a la última columna / al final de la lista en lugar del inicio",
+      "regionalTitle": "Configuración regional",
+      "regionalHint": "La zona horaria, moneda y país se heredan normalmente de Home Assistant. Establece anulaciones aquí si HA no está disponible o los valores son incorrectos.",
+      "timezone": "Zona horaria",
+      "currency": "Moneda",
+      "country": "País",
+      "currentValue": "Actual",
+      "fromHA": "de HA",
+      "override": "anulación activa",
+      "regionalSave": "Guardar",
+      "regionalSaved": "Guardado"
     },
     "dataTabs": {
       "brandWeights": "Pesos de Bobina",

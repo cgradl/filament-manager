@@ -258,7 +258,17 @@
     "appearance": {
       "title": "Anzeige",
       "actionsLast": "Tabellen und Listen: Aktionen am Ende",
-      "actionsLastHint": "Bearbeiten / Duplizieren / Verlauf / Löschen-Symbole in die letzte Spalte / ans Ende der Liste statt an den Anfang verschieben"
+      "actionsLastHint": "Bearbeiten / Duplizieren / Verlauf / Löschen-Symbole in die letzte Spalte / ans Ende der Liste statt an den Anfang verschieben",
+      "regionalTitle": "Regionale Einstellungen",
+      "regionalHint": "Zeitzone, Währung und Land werden normalerweise von Home Assistant übernommen. Hier können Überschreibungen gesetzt werden, falls HA nicht verfügbar ist oder die Werte nicht stimmen.",
+      "timezone": "Zeitzone",
+      "currency": "Währung",
+      "country": "Land",
+      "currentValue": "Aktuell",
+      "fromHA": "von HA",
+      "override": "Überschreibung aktiv",
+      "regionalSave": "Speichern",
+      "regionalSaved": "Gespeichert"
     },
     "dataTabs": {
       "brandWeights": "Spulengewichte",

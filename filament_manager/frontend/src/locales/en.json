@@ -258,7 +258,17 @@
     "appearance": {
       "title": "Display",
       "actionsLast": "Tables and lists: actions at end",
-      "actionsLastHint": "Move the edit / duplicate / history / delete icons to the last column / end of list instead of the first"
+      "actionsLastHint": "Move the edit / duplicate / history / delete icons to the last column / end of list instead of the first",
+      "regionalTitle": "Regional Settings",
+      "regionalHint": "Timezone, currency, and country are normally inherited from Home Assistant. Set overrides here if HA is unavailable or the values are incorrect.",
+      "timezone": "Timezone",
+      "currency": "Currency",
+      "country": "Country",
+      "currentValue": "Current",
+      "fromHA": "from HA",
+      "override": "override active",
+      "regionalSave": "Save",
+      "regionalSaved": "Saved"
     },
     "dataTabs": {
       "brandWeights": "Spool Weights",

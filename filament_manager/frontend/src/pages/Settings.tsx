@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
@@ -1928,6 +1928,45 @@ export default function Settings() {
     localStorage.setItem('fm_actions_last', String(val))
   }
 
+  // Regional overrides
+  const { data: userPrefs } = useQuery({
+    queryKey: ['user-prefs'],
+    queryFn: api.getUserPrefs,
+    staleTime: Infinity,
+  })
+  const { data: haLocale } = useQuery({
+    queryKey: ['ha-locale'],
+    queryFn: api.getHALocale,
+    staleTime: Infinity,
+  })
+  const [tzInput, setTzInput] = useState('')
+  const [curInput, setCurInput] = useState('')
+  const [ctyInput, setCtyInput] = useState('')
+  const [prefsSaved, setPrefsSaved] = useState(false)
+
+  // Populate inputs once prefs load
+  useEffect(() => {
+    if (userPrefs) {
+      setTzInput(userPrefs.timezone_override ?? '')
+      setCurInput(userPrefs.currency_override ?? '')
+      setCtyInput(userPrefs.country_override ?? '')
+    }
+  }, [userPrefs])
+
+  const savePrefs = useMutation({
+    mutationFn: () => api.saveUserPrefs({
+      timezone_override: tzInput.trim() || null,
+      currency_override: curInput.trim() || null,
+      country_override:  ctyInput.trim() || null,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['user-prefs'] })
+      qc.invalidateQueries({ queryKey: ['ha-locale'] })
+      setPrefsSaved(true)
+      setTimeout(() => setPrefsSaved(false), 2000)
+    },
+  })
+
   return (
     <div className={`space-y-4 ${isFilamentData ? '' : 'max-w-2xl'}`}>
       <div className="flex items-baseline justify-between">
@@ -2106,20 +2145,87 @@ export default function Settings() {
 
       {/* ── Tab: Appearance ── */}
       {mainTab === 'appearance' && (
-        <div className="card space-y-4">
-          <h3 className="text-sm font-semibold text-gray-300">{t('settings.appearance.title')}</h3>
-          <div className="flex items-start gap-3">
-            <input
-              id="actions-last"
-              type="checkbox"
-              className="mt-0.5 accent-blue-500"
-              checked={actionsLast}
-              onChange={e => toggleActionsLast(e.target.checked)}
-            />
-            <label htmlFor="actions-last" className="cursor-pointer">
-              <p className="text-sm text-gray-200">{t('settings.appearance.actionsLast')}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{t('settings.appearance.actionsLastHint')}</p>
-            </label>
+        <div className="space-y-4">
+          {/* Display */}
+          <div className="card space-y-4">
+            <h3 className="text-sm font-semibold text-gray-300">{t('settings.appearance.title')}</h3>
+            <div className="flex items-start gap-3">
+              <input
+                id="actions-last"
+                type="checkbox"
+                className="mt-0.5 accent-blue-500"
+                checked={actionsLast}
+                onChange={e => toggleActionsLast(e.target.checked)}
+              />
+              <label htmlFor="actions-last" className="cursor-pointer">
+                <p className="text-sm text-gray-200">{t('settings.appearance.actionsLast')}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{t('settings.appearance.actionsLastHint')}</p>
+              </label>
+            </div>
+          </div>
+
+          {/* Regional Settings */}
+          <div className="card space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-300">{t('settings.appearance.regionalTitle')}</h3>
+              <p className="text-xs text-gray-500 mt-1">{t('settings.appearance.regionalHint')}</p>
+            </div>
+            <div className="space-y-3">
+              {/* Timezone */}
+              <div>
+                <label className="label text-xs mb-1 block">{t('settings.appearance.timezone')}</label>
+                <input
+                  className="input text-xs py-1 w-full max-w-xs"
+                  value={tzInput}
+                  onChange={e => setTzInput(e.target.value)}
+                  placeholder={haLocale?.time_zone ?? 'UTC'}
+                />
+                <p className="text-[11px] text-gray-600 mt-0.5">
+                  {t('settings.appearance.currentValue')}: {haLocale?.time_zone ?? 'UTC'}
+                  {userPrefs?.timezone_override ? ` (${t('settings.appearance.override')})` : ` (${t('settings.appearance.fromHA')})`}
+                </p>
+              </div>
+              {/* Currency */}
+              <div>
+                <label className="label text-xs mb-1 block">{t('settings.appearance.currency')}</label>
+                <input
+                  className="input text-xs py-1 w-24 font-mono uppercase"
+                  value={curInput}
+                  onChange={e => setCurInput(e.target.value.toUpperCase().slice(0, 3))}
+                  placeholder={haLocale?.currency ?? 'EUR'}
+                  maxLength={3}
+                />
+                <p className="text-[11px] text-gray-600 mt-0.5">
+                  {t('settings.appearance.currentValue')}: {haLocale?.currency ?? 'EUR'}
+                  {userPrefs?.currency_override ? ` (${t('settings.appearance.override')})` : ` (${t('settings.appearance.fromHA')})`}
+                </p>
+              </div>
+              {/* Country */}
+              <div>
+                <label className="label text-xs mb-1 block">{t('settings.appearance.country')}</label>
+                <input
+                  className="input text-xs py-1 w-20 font-mono uppercase"
+                  value={ctyInput}
+                  onChange={e => setCtyInput(e.target.value.toUpperCase().slice(0, 2))}
+                  placeholder={haLocale?.country || '—'}
+                  maxLength={2}
+                />
+                <p className="text-[11px] text-gray-600 mt-0.5">
+                  {t('settings.appearance.currentValue')}: {haLocale?.country || '—'}
+                  {userPrefs?.country_override ? ` (${t('settings.appearance.override')})` : ` (${t('settings.appearance.fromHA')})`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                className="btn-primary text-xs px-3 py-1.5"
+                onClick={() => savePrefs.mutate()}
+                disabled={savePrefs.isPending}
+              >
+                {prefsSaved ? t('settings.appearance.regionalSaved') : t('settings.appearance.regionalSave')}
+              </button>
+              {prefsSaved && <span className="text-xs text-green-400">✓</span>}
+            </div>
           </div>
         </div>
       )}

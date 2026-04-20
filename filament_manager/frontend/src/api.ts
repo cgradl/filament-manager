@@ -152,6 +152,9 @@ export const api = {
   // Version
   getVersion: () => request<{ version: string }>('settings/version'),
   getHALocale: () => request<{ language: string; time_zone: string; country: string; currency: string }>('settings/ha-locale'),
+  getUserPrefs: () => request<{ timezone_override: string | null; currency_override: string | null; country_override: string | null }>('settings/user-prefs'),
+  saveUserPrefs: (data: { timezone_override: string | null; currency_override: string | null; country_override: string | null }) =>
+    request<{ timezone_override: string | null; currency_override: string | null; country_override: string | null }>('settings/user-prefs', { method: 'POST', body: JSON.stringify(data) }),
 
   // Bambu Cloud
   getBambuCloudStatus: () =>

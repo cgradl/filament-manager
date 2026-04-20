@@ -227,6 +227,16 @@ class SpoolAudit(Base):
     print_name   = Column(String, nullable=True)   # denormalised snapshot — survives job deletion
 
 
+class UserPreferences(Base):
+    """Single-row table (id=1) for user-configurable overrides of HA-derived values."""
+    __tablename__ = "user_preferences"
+
+    id                = Column(Integer, primary_key=True, default=1)
+    timezone_override = Column(String, nullable=True)   # IANA tz, e.g. "Europe/Berlin"
+    currency_override = Column(String, nullable=True)   # ISO 4217, e.g. "EUR"
+    country_override  = Column(String, nullable=True)   # ISO 3166-1 alpha-2, e.g. "DE"
+
+
 class PrinterConfig(Base):
     __tablename__ = "printer_configs"
 

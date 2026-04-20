@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.23.0
+
+- Settings → Appearance: new "Regional Settings" section — timezone, currency, and country can now be overridden independently of Home Assistant; overrides are stored in the database and take precedence over HA-derived values; leave blank to inherit from HA as before
+- When all three values are overridden the app no longer calls the HA Supervisor API at all, making it fully functional without an active HA connection
+- Overrides are included in the full JSON backup/restore so they survive data migrations
+- Supported in all three languages (EN / DE / ES)
+
 ## 0.22.10
 
 - Settings → Filament Catalog: added "Export CSV" button; exports all catalog entries as a semicolon-delimited CSV with UTF-8 BOM (Excel compatible); header row included; import already skips the header row automatically

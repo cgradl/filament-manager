@@ -23,7 +23,7 @@ from ..database import get_db
 from ..models import (
     Spool, PrintJob, PrintUsage,
     BrandSpoolWeight, FilamentMaterial, FilamentSubtype, FilamentBrand,
-    PurchaseLocation, StorageLocation, PrinterConfig, FilamentCatalog, MATERIAL_DENSITY,
+    PurchaseLocation, StorageLocation, PrinterConfig, FilamentCatalog, UserPreferences, MATERIAL_DENSITY,
 )
 
 router = APIRouter(prefix="/api/data", tags=["data-transfer"])
@@ -111,6 +111,7 @@ def export_data(db: Session = Depends(get_db)):
     locations       = db.query(PurchaseLocation).order_by(PurchaseLocation.name).all()
     storage_locs    = db.query(StorageLocation).order_by(StorageLocation.name).all()
     catalog         = db.query(FilamentCatalog).order_by(FilamentCatalog.brand, FilamentCatalog.material, FilamentCatalog.color_name).all()
+    user_prefs      = db.get(UserPreferences, 1)
 
     bundle = {
         "version": EXPORT_VERSION,
@@ -128,6 +129,11 @@ def export_data(db: Session = Depends(get_db)):
             }
             for p in printers
         ],
+        "user_preferences": {
+            "timezone_override": user_prefs.timezone_override if user_prefs else None,
+            "currency_override": user_prefs.currency_override if user_prefs else None,
+            "country_override":  user_prefs.country_override  if user_prefs else None,
+        },
         "settings": {
             "brand_weights":      [{"brand": b.brand, "spool_weight_g": b.spool_weight_g} for b in bw],
             "materials":          [m.name for m in materials],
@@ -405,6 +411,7 @@ class ImportBundle(BaseModel):
     print_jobs: list[dict[str, Any]] = []
     printer_configs: list[dict[str, Any]] = []
     settings: dict[str, Any] = {}
+    user_preferences: dict[str, Any] = {}
 
 
 @router.post("/import")
@@ -493,6 +500,20 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
         else:
             existing_catalog_by_key.add(key)
         stats["filament_catalog"] += 1
+
+    # ── user preferences (only restore non-null overrides from bundle) ──────────
+    up = bundle.user_preferences
+    if up:
+        prefs = db.get(UserPreferences, 1)
+        if not prefs:
+            prefs = UserPreferences(id=1)
+            db.add(prefs)
+        if up.get("timezone_override"):
+            prefs.timezone_override = up["timezone_override"]
+        if up.get("currency_override"):
+            prefs.currency_override = up["currency_override"]
+        if up.get("country_override"):
+            prefs.country_override = up["country_override"]
 
     db.flush()
 

@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import BrandSpoolWeight, FilamentSubtype, FilamentMaterial, FilamentBrand, PurchaseLocation, StorageLocation, FilamentCatalog
+from ..models import BrandSpoolWeight, FilamentSubtype, FilamentMaterial, FilamentBrand, PurchaseLocation, StorageLocation, FilamentCatalog, UserPreferences
 from ..schemas import BrandSpoolWeightOut, FilamentCatalogCreate, FilamentCatalogUpdate, FilamentCatalogOut
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -30,30 +30,83 @@ def get_version():
 _SUPPORTED_LANGS = {"en", "de", "es"}
 
 @router.get("/ha-locale")
-async def get_ha_locale():
-    """Return the HA instance language and timezone."""
+async def get_ha_locale(db: Session = Depends(get_db)):
+    """Return language/timezone/currency/country — user overrides take precedence over HA values."""
     from ..ha_client import _headers
     import httpx, re
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            r = await client.get("http://supervisor/core/api/config", headers=_headers())
-            r.raise_for_status()
-            data = r.json()
-            lang: str = data.get("language", "en")
-            time_zone: str = data.get("time_zone", "UTC")
-            country: str = data.get("country", "")
-            currency: str = data.get("currency", "EUR")
-            code = re.match(r"[a-z]{2}", lang.lower())
-            language = code.group() if code and code.group() in _SUPPORTED_LANGS else "en"
-            return {
-                "language": language,
-                "time_zone": time_zone,
-                "country": country.upper() if country else "",
-                "currency": currency.upper() if currency else "EUR",
-            }
-    except Exception:
-        pass
-    return {"language": "en", "time_zone": "UTC", "country": "", "currency": "EUR"}
+
+    prefs = db.get(UserPreferences, 1)
+    tz_ov  = (prefs.timezone_override or "").strip() if prefs else ""
+    cur_ov = (prefs.currency_override or "").strip() if prefs else ""
+    cty_ov = (prefs.country_override  or "").strip() if prefs else ""
+
+    lang = "en"
+    time_zone = "UTC"
+    country   = ""
+    currency  = "EUR"
+
+    # Only call HA if at least one value is not overridden
+    if not (tz_ov and cur_ov):
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get("http://supervisor/core/api/config", headers=_headers())
+                r.raise_for_status()
+                data = r.json()
+                lang_raw: str = data.get("language", "en")
+                time_zone = data.get("time_zone", "UTC")
+                country   = (data.get("country", "") or "").upper()
+                currency  = (data.get("currency", "EUR") or "EUR").upper()
+                code = re.match(r"[a-z]{2}", lang_raw.lower())
+                lang = code.group() if code and code.group() in _SUPPORTED_LANGS else "en"
+        except Exception:
+            pass
+
+    return {
+        "language":  lang,
+        "time_zone": tz_ov  or time_zone,
+        "country":   cty_ov or country,
+        "currency":  cur_ov or currency,
+    }
+
+
+# ── User Preferences (HA value overrides) ─────────────────────────────────────
+
+class UserPrefsIn(BaseModel):
+    timezone_override: str | None = None
+    currency_override: str | None = None
+    country_override:  str | None = None
+
+
+class UserPrefsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    timezone_override: str | None
+    currency_override: str | None
+    country_override:  str | None
+
+
+@router.get("/user-prefs", response_model=UserPrefsOut)
+def get_user_prefs(db: Session = Depends(get_db)):
+    prefs = db.get(UserPreferences, 1)
+    if not prefs:
+        return UserPrefsOut(timezone_override=None, currency_override=None, country_override=None)
+    return prefs
+
+
+@router.post("/user-prefs", response_model=UserPrefsOut)
+def save_user_prefs(body: UserPrefsIn, db: Session = Depends(get_db)):
+    def _clean(v: str | None) -> str | None:
+        return v.strip() or None if v is not None else None
+
+    prefs = db.get(UserPreferences, 1)
+    if not prefs:
+        prefs = UserPreferences(id=1)
+        db.add(prefs)
+    prefs.timezone_override = _clean(body.timezone_override)
+    prefs.currency_override = (_clean(body.currency_override) or "").upper() or None
+    prefs.country_override  = (_clean(body.country_override)  or "").upper() or None
+    db.commit()
+    db.refresh(prefs)
+    return prefs
 
 
 class BrandWeightIn(BaseModel):
