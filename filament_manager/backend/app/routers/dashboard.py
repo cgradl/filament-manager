@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
-from ..models import Spool, PrintJob, PrintUsage, PrinterConfig
+from ..models import Spool, PrintJob, PrintUsage, PrinterConfig, UserPreferences
 from ..schemas import DashboardStats, MaterialBreakdown, PriceByLocation, PrinterHours, PrintJobOut, SpoolOut, PrintsPerDay
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -12,10 +12,13 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 @router.get("", response_model=DashboardStats)
 async def get_dashboard(db: Session = Depends(get_db)):
+    prefs = db.get(UserPreferences, 1)
+    low_stock_threshold = (prefs.low_stock_threshold_pct if prefs else None) or 20
+
     spools = db.query(Spool).all()
     active_spools = [s for s in spools if s.current_weight_g > 0]
     empty_spools  = [s for s in spools if s.current_weight_g <= 0]
-    low_stock     = [s for s in active_spools if 0 < s.remaining_pct < 20]
+    low_stock     = [s for s in active_spools if 0 < s.remaining_pct < low_stock_threshold]
 
     # Weight totals
     total_filament_kg  = sum(s.initial_weight_g for s in spools) / 1000

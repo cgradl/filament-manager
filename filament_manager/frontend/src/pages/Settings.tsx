@@ -1942,6 +1942,7 @@ export default function Settings() {
   const [tzInput, setTzInput] = useState('')
   const [curInput, setCurInput] = useState('')
   const [ctyInput, setCtyInput] = useState('')
+  const [lowStockPct, setLowStockPct] = useState(20)
   const [prefsSaved, setPrefsSaved] = useState(false)
 
   // Populate inputs once prefs load
@@ -1950,6 +1951,7 @@ export default function Settings() {
       setTzInput(userPrefs.timezone_override ?? '')
       setCurInput(userPrefs.currency_override ?? '')
       setCtyInput(userPrefs.country_override ?? '')
+      setLowStockPct(userPrefs.low_stock_threshold_pct ?? 20)
     }
   }, [userPrefs])
 
@@ -1958,6 +1960,7 @@ export default function Settings() {
       timezone_override: tzInput.trim() || null,
       currency_override: curInput.trim() || null,
       country_override:  ctyInput.trim() || null,
+      low_stock_threshold_pct: lowStockPct,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['user-prefs'] })
@@ -2214,6 +2217,22 @@ export default function Settings() {
                   {t('settings.appearance.currentValue')}: {haLocale?.country || '—'}
                   {userPrefs?.country_override ? ` (${t('settings.appearance.override')})` : ` (${t('settings.appearance.fromHA')})`}
                 </p>
+              </div>
+              {/* Low stock threshold */}
+              <div>
+                <label className="label text-xs mb-1 block">{t('settings.appearance.lowStockThreshold')}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    className="input text-xs py-1 w-20"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={lowStockPct}
+                    onChange={e => setLowStockPct(Math.max(1, Math.min(100, parseInt(e.target.value) || 20)))}
+                  />
+                  <span className="text-xs text-gray-400">%</span>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-0.5">{t('settings.appearance.lowStockHint')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 pt-1">

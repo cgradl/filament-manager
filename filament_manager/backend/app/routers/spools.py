@@ -73,6 +73,8 @@ def update_spool(spool_id: int, body: SpoolUpdate, db: Session = Depends(get_db)
         ))
     db.commit()
     db.refresh(spool)
+    from .. import ha_publisher
+    ha_publisher.trigger()
     return spool
 
 
@@ -131,6 +133,8 @@ def delete_spool(spool_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Spool not found")
     db.delete(spool)
     db.commit()
+    from .. import ha_publisher
+    ha_publisher.trigger()
 
 
 @router.get("/materials/list")

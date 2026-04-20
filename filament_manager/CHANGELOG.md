@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.25.0
+
+- New: **Home Assistant sensor entities** — the add-on now pushes three sensor states directly to HA via the Supervisor States API (no additional HA configuration required):
+  - `sensor.filament_manager_pending_usages` — count of auto-detected prints awaiting filament usage confirmation
+  - `sensor.filament_manager_low_stock_spools` — count of spools below the configurable low-stock threshold
+  - `sensor.filament_manager_ams_unmatched` — count of AMS trays that have filament loaded but no spool assigned in inventory
+- Each sensor includes a list attribute (print names / spool names / tray IDs) for use in HA automations and notifications
+- Sensors are pushed on startup, after every print job close, after every spool weight change, and on a 5-minute polling loop; only changed values are sent to avoid noisy HA history
+- New: **Configurable low-stock threshold** — Settings → Appearance → Regional Settings now includes a "Low stock alert threshold (%)" field (default 20%); used by both the dashboard and the HA sensor
+
 ## 0.24.0
 
 - New: **Print Projects** — group print jobs into named projects for cost and material tracking; separate Projects page in the navigation; each project card shows print count, total filament, total cost, print duration, materials, and nozzle diameters; click to expand and see the full list of assigned prints

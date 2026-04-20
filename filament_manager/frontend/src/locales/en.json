@@ -270,7 +270,9 @@
       "fromHA": "from HA",
       "override": "override active",
       "regionalSave": "Save",
-      "regionalSaved": "Saved"
+      "regionalSaved": "Saved",
+      "lowStockThreshold": "Low stock alert threshold",
+      "lowStockHint": "Spools below this percentage are flagged as low stock on the dashboard and in HA sensors (1–100)"
     },
     "dataTabs": {
       "brandWeights": "Spool Weights",

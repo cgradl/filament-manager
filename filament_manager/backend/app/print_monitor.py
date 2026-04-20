@@ -59,6 +59,9 @@ async def _on_print_end(
     _state[printer.id] = {"stage": "idle", "job_id": None}
     log.info("Closed PrintJob #%d", job_id)
 
+    from . import ha_publisher
+    ha_publisher.trigger()
+
     # Best-effort post-print data fetch from Bambu Cloud API
     try:
         from . import bambu_cloud_client

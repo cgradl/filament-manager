@@ -133,9 +133,10 @@ def export_data(db: Session = Depends(get_db)):
             for p in printers
         ],
         "user_preferences": {
-            "timezone_override": user_prefs.timezone_override if user_prefs else None,
-            "currency_override": user_prefs.currency_override if user_prefs else None,
-            "country_override":  user_prefs.country_override  if user_prefs else None,
+            "timezone_override":       user_prefs.timezone_override       if user_prefs else None,
+            "currency_override":       user_prefs.currency_override       if user_prefs else None,
+            "country_override":        user_prefs.country_override        if user_prefs else None,
+            "low_stock_threshold_pct": user_prefs.low_stock_threshold_pct if user_prefs else 20,
         },
         "settings": {
             "brand_weights":      [{"brand": b.brand, "spool_weight_g": b.spool_weight_g} for b in bw],
@@ -519,6 +520,8 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             prefs.currency_override = up["currency_override"]
         if up.get("country_override"):
             prefs.country_override = up["country_override"]
+        if up.get("low_stock_threshold_pct") is not None:
+            prefs.low_stock_threshold_pct = max(1, min(100, int(up["low_stock_threshold_pct"])))
 
     db.flush()
 

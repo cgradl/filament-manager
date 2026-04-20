@@ -193,6 +193,15 @@ async def lifespan(app: FastAPI):
                 conn.commit()
                 log.info("Migration: recovered current_weight_g from initial_weight_g for %d active spools", result.rowcount)
 
+        # user_preferences: add low_stock_threshold_pct if missing
+        up_cols = [c["name"] for c in insp.get_columns("user_preferences")] if insp.has_table("user_preferences") else []
+        if up_cols and "low_stock_threshold_pct" not in up_cols:
+            conn.execute(text(
+                "ALTER TABLE user_preferences ADD COLUMN low_stock_threshold_pct INTEGER NOT NULL DEFAULT 20"
+            ))
+            conn.commit()
+            log.info("Migration: added user_preferences.low_stock_threshold_pct")
+
         # spools: rename German color names to English
         _COLOR_RENAMES = {
             "Schwarz": "Black", "Weiß": "White", "Grau": "Gray",
@@ -305,8 +314,13 @@ async def lifespan(app: FastAPI):
 
     await bambu_cloud_client.startup()
 
+    from . import ha_publisher
+    import asyncio as _asyncio
+    _pub_task = _asyncio.create_task(ha_publisher.run_periodic())
+
     yield
 
+    _pub_task.cancel()
     await bambu_cloud_client.shutdown()
 
 

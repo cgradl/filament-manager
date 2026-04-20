@@ -270,7 +270,9 @@
       "fromHA": "de HA",
       "override": "anulación activa",
       "regionalSave": "Guardar",
-      "regionalSaved": "Guardado"
+      "regionalSaved": "Guardado",
+      "lowStockThreshold": "Umbral de alerta de stock bajo",
+      "lowStockHint": "Las bobinas por debajo de este porcentaje se marcan como stock bajo en el panel y en los sensores de HA (1–100)"
     },
     "dataTabs": {
       "brandWeights": "Pesos de Bobina",

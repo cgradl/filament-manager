@@ -72,23 +72,28 @@ async def get_ha_locale(db: Session = Depends(get_db)):
 # ── User Preferences (HA value overrides) ─────────────────────────────────────
 
 class UserPrefsIn(BaseModel):
-    timezone_override: str | None = None
-    currency_override: str | None = None
-    country_override:  str | None = None
+    timezone_override:       str | None = None
+    currency_override:       str | None = None
+    country_override:        str | None = None
+    low_stock_threshold_pct: int | None = None
 
 
 class UserPrefsOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    timezone_override: str | None
-    currency_override: str | None
-    country_override:  str | None
+    timezone_override:       str | None
+    currency_override:       str | None
+    country_override:        str | None
+    low_stock_threshold_pct: int
 
 
 @router.get("/user-prefs", response_model=UserPrefsOut)
 def get_user_prefs(db: Session = Depends(get_db)):
     prefs = db.get(UserPreferences, 1)
     if not prefs:
-        return UserPrefsOut(timezone_override=None, currency_override=None, country_override=None)
+        return UserPrefsOut(
+            timezone_override=None, currency_override=None,
+            country_override=None, low_stock_threshold_pct=20,
+        )
     return prefs
 
 
@@ -104,8 +109,13 @@ def save_user_prefs(body: UserPrefsIn, db: Session = Depends(get_db)):
     prefs.timezone_override = _clean(body.timezone_override)
     prefs.currency_override = (_clean(body.currency_override) or "").upper() or None
     prefs.country_override  = (_clean(body.country_override)  or "").upper() or None
+    if body.low_stock_threshold_pct is not None:
+        pct = max(1, min(100, body.low_stock_threshold_pct))
+        prefs.low_stock_threshold_pct = pct
     db.commit()
     db.refresh(prefs)
+    from .. import ha_publisher
+    ha_publisher.trigger()
     return prefs
 
 

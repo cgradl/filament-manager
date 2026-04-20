@@ -250,10 +250,11 @@ class UserPreferences(Base):
     """Single-row table (id=1) for user-configurable overrides of HA-derived values."""
     __tablename__ = "user_preferences"
 
-    id                = Column(Integer, primary_key=True, default=1)
-    timezone_override = Column(String, nullable=True)   # IANA tz, e.g. "Europe/Berlin"
-    currency_override = Column(String, nullable=True)   # ISO 4217, e.g. "EUR"
-    country_override  = Column(String, nullable=True)   # ISO 3166-1 alpha-2, e.g. "DE"
+    id                      = Column(Integer, primary_key=True, default=1)
+    timezone_override       = Column(String,  nullable=True)   # IANA tz, e.g. "Europe/Berlin"
+    currency_override       = Column(String,  nullable=True)   # ISO 4217, e.g. "EUR"
+    country_override        = Column(String,  nullable=True)   # ISO 3166-1 alpha-2, e.g. "DE"
+    low_stock_threshold_pct = Column(Integer, nullable=False, default=20)  # 1–100
 
 
 class PrinterConfig(Base):

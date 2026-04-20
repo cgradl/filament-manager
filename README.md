@@ -2,7 +2,7 @@
 
 A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.24.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.25.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -24,6 +24,7 @@ Spools, print history, and all other data are unaffected.
 - **Live print status** — active print jobs show real-time stage, progress, remaining time, and active tray from Bambu Cloud MQTT
 - **Spool inventory** — full CRUD for filament spools with brand, material, subtype, color, article number, weight, cost, purchase location, and storage location
 - **Filament catalog** — manage a master list of filament products (brand, material, subtype, color, article number, hex); CSV import and export (semicolon or comma delimited, Excel UTF-8 BOM supported); selecting a catalog entry auto-fills the spool form
+- **Home Assistant sensor entities** — three sensors pushed automatically via the HA States API: pending filament usage confirmations, low-stock spool count, and unmatched AMS trays; sensors update on print completion, spool change, and every 5 minutes; no HA configuration required
 - **Print Projects** — group print jobs into named projects; each project aggregates print count, total time, total filament, total cost, materials used, and nozzle diameters; assign prints from the project page or from the print form; full export/import support
 - **AMS spool auto-match** — per-tray sparkle button and "Auto-match" header button find the best inventory spool by material + color; tiebreakers: lowest remaining weight first, then oldest purchase date (FiFo); Dashboard warns when a loaded AMS tray has no matching spool in inventory
 - **Cost analytics** — per-print cost, price per kg, inventory value, and spend by purchase location

@@ -270,7 +270,9 @@
       "fromHA": "von HA",
       "override": "Überschreibung aktiv",
       "regionalSave": "Speichern",
-      "regionalSaved": "Gespeichert"
+      "regionalSaved": "Gespeichert",
+      "lowStockThreshold": "Warnschwelle für niedrigen Bestand",
+      "lowStockHint": "Spulen unterhalb dieses Prozentsatzes werden als niedriger Bestand markiert - im Dashboard und in den HA-Sensoren (1-100)"
     },
     "dataTabs": {
       "brandWeights": "Spulengewichte",
