@@ -28,6 +28,8 @@ function CloudPrinterFormContent({
   const [name, setName] = useState(initial?.name ?? '')
   const [isActive, setIsActive] = useState(initial?.is_active ?? true)
   const [autoDeduct, setAutoDeduct] = useState(initial?.auto_deduct ?? false)
+  const [energySensorEntityId, setEnergySensorEntityId] = useState(initial?.energy_sensor_entity_id ?? '')
+  const [priceSensorEntityId, setPriceSensorEntityId] = useState(initial?.price_sensor_entity_id ?? '')
   const [activeAmsUnit, setActiveAmsUnit] = useState(1)
 
   const isConnected = cloudStatus?.status === 'connected'
@@ -153,6 +155,30 @@ function CloudPrinterFormContent({
               <span className="text-[10px] text-amber-400 border border-amber-400/50 rounded px-1 py-0.5 leading-none">{t('common.experimental')}</span>
             </label>
 
+            <div className="border-t border-surface-3 pt-3 space-y-3">
+              <p className="text-xs font-medium text-gray-400">{t('settings.printers.energyTracking')}</p>
+              <div>
+                <label className="label">{t('settings.printers.energySensor')}</label>
+                <input
+                  className="input"
+                  value={energySensorEntityId}
+                  onChange={e => setEnergySensorEntityId(e.target.value)}
+                  placeholder="sensor.shelly_energy_total"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">{t('settings.printers.energySensorHint')}</p>
+              </div>
+              <div>
+                <label className="label">{t('settings.printers.priceSensor')}</label>
+                <input
+                  className="input"
+                  value={priceSensorEntityId}
+                  onChange={e => setPriceSensorEntityId(e.target.value)}
+                  placeholder="input_number.electricity_price"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">{t('settings.printers.priceSensorHint')}</p>
+              </div>
+            </div>
+
             {/* Live preview when a device is selected */}
             {selectedSerial && (
               <div className="bg-surface-3/40 rounded-xl p-3 space-y-3">
@@ -223,6 +249,8 @@ function CloudPrinterFormContent({
             bambu_source: 'cloud',
             is_active: isActive,
             auto_deduct: autoDeduct,
+            energy_sensor_entity_id: energySensorEntityId.trim() || null,
+            price_sensor_entity_id: priceSensorEntityId.trim() || null,
           })}
           disabled={!canSave}
         >
@@ -1778,6 +1806,19 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
                 </div>
               ))}
           </div>
+        </div>
+      )}
+
+      {/* Energy sensor config summary */}
+      {(printer.energy_sensor_entity_id || printer.price_sensor_entity_id) && (
+        <div className="mt-3 border-t border-surface-3 pt-2 space-y-0.5">
+          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1">{t('settings.printers.energyTracking')}</p>
+          {printer.energy_sensor_entity_id && (
+            <p className="text-xs text-gray-400 font-mono">{printer.energy_sensor_entity_id}</p>
+          )}
+          {printer.price_sensor_entity_id && (
+            <p className="text-xs text-gray-400 font-mono">{printer.price_sensor_entity_id}</p>
+          )}
         </div>
       )}
 

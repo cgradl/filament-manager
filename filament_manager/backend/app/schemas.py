@@ -104,6 +104,8 @@ class ProjectOut(BaseModel):
     total_duration_seconds: int
     total_cost: float
     total_grams: float
+    total_energy_kwh: float | None
+    total_energy_cost: float | None
     nozzle_diameters: list[str]
     materials: list[str]
     date_first: datetime | None
@@ -164,6 +166,10 @@ class PrintJobOut(PrintJobBase):
     created_at: datetime
     fm_project_id: int | None = None
     project_name: str | None = None
+
+    # Energy tracking (from HA sensors)
+    energy_kwh: float | None = None
+    energy_cost: float | None = None
 
     # Bambu Cloud / MQTT enrichment fields (None for manual/HA-tracked jobs)
     task_id: str | None = None

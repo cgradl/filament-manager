@@ -703,6 +703,12 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
         <div className="text-right shrink-0">
           <p className="text-sm text-white">{job.total_grams.toFixed(1)}g</p>
           {job.total_cost > 0 && <p className="text-xs text-gray-400">€{job.total_cost.toFixed(2)}</p>}
+          {job.energy_kwh != null && (
+            <p className="text-xs text-gray-500">
+              {job.energy_kwh.toFixed(3)} kWh
+              {job.energy_cost != null && <> · €{job.energy_cost.toFixed(4)}</>}
+            </p>
+          )}
         </div>
         <div className="flex gap-1 ml-2" onClick={e => e.stopPropagation()}>
           {needsUsage && (

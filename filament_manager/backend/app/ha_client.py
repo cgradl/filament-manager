@@ -29,6 +29,26 @@ async def is_ha_available() -> bool:
         return False
 
 
+async def get_ha_state(entity_id: str) -> float | None:
+    """Read a numeric sensor state from HA. Returns None if unavailable or non-numeric."""
+    if not _TOKEN:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(f"{HA_API}/states/{entity_id}", headers=_headers())
+            if r.status_code != 200:
+                log.warning("get_ha_state %s → HTTP %d", entity_id, r.status_code)
+                return None
+            state = r.json().get("state", "")
+            return float(state)
+    except (ValueError, TypeError):
+        log.debug("get_ha_state %s: non-numeric state", entity_id)
+        return None
+    except Exception as exc:
+        log.debug("get_ha_state %s failed: %s", entity_id, exc)
+        return None
+
+
 async def push_ha_state(entity_id: str, state: int | str, attributes: dict) -> bool:
     """POST a sensor state to the HA states API. Returns True on success."""
     if not _TOKEN:

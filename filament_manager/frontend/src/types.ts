@@ -68,6 +68,8 @@ export interface PrintJob {
   suggested_usages: SuggestedUsage[] | null
   design_title: string | null
   url: string | null
+  energy_kwh: number | null
+  energy_cost: number | null
 }
 
 export interface Project {
@@ -78,6 +80,8 @@ export interface Project {
   total_duration_seconds: number
   total_cost: number
   total_grams: number
+  total_energy_kwh: number | null
+  total_energy_cost: number | null
   nozzle_diameters: string[]
   materials: string[]
   date_first: string | null
@@ -97,6 +101,8 @@ export interface PrinterConfig {
   auto_deduct: boolean
   bambu_serial: string | null
   bambu_source: string   // always "cloud"
+  energy_sensor_entity_id: string | null
+  price_sensor_entity_id: string | null
 }
 
 export interface BambuCloudStatus {

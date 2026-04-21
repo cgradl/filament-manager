@@ -358,7 +358,12 @@
       "autoMatchAll": "Auto-match",
       "autoMatchTray": "Best match",
       "autoMatchNone": "No matching spool in inventory",
-      "autoMatchResult": "Auto-matched {{count}} tray(s)"
+      "autoMatchResult": "Auto-matched {{count}} tray(s)",
+      "energyTracking": "Energy Tracking",
+      "energySensor": "Energy Sensor (HA entity ID)",
+      "energySensorHint": "Cumulative kWh sensor, e.g. from a Shelly plug. Read at print start and end to calculate consumption.",
+      "priceSensor": "Electricity Price Sensor (HA entity ID)",
+      "priceSensorHint": "Sensor or helper returning the price in €/kWh. Used to calculate energy cost per print."
     },
     "brandWeights": {
       "title": "Brand Spool Tare Weights",

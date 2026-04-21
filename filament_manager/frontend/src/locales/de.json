@@ -358,7 +358,12 @@
       "autoMatchAll": "Auto-Zuordnung",
       "autoMatchTray": "Beste Übereinstimmung",
       "autoMatchNone": "Keine passende Spule im Inventar",
-      "autoMatchResult": "{{count}} Fach/Fächer automatisch zugeordnet"
+      "autoMatchResult": "{{count}} Fach/Fächer automatisch zugeordnet",
+      "energyTracking": "Energieverfolgung",
+      "energySensor": "Energiesensor (HA-Entity-ID)",
+      "energySensorHint": "Kumulativer kWh-Sensor, z. B. von einem Shelly-Plug. Wird beim Druckstart und -ende ausgelesen, um den Verbrauch zu berechnen.",
+      "priceSensor": "Strompreissensor (HA-Entity-ID)",
+      "priceSensorHint": "Sensor oder Helfer, der den Preis in €/kWh liefert. Wird zur Berechnung der Energiekosten pro Druck verwendet."
     },
     "brandWeights": {
       "title": "Leerspulengewichte je Marke",

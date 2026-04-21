@@ -236,6 +236,12 @@ function ProjectCard({
           {project.total_cost > 0 && (
             <span>€{project.total_cost.toFixed(2)}</span>
           )}
+          {project.total_energy_kwh != null && (
+            <span>
+              {project.total_energy_kwh.toFixed(3)} kWh
+              {project.total_energy_cost != null && <> · €{project.total_energy_cost.toFixed(4)}</>}
+            </span>
+          )}
           {durationH && <span>{durationH}h</span>}
           {project.materials.length > 0 && (
             <span className="hidden lg:inline">{project.materials.join(', ')}</span>

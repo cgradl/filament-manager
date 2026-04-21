@@ -19,6 +19,8 @@ class PrinterIn(BaseModel):
     auto_deduct: bool = False
     bambu_serial: str | None = None
     bambu_source: str = "cloud"
+    energy_sensor_entity_id: str | None = None
+    price_sensor_entity_id: str | None = None
 
 
 class PrinterOut(BaseModel):
@@ -29,6 +31,8 @@ class PrinterOut(BaseModel):
     auto_deduct: bool
     bambu_serial: str | None
     bambu_source: str
+    energy_sensor_entity_id: str | None
+    price_sensor_entity_id: str | None
 
     class Config:
         from_attributes = True

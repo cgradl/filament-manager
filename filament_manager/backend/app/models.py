@@ -113,6 +113,8 @@ class PrintJob(Base):
     suggested_usages = Column(JSON, nullable=True)  # cloud-sourced per-tray usage hints [{ams_slot, grams, filament_type, color}]
     design_title = Column(String, nullable=True)   # MakerWorld/cloud model name (designTitle field from Bambu)
     url = Column(String, nullable=True)            # user-set URL for the model/print source
+    energy_kwh   = Column(Float, nullable=True)    # kWh consumed during this print (from HA sensor delta)
+    energy_cost  = Column(Float, nullable=True)    # energy cost in € (energy_kwh × price/kWh)
     fm_project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
 
     project = relationship("Project", back_populates="print_jobs")
@@ -271,6 +273,10 @@ class PrinterConfig(Base):
 
     # When True: apply suggested_usages automatically on print completion (no user confirmation needed)
     auto_deduct = Column(Boolean, default=False, nullable=False)
+
+    # HA sensor entity IDs for energy tracking (optional)
+    energy_sensor_entity_id = Column(String, nullable=True)   # cumulative kWh sensor (e.g. sensor.shelly_energy_total)
+    price_sensor_entity_id  = Column(String, nullable=True)   # €/kWh price sensor (e.g. input_number.electricity_price)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

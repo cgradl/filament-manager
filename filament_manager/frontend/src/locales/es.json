@@ -358,7 +358,12 @@
       "autoMatchAll": "Asignación automática",
       "autoMatchTray": "Mejor coincidencia",
       "autoMatchNone": "No hay bobina coincidente en el inventario",
-      "autoMatchResult": "{{count}} bandeja(s) asignada(s) automáticamente"
+      "autoMatchResult": "{{count}} bandeja(s) asignada(s) automáticamente",
+      "energyTracking": "Seguimiento de energía",
+      "energySensor": "Sensor de energía (ID de entidad HA)",
+      "energySensorHint": "Sensor kWh acumulativo, p. ej. de un enchufe Shelly. Se lee al inicio y al final de la impresión para calcular el consumo.",
+      "priceSensor": "Sensor de precio de electricidad (ID de entidad HA)",
+      "priceSensorHint": "Sensor o ayudante que devuelve el precio en €/kWh. Se usa para calcular el coste energético por impresión."
     },
     "brandWeights": {
       "title": "Pesos de bobina vacía por marca",

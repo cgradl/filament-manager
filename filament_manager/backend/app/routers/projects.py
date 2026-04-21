@@ -25,6 +25,11 @@ def _project_out(project: Project) -> ProjectOut:
     date_first = min(started_dates) if started_dates else None
     date_last = max(started_dates) if started_dates else None
 
+    energy_values = [j.energy_kwh for j in jobs if j.energy_kwh is not None]
+    total_energy_kwh = round(sum(energy_values), 4) if energy_values else None
+    energy_cost_values = [j.energy_cost for j in jobs if j.energy_cost is not None]
+    total_energy_cost = round(sum(energy_cost_values), 4) if energy_cost_values else None
+
     return ProjectOut(
         id=project.id,
         name=project.name,
@@ -33,6 +38,8 @@ def _project_out(project: Project) -> ProjectOut:
         total_duration_seconds=total_duration_seconds,
         total_cost=round(total_cost, 4),
         total_grams=round(total_grams, 2),
+        total_energy_kwh=total_energy_kwh,
+        total_energy_cost=total_energy_cost,
         nozzle_diameters=nozzle_diameters,
         materials=materials,
         date_first=date_first,

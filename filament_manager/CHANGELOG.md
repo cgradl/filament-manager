@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.27.0
+
+- New: **Energy tracking per print** — configure a cumulative kWh HA sensor (e.g. from a Shelly plug) per printer in Settings → Printers; the app reads the sensor at print start and end, stores the delta (kWh) on the print job
+- New: **Electricity cost per print** — optionally configure an electricity price sensor (€/kWh) per printer; energy cost is calculated automatically and stored on the print job
+- New: **Energy shown in Print History** — kWh consumed and energy cost are displayed on each print row when available
+- New: **Energy totals on Projects** — projects aggregate total kWh and energy cost across all assigned prints
+
 ## 0.26.3
 
 - Fix: HA sensor entities are now recreated immediately when HA restarts — the add-on subscribes to the `homeassistant_started` WebSocket event and pushes all three sensors the moment HA comes back online, with no polling delay

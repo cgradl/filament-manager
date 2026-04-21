@@ -165,6 +165,26 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added print_jobs.url")
 
+        # print_jobs: add energy fields if missing
+        if "energy_kwh" not in job_cols:
+            conn.execute(text("ALTER TABLE print_jobs ADD COLUMN energy_kwh REAL"))
+            conn.commit()
+            log.info("Migration: added print_jobs.energy_kwh")
+        if "energy_cost" not in job_cols:
+            conn.execute(text("ALTER TABLE print_jobs ADD COLUMN energy_cost REAL"))
+            conn.commit()
+            log.info("Migration: added print_jobs.energy_cost")
+
+        # printer_configs: add energy sensor fields if missing
+        if "energy_sensor_entity_id" not in printer_cols:
+            conn.execute(text("ALTER TABLE printer_configs ADD COLUMN energy_sensor_entity_id TEXT"))
+            conn.commit()
+            log.info("Migration: added printer_configs.energy_sensor_entity_id")
+        if "price_sensor_entity_id" not in printer_cols:
+            conn.execute(text("ALTER TABLE printer_configs ADD COLUMN price_sensor_entity_id TEXT"))
+            conn.commit()
+            log.info("Migration: added printer_configs.price_sensor_entity_id")
+
         # print_usages: make spool_id nullable (SQLite can't ALTER COLUMN — rebuild table)
         usage_cols_info = insp.get_columns("print_usages")
         spool_id_info = next((c for c in usage_cols_info if c["name"] == "spool_id"), None)

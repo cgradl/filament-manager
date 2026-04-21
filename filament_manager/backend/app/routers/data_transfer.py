@@ -94,6 +94,8 @@ def _job_dict(j: PrintJob) -> dict:
         "suggested_usages": j.suggested_usages,
         "design_title": j.design_title,
         "url": j.url,
+        "energy_kwh": j.energy_kwh,
+        "energy_cost": j.energy_cost,
         "fm_project_id": j.fm_project_id,
         "created_at": _dt(j.created_at),
         "usages": [_usage_dict(u) for u in j.usages],
@@ -619,6 +621,8 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             suggested_usages=job_data.get("suggested_usages"),
             design_title=job_data.get("design_title"),
             url=job_data.get("url"),
+            energy_kwh=job_data.get("energy_kwh"),
+            energy_cost=job_data.get("energy_cost"),
             fm_project_id=project_id_map.get(job_data["fm_project_id"]) if job_data.get("fm_project_id") else None,
             created_at=_parse_dt(job_data.get("created_at")) or datetime.utcnow(),
         )
