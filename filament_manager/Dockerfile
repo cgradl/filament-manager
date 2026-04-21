@@ -1,3 +1,5 @@
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.11-alpine3.19
+
 # ── Stage 1: build frontend ──────────────────────────────────────────────────
 FROM node:20-alpine AS frontend-builder
 WORKDIR /frontend
@@ -7,8 +9,13 @@ COPY frontend/ .
 RUN npm run build
 
 # ── Stage 2: final image ─────────────────────────────────────────────────────
-FROM python:3.11-alpine
+FROM ${BUILD_FROM}
 WORKDIR /app
+
+LABEL org.opencontainers.image.title="Filament Manager" \
+      org.opencontainers.image.description="Track 3D printer filament inventory, print history and costs" \
+      org.opencontainers.image.source="https://github.com/cgradl/filament-manager" \
+      org.opencontainers.image.licenses="MIT"
 
 # Build deps for some Python packages
 RUN apk add --no-cache gcc musl-dev libffi-dev

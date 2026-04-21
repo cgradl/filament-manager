@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.8
+
+- UI: Low stock HA sensor icon changed to `mdi:printer-3d-nozzle-alert-outline`
+- UI: AMS mismatch alert text now uses theme-adaptive colors (white in dark mode, near-black in light mode)
+- UI: Spools table and filament catalog table now have a surface background (white in light mode, dark grey in dark mode)
+- Build: removed deprecated `build.yaml`; base image and OCI labels moved into `Dockerfile` directly
+
+## 0.27.7
+
+- Fix: HA `sensor.filament_manager_ams_unmatched` now uses material + color matching (same logic as the Dashboard alert) instead of only checking slot assignment — a spool that no longer matches the loaded filament's material or color is correctly counted as unmatched
+- UI: AMS mismatch alert card on Dashboard now uses a transparent background
+
 ## 0.27.6
 
 - Fix: HA unmatched AMS sensor not updating when spool assignment changes — AMS assign/unassign, printer create/update/delete now all immediately trigger a sensor push

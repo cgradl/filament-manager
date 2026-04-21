@@ -483,7 +483,7 @@ function AMSPrinterAlert({ printer, spools }: { printer: PrinterConfig; spools: 
 
   return (
     <div className="card border border-amber-800/50 bg-amber-950/20">
-      <h3 className="text-sm font-semibold text-amber-300 mb-3 flex items-center gap-2">
+      <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
         <AlertTriangle size={14} /> {t('dashboard.amsNoMatchCard')} — {printer.name}
       </h3>
       <div>
@@ -499,7 +499,7 @@ function AMSPrinterAlert({ printer, spools }: { printer: PrinterConfig; spools: 
                 <span className="text-gray-400 ml-2">{tr.ha_material}</span>
               </p>
             </div>
-            <span className="text-xs text-amber-400 shrink-0">{t('dashboard.amsNoMatch')}</span>
+            <span className="text-xs text-gray-400 shrink-0">{t('dashboard.amsNoMatch')}</span>
           </div>
         ))}
       </div>

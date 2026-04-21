@@ -1504,7 +1504,7 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-surface-3">
+      <div className="overflow-x-auto rounded-xl border border-surface-3 bg-surface-2">
         <table className="w-full text-xs text-left" style={{ minWidth: '700px' }}>
           <thead>
             <tr className="border-b border-surface-3">

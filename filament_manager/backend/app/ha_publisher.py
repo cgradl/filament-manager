@@ -5,7 +5,7 @@ Also exposes `trigger()` so other modules can request an immediate push.
 Sensors:
   sensor.filament_manager_pending_usages   – auto prints awaiting usage confirmation
   sensor.filament_manager_low_stock_spools – spools below the configurable threshold
-  sensor.filament_manager_ams_unmatched    – AMS trays with filament but no spool assigned
+  sensor.filament_manager_ams_unmatched    – AMS trays with filament but no matching spool (by material + color)
 
 Every push always writes all three sensors so they remain present in HA
 after an HA restart (the States API creates entities on first write and they
@@ -75,6 +75,23 @@ def _compute(db) -> dict[str, tuple[int, dict]]:
     # ── AMS unmatched ─────────────────────────────────────────────────────────
     from . import bambu_cloud_client
     from .models import PrinterConfig
+
+    def _normalize_hex(h: str) -> str:
+        return h.lstrip("#")[:6].upper()
+
+    def _tray_has_match(material: str, color_hex: str, all_spools: list) -> bool:
+        mat = material.lower()
+        col = _normalize_hex(color_hex)
+        for s in all_spools:
+            if s.current_weight_g <= 0:
+                continue
+            spool_mat = f"{s.material} {s.subtype}".lower() if s.subtype else s.material.lower()
+            mat_match = s.material.lower() == mat or spool_mat == mat
+            col_match = _normalize_hex(s.color_hex or "") == col
+            if mat_match and col_match:
+                return True
+        return False
+
     unmatched_trays: list[str] = []
     printers = db.query(PrinterConfig).filter(PrinterConfig.is_active == True).all()  # noqa: E712
     for printer in printers:
@@ -85,18 +102,15 @@ def _compute(db) -> dict[str, tuple[int, dict]]:
             continue
         for slot_key, tray_data in ams.items():
             material = tray_data.get("material") or ""
-            if not material:
+            color_hex = tray_data.get("color") or ""
+            remain = tray_data.get("remain")
+            if not material or not color_hex:
                 continue   # empty tray — not an error
-            # Check if any spool is assigned to this tray slot
-            full_slot = f"{printer.name}:{slot_key}"
-            assigned = (
-                db.query(Spool)
-                .filter(
-                    (Spool.ams_slot == full_slot) | (Spool.ams_slot == slot_key)
-                )
-                .first()
-            )
-            if assigned is None:
+            if remain is None or remain < 0:
+                continue   # not tracked by AMS
+            if remain == 0:
+                continue   # empty — nothing to match
+            if not _tray_has_match(material, color_hex, spools):
                 unmatched_trays.append(f"{printer.name}:{slot_key} ({material})")
 
     return {
@@ -113,7 +127,7 @@ def _compute(db) -> dict[str, tuple[int, dict]]:
             len(low),
             {
                 "friendly_name": "Filament Manager: Low Stock Spools",
-                "icon": "mdi:spool",
+                "icon": "mdi:printer-3d-nozzle-alert-outline",
                 "unit_of_measurement": "spools",
                 "threshold_pct": threshold,
                 "spools": low_names,
