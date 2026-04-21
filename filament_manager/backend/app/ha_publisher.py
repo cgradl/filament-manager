@@ -25,6 +25,7 @@ _ENTITY_LOW_STOCK = "sensor.filament_manager_low_stock_spools"
 _ENTITY_UNMATCHED = "sensor.filament_manager_ams_unmatched"
 
 _trigger_event: asyncio.Event | None = None
+_event_loop: asyncio.AbstractEventLoop | None = None
 
 
 def _get_event() -> asyncio.Event:
@@ -35,11 +36,18 @@ def _get_event() -> asyncio.Event:
 
 
 def trigger() -> None:
-    """Request an immediate sensor push (fire-and-forget, safe to call from sync code)."""
-    try:
-        _get_event().set()
-    except RuntimeError:
-        pass  # no running loop (e.g. tests)
+    """Request an immediate sensor push (fire-and-forget, safe to call from sync code).
+
+    sync route handlers run in a thread pool, so Event.set() must go through
+    call_soon_threadsafe to actually wake the async event loop.
+    """
+    if _event_loop is not None and _event_loop.is_running():
+        _event_loop.call_soon_threadsafe(_get_event().set)
+    else:
+        try:
+            _get_event().set()
+        except RuntimeError:
+            pass
 
 
 def _compute(db) -> dict[str, tuple[int, dict]]:
@@ -153,17 +161,22 @@ async def push_now() -> None:
         with SessionLocal() as db:
             values = _compute(db)
     except Exception as exc:
-        log.warning("ha_publisher: DB query failed: %s", exc)
+        log.warning("ha_publisher: _compute failed: %s", exc, exc_info=True)
         return
 
     for entity_id, (state, attrs) in values.items():
-        await push_ha_state(entity_id, state, attrs)
-        log.debug("ha_publisher: pushed %s = %d", entity_id, state)
+        ok = await push_ha_state(entity_id, state, attrs)
+        if ok:
+            log.info("ha_publisher: pushed %s = %s", entity_id, state)
+        else:
+            log.warning("ha_publisher: push FAILED for %s (state=%s)", entity_id, state)
 
 
 async def run_periodic() -> None:
     """Background task: push on startup, then every 30 seconds.
     Also wakes up early when trigger() is called."""
+    global _event_loop
+    _event_loop = asyncio.get_event_loop()
     evt = _get_event()
     # Initial push after a short delay (give DB time to finish seeding)
     await asyncio.sleep(10)

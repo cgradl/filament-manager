@@ -52,6 +52,7 @@ async def get_ha_state(entity_id: str) -> float | None:
 async def push_ha_state(entity_id: str, state: int | str, attributes: dict) -> bool:
     """POST a sensor state to the HA states API. Returns True on success."""
     if not _TOKEN:
+        log.warning("push_ha_state: SUPERVISOR_TOKEN is not set — cannot push %s", entity_id)
         return False
     try:
         async with httpx.AsyncClient(timeout=5) as client:
@@ -65,5 +66,5 @@ async def push_ha_state(entity_id: str, state: int | str, attributes: dict) -> b
                 return False
         return True
     except Exception as exc:
-        log.debug("push_ha_state %s failed: %s", entity_id, exc)
+        log.warning("push_ha_state %s failed: %s", entity_id, exc)
         return False

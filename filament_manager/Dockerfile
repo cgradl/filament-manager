@@ -1,5 +1,3 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.11-alpine3.19
-
 # ── Stage 1: build frontend ──────────────────────────────────────────────────
 FROM node:20-alpine AS frontend-builder
 WORKDIR /frontend
@@ -9,7 +7,10 @@ COPY frontend/ .
 RUN npm run build
 
 # ── Stage 2: final image ─────────────────────────────────────────────────────
-FROM ${BUILD_FROM}
+# Plain Python alpine is used intentionally: the HA base images run s6-overlay
+# which does not forward container environment variables (including
+# SUPERVISOR_TOKEN) to child processes, breaking HA sensor pushes.
+FROM python:3.11-alpine
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="Filament Manager" \

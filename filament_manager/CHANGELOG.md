@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.27.9
+
+- Fix: HA sensor pushes were silently failing — the HA base image introduced by v0.27.8 runs s6-overlay which does not forward `SUPERVISOR_TOKEN` to child processes; reverted final Docker stage to `python:3.11-alpine` where env vars are forwarded correctly
+- Fix: HA sensor trigger from sync route handlers (spool update/delete, AMS assign) was silently dropped — `trigger()` now uses `call_soon_threadsafe` to correctly wake the async event loop from a thread pool context
+- Fix: `push_ha_state` and `push_now` failures now log at WARNING level so they are visible in the HA supervisor log
+
 ## 0.27.8
 
 - UI: Low stock HA sensor icon changed to `mdi:printer-3d-nozzle-alert-outline`
