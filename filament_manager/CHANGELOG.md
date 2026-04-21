@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.1
+
+- New: **Version & Changelog in sidebar** — the current version is shown at the bottom-left of the sidebar; clicking it opens the full changelog without leaving the app
+
 ## 0.27.0
 
 - New: **Energy tracking per print** — configure a cumulative kWh HA sensor (e.g. from a Shelly plug) per printer in Settings → Printers; the app reads the sensor at print start and end, stores the delta (kWh) on the print job

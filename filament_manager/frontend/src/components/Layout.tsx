@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, Layers, Printer, Settings, FolderOpen,
   ChevronLeft, ChevronRight, Menu, X, Globe,
 } from 'lucide-react'
+import api from '../api'
 
 function AppIcon({ size = 24 }: { size?: number }) {
   return (
@@ -58,6 +60,77 @@ function LanguageSwitcher({ collapsed }: { collapsed?: boolean }) {
         </>
       )}
     </div>
+  )
+}
+
+function ChangelogModal({ version, onClose }: { version: string; onClose: () => void }) {
+  const { data } = useQuery({
+    queryKey: ['changelog'],
+    queryFn: api.getChangelog,
+    staleTime: Infinity,
+  })
+
+  const sections = data?.changelog
+    ? data.changelog.split(/^## /m).filter(Boolean).map(block => {
+        const [heading, ...rest] = block.split('\n')
+        return { heading: heading.trim(), body: rest.join('\n').trim() }
+      })
+    : []
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-surface-2 border border-surface-3 rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-3 shrink-0">
+          <div>
+            <p className="font-semibold text-white">Changelog</p>
+            <p className="text-xs text-gray-500">v{version}</p>
+          </div>
+          <button className="p-1.5 text-gray-400 hover:text-white hover:bg-surface-3 rounded-lg transition-colors" onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+        <div className="overflow-y-auto p-5 space-y-5 text-sm">
+          {sections.map(({ heading, body }) => (
+            <div key={heading}>
+              <p className="font-semibold text-white mb-2">{heading}</p>
+              <ul className="space-y-1">
+                {body.split('\n').filter(l => l.trim().startsWith('-')).map((line, i) => (
+                  <li key={i} className="text-gray-300 text-xs flex gap-2">
+                    <span className="text-gray-500 shrink-0">·</span>
+                    <span>{line.replace(/^-\s*/, '')}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function VersionButton({ collapsed }: { collapsed?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const { data } = useQuery({
+    queryKey: ['version'],
+    queryFn: api.getVersion,
+    staleTime: Infinity,
+  })
+  const version = data?.version ?? '…'
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        title={`v${version} — view changelog`}
+        className={`flex items-center gap-1.5 text-gray-500 hover:text-gray-300 hover:bg-surface-3 rounded-lg transition-colors text-xs
+          ${collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-1.5'}`}
+      >
+        {collapsed ? <span className="font-mono text-[10px]">v</span> : <span>v{version}</span>}
+      </button>
+      {open && <ChangelogModal version={version} onClose={() => setOpen(false)} />}
+    </>
   )
 }
 
@@ -127,9 +200,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        {/* Language switcher */}
-        <div className={`border-t border-surface-3 px-2 py-2 ${collapsed ? 'flex justify-center' : ''}`}>
+        {/* Language switcher + version */}
+        <div className={`border-t border-surface-3 px-2 py-2 flex ${collapsed ? 'flex-col items-center gap-1' : 'items-center justify-between'}`}>
           <LanguageSwitcher collapsed={collapsed} />
+          <VersionButton collapsed={collapsed} />
         </div>
 
         {/* Collapse toggle */}
@@ -188,8 +262,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               ))}
             </nav>
 
-            <div className="border-t border-surface-3 px-3 py-2">
+            <div className="border-t border-surface-3 px-3 py-2 flex items-center justify-between">
               <LanguageSwitcher />
+              <VersionButton />
             </div>
           </aside>
         </>

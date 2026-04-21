@@ -163,8 +163,9 @@ export const api = {
   importFilamentCatalog: (rows: { brand: string; material: string; subtype: string | null; subtype2: string | null; color_name: string; color_hex: string; article_number: string | null }[]) =>
     request<{ added: number; updated: number }>('settings/filament-catalog/import', { method: 'POST', body: JSON.stringify({ rows }) }),
 
-  // Version
+  // Version / Changelog
   getVersion: () => request<{ version: string }>('settings/version'),
+  getChangelog: () => request<{ changelog: string }>('settings/changelog'),
   getHALocale: () => request<{ language: string; time_zone: string; country: string; currency: string }>('settings/ha-locale'),
   getUserPrefs: () => request<{ timezone_override: string | null; currency_override: string | null; country_override: string | null; low_stock_threshold_pct: number }>('settings/user-prefs'),
   saveUserPrefs: (data: { timezone_override: string | null; currency_override: string | null; country_override: string | null; low_stock_threshold_pct: number | null }) =>

@@ -27,6 +27,17 @@ def get_version():
     return {"version": _read_version()}
 
 
+_CHANGELOG = Path(__file__).parent.parent.parent.parent / "CHANGELOG.md"
+
+@router.get("/changelog")
+def get_changelog():
+    try:
+        content = _CHANGELOG.read_text(encoding="utf-8")
+    except Exception:
+        content = ""
+    return {"changelog": content}
+
+
 _SUPPORTED_LANGS = {"en", "de", "es"}
 
 @router.get("/ha-locale")
