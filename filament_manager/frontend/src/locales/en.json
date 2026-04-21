@@ -287,6 +287,9 @@
       "storageLocations": "Storage",
       "filamentData": "Filament Data"
     },
+    "catalog": {
+      "propagateToSpools": "Update all spools with article number \"{{article}}\""
+    },
     "bambuCloud": {
       "title": "Bambu Lab Cloud",
       "experimental": "Experimental",

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.28.0
+
+- New: **Propagate catalog changes to spools** — when editing a filament catalog entry, a checkbox below the fields lets you update all spools sharing the same article number with the new brand, material, subtype, color name, and color; the checkbox state is remembered across edits; only available when the catalog entry has an article number
+
 ## 0.27.9
 
 - Fix: HA sensor pushes were silently failing — the HA base image introduced by v0.27.8 runs s6-overlay which does not forward `SUPERVISOR_TOKEN` to child processes; reverted final Docker stage to `python:3.11-alpine` where env vars are forwarded correctly

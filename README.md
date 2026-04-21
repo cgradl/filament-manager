@@ -2,7 +2,7 @@
 
 A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.27.9-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.28.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -23,7 +23,7 @@ Spools, print history, and all other data are unaffected.
 - **Suggested filament usage** — on print completion the app pre-fills grams used per tray for review; an optional per-printer *auto-deduct* flag applies the deduction immediately without confirmation
 - **Live print status** — active print jobs show real-time stage, progress, remaining time, and active tray from Bambu Cloud MQTT
 - **Spool inventory** — full CRUD for filament spools with brand, material, subtype, color, article number, weight, cost, purchase location, and storage location
-- **Filament catalog** — manage a master list of filament products (brand, material, subtype, color, article number, hex); CSV import and export (semicolon or comma delimited, Excel UTF-8 BOM supported); selecting a catalog entry auto-fills the spool form
+- **Filament catalog** — manage a master list of filament products (brand, material, subtype, color, article number, hex); CSV import and export (semicolon or comma delimited, Excel UTF-8 BOM supported); selecting a catalog entry auto-fills the spool form; an optional checkbox propagates catalog changes to all spools sharing the same article number
 - **Home Assistant sensor entities** — three sensors pushed automatically via the HA States API: pending filament usage confirmations, low-stock spool count, and unmatched AMS trays; sensors update on print completion, spool change, and every 5 minutes; no HA configuration required
 - **Print description & model URL** — descriptions show below the print name in history; each print can have a URL (MakerWorld, Printables, etc.) shown as a clickable link icon
 - **Energy tracking** — configure a cumulative kWh HA sensor (e.g. Shelly plug) and an optional electricity price sensor per printer; energy consumed (kWh) and cost (€) are recorded per print and aggregated on projects

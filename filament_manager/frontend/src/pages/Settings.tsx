@@ -1205,7 +1205,7 @@ function CatalogSortIcon({ col, sort }: { col: CatalogSortKey; sort: { key: Cata
 }
 
 // Module-level component — NOT defined inside FilamentDataSection to avoid remount on every render
-function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands, materials, subtypes, actionsLast }: {
+function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands, materials, subtypes, actionsLast, propagate, onPropagateChange }: {
   entry: FilamentCatalog
   editForm: CatalogEntry
   setEditForm: (f: CatalogEntry) => void
@@ -1215,10 +1215,13 @@ function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands
   materials: FilamentSubtype[]
   subtypes: FilamentSubtype[]
   actionsLast: boolean
+  propagate: boolean
+  onPropagateChange: (v: boolean) => void
 }) {
   const { t } = useTranslation()
   const set = (k: keyof CatalogEntry, v: string) => setEditForm({ ...editForm, [k]: v })
   const canSave = editForm.brand.trim() && editForm.material.trim() && editForm.color_name.trim()
+  const colSpan = 8 // actions + 7 data columns
   const actionCell = (
     <td className="px-2 py-1">
       <div className="flex gap-1">
@@ -1228,30 +1231,46 @@ function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands
     </td>
   )
   return (
-    <tr className="border-b border-surface-3 bg-surface-2">
-      {!actionsLast && actionCell}
-      <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.brand} onChange={e => set('brand', e.target.value)}>
-        <option value="">—</option>{brands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-      </select></td>
-      <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.material} onChange={e => set('material', e.target.value)}>
-        <option value="">—</option>{materials.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-      </select></td>
-      <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.subtype ?? ''} onChange={e => set('subtype', e.target.value)}>
-        <option value="">—</option>{subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-      </select></td>
-      <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.subtype2 ?? ''} onChange={e => set('subtype2', e.target.value)}>
-        <option value="">—</option>{subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-      </select></td>
-      <td className="px-2 py-1"><input className="input text-xs py-0.5 w-full" value={editForm.color_name} onChange={e => set('color_name', e.target.value)} /></td>
-      <td className="px-2 py-1">
-        <div className="flex items-center gap-1">
-          <input type="color" className="w-6 h-6 rounded cursor-pointer border border-surface-3 bg-transparent p-0 shrink-0" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} />
-          <input className="input text-xs py-0.5 w-20 font-mono" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} maxLength={7} />
-        </div>
-      </td>
-      <td className="px-2 py-1"><input className="input text-xs py-0.5 w-full" value={editForm.article_number ?? ''} onChange={e => set('article_number', e.target.value)} /></td>
-      {actionsLast && actionCell}
-    </tr>
+    <>
+      <tr className="bg-surface-2">
+        {!actionsLast && actionCell}
+        <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.brand} onChange={e => set('brand', e.target.value)}>
+          <option value="">—</option>{brands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+        </select></td>
+        <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.material} onChange={e => set('material', e.target.value)}>
+          <option value="">—</option>{materials.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+        </select></td>
+        <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.subtype ?? ''} onChange={e => set('subtype', e.target.value)}>
+          <option value="">—</option>{subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+        </select></td>
+        <td className="px-2 py-1"><select className="input text-xs py-0.5 w-full" value={editForm.subtype2 ?? ''} onChange={e => set('subtype2', e.target.value)}>
+          <option value="">—</option>{subtypes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+        </select></td>
+        <td className="px-2 py-1"><input className="input text-xs py-0.5 w-full" value={editForm.color_name} onChange={e => set('color_name', e.target.value)} /></td>
+        <td className="px-2 py-1">
+          <div className="flex items-center gap-1">
+            <input type="color" className="w-6 h-6 rounded cursor-pointer border border-surface-3 bg-transparent p-0 shrink-0" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} />
+            <input className="input text-xs py-0.5 w-20 font-mono" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} maxLength={7} />
+          </div>
+        </td>
+        <td className="px-2 py-1"><input className="input text-xs py-0.5 w-full" value={editForm.article_number ?? ''} onChange={e => set('article_number', e.target.value)} /></td>
+        {actionsLast && actionCell}
+      </tr>
+      <tr className="border-b border-surface-3 bg-surface-2">
+        <td colSpan={colSpan} className="px-2 pb-2">
+          <label className={`flex items-center gap-2 text-xs cursor-pointer ${!editForm.article_number ? 'opacity-40 cursor-not-allowed' : ''}`}>
+            <input
+              type="checkbox"
+              checked={propagate && !!editForm.article_number}
+              disabled={!editForm.article_number}
+              onChange={e => onPropagateChange(e.target.checked)}
+              className="accent-accent"
+            />
+            {t('settings.catalog.propagateToSpools', { article: editForm.article_number || '—' })}
+          </label>
+        </td>
+      </tr>
+    </>
   )
 }
 
@@ -1266,6 +1285,12 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
   const csvInputRef = useRef<HTMLInputElement>(null)
   const [sort, setSort] = useState<{ key: CatalogSortKey; dir: CatalogSortDir }>({ key: 'brand', dir: 'asc' })
   const [filters, setFilters] = useState<Partial<Record<CatalogSortKey, string>>>({})
+  const [propagate, setPropagate] = useState(() => localStorage.getItem('fm_catalog_propagate') === 'true')
+
+  const handlePropagateChange = (v: boolean) => {
+    setPropagate(v)
+    localStorage.setItem('fm_catalog_propagate', String(v))
+  }
 
   const setFilter = (k: CatalogSortKey, v: string) => setFilters(f => ({ ...f, [k]: v }))
   const toggleSort = (k: CatalogSortKey) =>
@@ -1302,8 +1327,13 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
       subtype: editForm.subtype || null,
       subtype2: editForm.subtype2 || null,
       article_number: editForm.article_number || null,
+      propagate_to_spools: propagate && !!editForm.article_number,
     }),
-    onSuccess: () => { inv(); setEditingId(null) },
+    onSuccess: () => {
+      inv()
+      if (propagate && editForm.article_number) qc.invalidateQueries({ queryKey: ['spools'] })
+      setEditingId(null)
+    },
   })
   const deleteMut = useMutation({ mutationFn: api.deleteFilamentCatalog, onSuccess: inv })
 
@@ -1579,6 +1609,8 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
                 materials={materials}
                 subtypes={subtypes}
                 actionsLast={actionsLast}
+                propagate={propagate}
+                onPropagateChange={handlePropagateChange}
               />
             ) : (
               <tr key={entry.id} className="border-b border-surface-3/50 hover:bg-surface-3/40 transition-colors">

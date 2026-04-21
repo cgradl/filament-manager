@@ -401,13 +401,21 @@ def create_filament_catalog(body: FilamentCatalogCreate, db: Session = Depends(g
 
 @router.patch("/filament-catalog/{entry_id}", response_model=FilamentCatalogOut)
 def update_filament_catalog(entry_id: int, body: FilamentCatalogUpdate, db: Session = Depends(get_db)):
+    from ..models import Spool
     entry = db.get(FilamentCatalog, entry_id)
     if not entry:
         raise HTTPException(404, "Not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    propagate = updates.pop("propagate_to_spools", False)
+    for field, value in updates.items():
         setattr(entry, field, value)
     db.commit()
     db.refresh(entry)
+    if propagate and entry.article_number:
+        spool_fields = {k: updates[k] for k in ("brand", "material", "subtype", "subtype2", "color_name", "color_hex") if k in updates}
+        if spool_fields:
+            db.query(Spool).filter(Spool.article_number == entry.article_number).update(spool_fields)
+            db.commit()
     return entry
 
 

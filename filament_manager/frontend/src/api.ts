@@ -156,7 +156,7 @@ export const api = {
   getFilamentCatalog: () => request<import('./types').FilamentCatalog[]>('settings/filament-catalog'),
   createFilamentCatalog: (data: Omit<import('./types').FilamentCatalog, 'id' | 'created_at' | 'updated_at'>) =>
     request<import('./types').FilamentCatalog>('settings/filament-catalog', { method: 'POST', body: JSON.stringify(data) }),
-  updateFilamentCatalog: (id: number, data: Partial<Omit<import('./types').FilamentCatalog, 'id' | 'created_at' | 'updated_at'>>) =>
+  updateFilamentCatalog: (id: number, data: Partial<Omit<import('./types').FilamentCatalog, 'id' | 'created_at' | 'updated_at'>> & { propagate_to_spools?: boolean }) =>
     request<import('./types').FilamentCatalog>(`settings/filament-catalog/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteFilamentCatalog: (id: number) =>
     request<void>(`settings/filament-catalog/${id}`, { method: 'DELETE' }),

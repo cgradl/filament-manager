@@ -286,6 +286,7 @@ class FilamentCatalogUpdate(BaseModel):
     color_name: str | None = None
     color_hex: str | None = None
     article_number: str | None = None
+    propagate_to_spools: bool = False
 
 
 class FilamentCatalogOut(FilamentCatalogBase):
