@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.26.3
+
+- Fix: HA sensor entities are now recreated immediately when HA restarts — the add-on subscribes to the `homeassistant_started` WebSocket event and pushes all three sensors the moment HA comes back online, with no polling delay
+
+## 0.26.2
+
+- Fix: HA sensor entities (`sensor.filament_manager_*`) are now pushed every 30 seconds (was 5 minutes) and always written regardless of whether the value changed — sensors remain present in HA after an HA restart without waiting for a state change to trigger recreation
+
+## 0.26.1
+
+- Fix: project stats on the Projects page now update immediately after assigning or unassigning prints via the modal — no longer requires navigating away and back
+- Fix: project badge on a print in Print History no longer reappears after being removed when navigating away and returning to Prints
+
 ## 0.26.0
 
 - New: **Print description display** — descriptions are now shown beneath the print name in Print History

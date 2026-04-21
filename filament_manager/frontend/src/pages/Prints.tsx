@@ -839,6 +839,9 @@ export default function Prints() {
       setShown(prev => prev.map(j => j.id === updated.id ? updated : j))
       qc.invalidateQueries({ queryKey: ['spools'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      // Invalidate prints cache so navigating away and back shows fresh project badges
+      qc.invalidateQueries({ queryKey: ['prints'] })
       setEditing(null)
     },
   })

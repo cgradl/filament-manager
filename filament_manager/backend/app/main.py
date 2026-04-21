@@ -329,10 +329,12 @@ async def lifespan(app: FastAPI):
     from . import ha_publisher
     import asyncio as _asyncio
     _pub_task = _asyncio.create_task(ha_publisher.run_periodic())
+    _ha_event_task = _asyncio.create_task(ha_publisher.run_ha_event_listener())
 
     yield
 
     _pub_task.cancel()
+    _ha_event_task.cancel()
     await bambu_cloud_client.shutdown()
 
 

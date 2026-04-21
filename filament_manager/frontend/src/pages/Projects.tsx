@@ -108,10 +108,19 @@ function AssignPrintsModal({
     mutationFn: async () => {
       const toAssign = [...selected].filter(id => !assignedIds.has(id))
       const toUnassign = [...assignedIds].filter(id => !selected.has(id))
-      if (toAssign.length > 0) await api.assignPrintsToProject(project.id, toAssign)
-      if (toUnassign.length > 0) await api.unassignPrintsFromProject(project.id, toUnassign)
+      let latest: Project | undefined
+      if (toAssign.length > 0) latest = await api.assignPrintsToProject(project.id, toAssign)
+      if (toUnassign.length > 0) latest = await api.unassignPrintsFromProject(project.id, toUnassign)
+      return latest
     },
-    onSuccess: () => {
+    onSuccess: (latest) => {
+      // Immediately patch the project in the list cache with the fresh server data
+      // so the card stats update without waiting for a background refetch
+      if (latest) {
+        qc.setQueryData<Project[]>(['projects'], old =>
+          old ? old.map(p => p.id === latest.id ? latest : p) : old
+        )
+      }
       qc.invalidateQueries({ queryKey: ['projects'] })
       qc.invalidateQueries({ queryKey: ['prints'] })
       onClose()

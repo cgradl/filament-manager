@@ -1,11 +1,15 @@
 """
-Compute and push three HA sensor entities on a 5-minute polling loop.
+Compute and push three HA sensor entities on a 30-second polling loop.
 Also exposes `trigger()` so other modules can request an immediate push.
 
 Sensors:
   sensor.filament_manager_pending_usages   – auto prints awaiting usage confirmation
   sensor.filament_manager_low_stock_spools – spools below the configurable threshold
   sensor.filament_manager_ams_unmatched    – AMS trays with filament but no spool assigned
+
+Every push always writes all three sensors so they remain present in HA
+after an HA restart (the States API creates entities on first write and they
+survive until the next HA restart — the 30-second loop recreates them quickly).
 """
 import asyncio
 import logging
@@ -15,17 +19,10 @@ from .models import PrintJob, Spool, UserPreferences
 
 log = logging.getLogger(__name__)
 
-_POLL_INTERVAL = 300   # seconds between periodic pushes
+_POLL_INTERVAL = 30    # seconds between periodic pushes
 _ENTITY_PENDING   = "sensor.filament_manager_pending_usages"
 _ENTITY_LOW_STOCK = "sensor.filament_manager_low_stock_spools"
 _ENTITY_UNMATCHED = "sensor.filament_manager_ams_unmatched"
-
-# Last-pushed values; None means "never pushed yet" (always push on first run)
-_last: dict[str, int | None] = {
-    _ENTITY_PENDING:   None,
-    _ENTITY_LOW_STOCK: None,
-    _ENTITY_UNMATCHED: None,
-}
 
 _trigger_event: asyncio.Event | None = None
 
@@ -135,7 +132,7 @@ def _compute(db) -> dict[str, tuple[int, dict]]:
 
 
 async def push_now() -> None:
-    """Compute sensor values and push any that have changed since last push."""
+    """Compute and push all three sensor values to HA."""
     from .ha_client import push_ha_state
 
     try:
@@ -146,16 +143,12 @@ async def push_now() -> None:
         return
 
     for entity_id, (state, attrs) in values.items():
-        if _last[entity_id] == state:
-            continue  # unchanged — skip to avoid noisy HA history
-        ok = await push_ha_state(entity_id, state, attrs)
-        if ok:
-            _last[entity_id] = state
-            log.debug("ha_publisher: pushed %s = %d", entity_id, state)
+        await push_ha_state(entity_id, state, attrs)
+        log.debug("ha_publisher: pushed %s = %d", entity_id, state)
 
 
 async def run_periodic() -> None:
-    """Background task: push on startup, then every _POLL_INTERVAL seconds.
+    """Background task: push on startup, then every 30 seconds.
     Also wakes up early when trigger() is called."""
     evt = _get_event()
     # Initial push after a short delay (give DB time to finish seeding)
@@ -169,3 +162,60 @@ async def run_periodic() -> None:
             pass  # normal periodic wake-up
         except asyncio.CancelledError:
             break
+
+
+async def run_ha_event_listener() -> None:
+    """Subscribe to HA's homeassistant_started WebSocket event.
+
+    Pushes all three sensors immediately when HA restarts so they are
+    recreated without any polling delay.  Reconnects automatically if
+    the WebSocket drops.
+    """
+    import json
+    import os
+
+    token = os.environ.get("SUPERVISOR_TOKEN", "")
+    if not token:
+        log.debug("ha_publisher: no SUPERVISOR_TOKEN — HA restart listener disabled")
+        return
+
+    try:
+        import websockets  # type: ignore[import]
+    except ImportError:
+        log.warning("ha_publisher: websockets package not installed — HA restart listener disabled")
+        return
+
+    uri = "ws://supervisor/core/websocket"
+
+    while True:
+        try:
+            async with websockets.connect(uri) as ws:
+                # HA WebSocket auth handshake
+                first = json.loads(await ws.recv())
+                if first.get("type") == "auth_required":
+                    await ws.send(json.dumps({"type": "auth", "access_token": token}))
+                    result = json.loads(await ws.recv())
+                    if result.get("type") != "auth_ok":
+                        log.warning("ha_publisher: WS auth failed (%s) — retry in 60s", result.get("type"))
+                        await asyncio.sleep(60)
+                        continue
+
+                await ws.send(json.dumps({
+                    "id": 1,
+                    "type": "subscribe_events",
+                    "event_type": "homeassistant_started",
+                }))
+                await ws.recv()  # subscription confirmation
+                log.info("ha_publisher: subscribed to homeassistant_started events")
+
+                async for raw in ws:
+                    msg = json.loads(raw)
+                    if msg.get("type") == "event":
+                        log.info("ha_publisher: homeassistant_started received — pushing sensors immediately")
+                        await push_now()
+
+        except asyncio.CancelledError:
+            break
+        except Exception as exc:
+            log.debug("ha_publisher: WS listener error (%s) — reconnecting in 60s", exc)
+            await asyncio.sleep(60)
