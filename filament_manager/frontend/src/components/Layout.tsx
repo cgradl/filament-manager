@@ -64,7 +64,7 @@ function LanguageSwitcher({ collapsed }: { collapsed?: boolean }) {
 }
 
 function ChangelogModal({ version, onClose }: { version: string; onClose: () => void }) {
-  const { data } = useQuery<{ changelog: string }>({
+  const { data, isLoading } = useQuery<{ changelog: string }>({
     queryKey: ['changelog'],
     queryFn: api.getChangelog,
     staleTime: Infinity,
@@ -91,14 +91,16 @@ function ChangelogModal({ version, onClose }: { version: string; onClose: () => 
           </button>
         </div>
         <div className="overflow-y-auto p-5 space-y-5 text-sm">
+          {isLoading && <p className="text-xs text-gray-500">Loading…</p>}
+          {!isLoading && sections.length === 0 && <p className="text-xs text-gray-500">No changelog available.</p>}
           {sections.map(({ heading, body }) => (
             <div key={heading}>
-              <p className="font-semibold text-white mb-2">{heading}</p>
+              <p className="font-semibold text-accent mb-2">{heading}</p>
               <ul className="space-y-1">
                 {body.split('\n').filter((l: string) => l.trim().startsWith('-')).map((line: string, i: number) => (
                   <li key={i} className="text-gray-300 text-xs flex gap-2">
                     <span className="text-gray-500 shrink-0">·</span>
-                    <span>{line.replace(/^-\s*/, '')}</span>
+                    <span>{line.replace(/^-\s*(?:New:|Fix:|New\s|Fix\s)?/, '')}</span>
                   </li>
                 ))}
               </ul>

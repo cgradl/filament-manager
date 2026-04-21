@@ -27,7 +27,7 @@ def get_version():
     return {"version": _read_version()}
 
 
-_CHANGELOG = Path(__file__).parent.parent.parent.parent / "CHANGELOG.md"
+_CHANGELOG = Path("/CHANGELOG.md")
 
 @router.get("/changelog")
 def get_changelog():

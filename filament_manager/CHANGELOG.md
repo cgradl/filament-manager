@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.3
+
+- Fix: changelog modal now shows content — CHANGELOG.md is included in the Docker image and served via the API correctly
+
 ## 0.27.2
 
 - Fix: missing translations for printer status labels (Stage, Progress, Remaining, Nozzle, Bed, File, Active tray), Tasks, Reconnect, and "not connected" badge — all now use the active language
