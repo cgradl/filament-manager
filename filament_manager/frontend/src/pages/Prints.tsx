@@ -592,14 +592,6 @@ function LogUsageModal({
 
 // ── Live status bar for active (open) print jobs ──────────────────────────────
 
-const LIVE_LABELS: Record<string, string> = {
-  print_stage:    'Stage',
-  print_progress: 'Progress',
-  remaining_time: 'Remaining',
-  print_weight:   'Weight',
-  ams_active:     'AMS active',
-  active_tray:    'Tray',
-}
 const LIVE_UNITS: Record<string, string> = {
   print_progress: '%',
   remaining_time: ' min',
@@ -608,6 +600,15 @@ const LIVE_UNITS: Record<string, string> = {
 const LIVE_KEYS = ['print_stage', 'print_progress', 'remaining_time', 'print_weight', 'ams_active', 'active_tray'] as const
 
 function LivePrintStatus({ printerId }: { printerId: number }) {
+  const { t } = useTranslation()
+  const liveLabels: Record<string, string> = {
+    print_stage:    t('settings.bambuCloud.statusStage'),
+    print_progress: t('settings.bambuCloud.statusProgress'),
+    remaining_time: t('settings.bambuCloud.statusRemaining'),
+    print_weight:   'Weight',
+    ams_active:     'AMS',
+    active_tray:    t('settings.bambuCloud.statusActiveTray'),
+  }
   const { data: status } = useQuery<PrinterStatus>({
     queryKey: ['printer-status-live', printerId],
     queryFn: () => api.getPrinterStatus(printerId),
@@ -624,7 +625,7 @@ function LivePrintStatus({ printerId }: { printerId: number }) {
     <div className="mt-2 pt-2 border-t border-surface-3 flex flex-wrap gap-x-4 gap-y-0.5">
       {entries.map(([key, val]) => (
         <span key={key} className="text-xs text-gray-500">
-          {LIVE_LABELS[key]}: <span className="text-gray-300">{val}{LIVE_UNITS[key] ?? ''}</span>
+          {liveLabels[key]}: <span className="text-gray-300">{val}{LIVE_UNITS[key] ?? ''}</span>
         </span>
       ))}
     </div>

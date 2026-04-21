@@ -1,8 +1,13 @@
 # Changelog
 
+## 0.27.2
+
+- Fix: missing translations for printer status labels (Stage, Progress, Remaining, Nozzle, Bed, File, Active tray), Tasks, Reconnect, and "not connected" badge — all now use the active language
+
 ## 0.27.1
 
 - New: **Version & Changelog in sidebar** — the current version is shown at the bottom-left of the sidebar; clicking it opens the full changelog without leaving the app
+- Fix: TypeScript build errors in Layout.tsx (wrong import style, missing type annotations)
 
 ## 0.27.0
 

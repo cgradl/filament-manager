@@ -79,9 +79,9 @@ function CloudPrinterFormContent({
   const visibleAmsUnit = amsUnits.includes(activeAmsUnit) ? activeAmsUnit : (amsUnits[0] ?? 1)
 
   const STATUS_LABELS: Record<string, string> = {
-    print_stage: 'Stage', print_progress: 'Progress',
-    remaining_time: 'Remaining', nozzle_temp: 'Nozzle',
-    bed_temp: 'Bed', current_file: 'File',
+    print_stage: t('settings.bambuCloud.statusStage'), print_progress: t('settings.bambuCloud.statusProgress'),
+    remaining_time: t('settings.bambuCloud.statusRemaining'), nozzle_temp: t('settings.bambuCloud.statusNozzle'),
+    bed_temp: t('settings.bambuCloud.statusBed'), current_file: t('settings.bambuCloud.statusFile'),
   }
   const STATUS_UNITS: Record<string, string> = {
     nozzle_temp: '°C', bed_temp: '°C', print_progress: '%', remaining_time: ' min',
@@ -583,8 +583,8 @@ function PrinterCard({ printer, onEdit, onDelete }: {
   const isPrinting = ['printing', 'auto_bed_leveling', 'heatbed_preheating'].includes(stage)
 
   const LABELS: Record<string, string> = {
-    print_progress: 'Progress', remaining_time: 'Remaining',
-    nozzle_temp: 'Nozzle', bed_temp: 'Bed', current_file: 'File',
+    print_progress: t('settings.bambuCloud.statusProgress'), remaining_time: t('settings.bambuCloud.statusRemaining'),
+    nozzle_temp: t('settings.bambuCloud.statusNozzle'), bed_temp: t('settings.bambuCloud.statusBed'), current_file: t('settings.bambuCloud.statusFile'),
   }
   const UNITS: Record<string, string> = {
     nozzle_temp: '°C', bed_temp: '°C', print_progress: '%', remaining_time: ' min',
@@ -1686,10 +1686,10 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
   }
 
   const LABELS: Record<string, string> = {
-    print_stage: 'Stage', print_progress: 'Progress',
-    remaining_time: 'Remaining', nozzle_temp: 'Nozzle',
-    bed_temp: 'Bed', current_file: 'File',
-    active_tray: 'Active tray',
+    print_stage: t('settings.bambuCloud.statusStage'), print_progress: t('settings.bambuCloud.statusProgress'),
+    remaining_time: t('settings.bambuCloud.statusRemaining'), nozzle_temp: t('settings.bambuCloud.statusNozzle'),
+    bed_temp: t('settings.bambuCloud.statusBed'), current_file: t('settings.bambuCloud.statusFile'),
+    active_tray: t('settings.bambuCloud.statusActiveTray'),
   }
   const UNITS: Record<string, string> = {
     nozzle_temp: '°C', bed_temp: '°C', print_progress: '%', remaining_time: ' min',
@@ -1719,7 +1719,7 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
             {mqttInfo !== null && (
               mqttConnected
                 ? <span className="flex items-center gap-1 text-[10px] text-green-400"><Wifi size={10} /> MQTT</span>
-                : <span className="flex items-center gap-1 text-[10px] text-red-400"><WifiOff size={10} /> not connected</span>
+                : <span className="flex items-center gap-1 text-[10px] text-red-400"><WifiOff size={10} /> {t('settings.bambuCloud.notConnected')}</span>
             )}
           </div>
         </div>
@@ -1731,7 +1731,7 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
             title="Download full task list from Bambu Cloud as JSON"
           >
             <Download size={11} className={downloadingTasks ? 'animate-pulse' : ''} />
-            {downloadingTasks ? 'Fetching…' : 'Tasks'}
+            {downloadingTasks ? t('settings.bambuCloud.fetchingTasks') : t('settings.bambuCloud.tasks')}
           </button>
           <button
             className="btn-ghost p-1 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
@@ -1740,7 +1740,7 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
             title="Reconnect MQTT and request fresh data"
           >
             <RefreshCw size={11} className={reconnecting ? 'animate-spin' : ''} />
-            {reconnecting ? 'Connecting…' : 'Reconnect'}
+            {reconnecting ? t('settings.bambuCloud.reconnecting') : t('settings.bambuCloud.reconnect')}
           </button>
           <button className="btn-ghost p-1" onClick={handleRefreshAll} title="Refresh cache">
             <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />

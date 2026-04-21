@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Layers, Printer, Settings, FolderOpen,
   ChevronLeft, ChevronRight, Menu, X, Globe,
 } from 'lucide-react'
-import api from '../api'
+import { api } from '../api'
 
 function AppIcon({ size = 24 }: { size?: number }) {
   return (
@@ -64,14 +64,14 @@ function LanguageSwitcher({ collapsed }: { collapsed?: boolean }) {
 }
 
 function ChangelogModal({ version, onClose }: { version: string; onClose: () => void }) {
-  const { data } = useQuery({
+  const { data } = useQuery<{ changelog: string }>({
     queryKey: ['changelog'],
     queryFn: api.getChangelog,
     staleTime: Infinity,
   })
 
-  const sections = data?.changelog
-    ? data.changelog.split(/^## /m).filter(Boolean).map(block => {
+  const sections: { heading: string; body: string }[] = data?.changelog
+    ? data.changelog.split(/^## /m).filter(Boolean).map((block: string) => {
         const [heading, ...rest] = block.split('\n')
         return { heading: heading.trim(), body: rest.join('\n').trim() }
       })
@@ -95,7 +95,7 @@ function ChangelogModal({ version, onClose }: { version: string; onClose: () => 
             <div key={heading}>
               <p className="font-semibold text-white mb-2">{heading}</p>
               <ul className="space-y-1">
-                {body.split('\n').filter(l => l.trim().startsWith('-')).map((line, i) => (
+                {body.split('\n').filter((l: string) => l.trim().startsWith('-')).map((line: string, i: number) => (
                   <li key={i} className="text-gray-300 text-xs flex gap-2">
                     <span className="text-gray-500 shrink-0">·</span>
                     <span>{line.replace(/^-\s*/, '')}</span>
@@ -112,7 +112,7 @@ function ChangelogModal({ version, onClose }: { version: string; onClose: () => 
 
 function VersionButton({ collapsed }: { collapsed?: boolean }) {
   const [open, setOpen] = useState(false)
-  const { data } = useQuery({
+  const { data } = useQuery<{ version: string }>({
     queryKey: ['version'],
     queryFn: api.getVersion,
     staleTime: Infinity,

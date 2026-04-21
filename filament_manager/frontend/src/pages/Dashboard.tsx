@@ -99,14 +99,6 @@ function InventoryCard({ stats }: { stats: DashboardStats }) {
 
 // ── Running job card ──────────────────────────────────────────────────────────
 
-const LIVE_LABELS: Record<string, string> = {
-  print_stage:    'Stage',
-  print_progress: 'Progress',
-  remaining_time: 'Remaining',
-  print_weight:   'Weight',
-  ams_active:     'AMS active',
-  active_tray:    'Tray',
-}
 const LIVE_UNITS: Record<string, string> = {
   print_progress: '%',
   remaining_time: ' min',
@@ -116,6 +108,14 @@ const LIVE_KEYS = ['print_stage', 'print_progress', 'remaining_time', 'print_wei
 
 function RunningJobCard({ job, printers }: { job: PrintJob; printers: PrinterConfig[] }) {
   const { t, i18n } = useTranslation()
+  const liveLabels: Record<string, string> = {
+    print_stage:    t('settings.bambuCloud.statusStage'),
+    print_progress: t('settings.bambuCloud.statusProgress'),
+    remaining_time: t('settings.bambuCloud.statusRemaining'),
+    print_weight:   'Weight',
+    ams_active:     'AMS',
+    active_tray:    t('settings.bambuCloud.statusActiveTray'),
+  }
   const locale = LOCALE_MAP[i18n.resolvedLanguage ?? 'en'] ?? enUS
   const tz = useHATZ()
   const qc = useQueryClient()
@@ -179,7 +179,7 @@ function RunningJobCard({ job, printers }: { job: PrintJob; printers: PrinterCon
         <div className="mt-3 pt-3 border-t border-blue-800/40 flex flex-wrap gap-x-5 gap-y-1">
           {liveEntries.map(([key, val]) => (
             <span key={key} className="text-xs text-gray-500">
-              {LIVE_LABELS[key]}: <span className="text-gray-200 font-medium">{val}{LIVE_UNITS[key] ?? ''}</span>
+              {liveLabels[key]}: <span className="text-gray-200 font-medium">{val}{LIVE_UNITS[key] ?? ''}</span>
             </span>
           ))}
         </div>
