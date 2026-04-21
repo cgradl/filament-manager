@@ -195,6 +195,12 @@ export interface PrinterHours {
   hours: number
 }
 
+export interface PrinterEnergy {
+  printer: string
+  energy_kwh: number
+  energy_cost: number | null
+}
+
 export interface DashboardStats {
   total_spools: number
   active_spools: number
@@ -210,6 +216,7 @@ export interface DashboardStats {
   material_breakdown: MaterialBreakdown[]
   price_by_location: PriceByLocation[]
   printer_hours: PrinterHours[]
+  printer_energy: PrinterEnergy[]
   recent_prints: PrintJob[]
   low_stock: Spool[]
   running_job: PrintJob | null

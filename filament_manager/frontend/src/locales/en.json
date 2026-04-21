@@ -72,7 +72,8 @@
       "weight": "Filament (kg)",
       "location": "Avg Price / Location",
       "printers": "Hours / Printer",
-      "timeline": "Prints / Day"
+      "timeline": "Prints / Day",
+      "energy": "Energy / Printer"
     },
     "chart": {
       "purchased": "Purchased",
@@ -81,7 +82,9 @@
       "spools": "spools",
       "spool": "spool",
       "avgPrice": "Avg price",
-      "hours": "hours"
+      "hours": "hours",
+      "energyKwh": "Energy",
+      "energyCost": "Cost"
     }
   },
   "spools": {

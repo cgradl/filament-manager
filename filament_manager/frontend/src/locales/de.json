@@ -72,7 +72,8 @@
       "weight": "Filament (kg)",
       "location": "Ø Preis / Ort",
       "printers": "Stunden / Drucker",
-      "timeline": "Drucke / Tag"
+      "timeline": "Drucke / Tag",
+      "energy": "Energie / Drucker"
     },
     "chart": {
       "purchased": "Gekauft",
@@ -81,7 +82,9 @@
       "spools": "Spulen",
       "spool": "Spule",
       "avgPrice": "Ø Preis",
-      "hours": "Stunden"
+      "hours": "Stunden",
+      "energyKwh": "Energie",
+      "energyCost": "Kosten"
     }
   },
   "spools": {

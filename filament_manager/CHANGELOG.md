@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.5
+
+- New: **Energy / Printer chart** on Dashboard — shows total kWh consumed per printer; if a price sensor is configured, a second bar shows energy cost; tab only appears when energy data exists
+
 ## 0.27.4
 
 - New: energy and price sensor fields show a live preview of the current HA sensor value when the field loses focus — green with the value on success, red if the entity is not found

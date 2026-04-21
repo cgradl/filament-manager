@@ -133,6 +133,8 @@ def export_data(db: Session = Depends(get_db)):
                 "ams_unit_count": p.ams_unit_count,
                 "is_active": p.is_active,
                 "auto_deduct": p.auto_deduct,
+                "energy_sensor_entity_id": p.energy_sensor_entity_id,
+                "price_sensor_entity_id": p.price_sensor_entity_id,
             }
             for p in printers
         ],
@@ -542,6 +544,8 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             ams_unit_count=p.get("ams_unit_count", 1),
             is_active=p.get("is_active", True),
             auto_deduct=p.get("auto_deduct", False),
+            energy_sensor_entity_id=p.get("energy_sensor_entity_id"),
+            price_sensor_entity_id=p.get("price_sensor_entity_id"),
         ))
         if serial:
             existing_serials.add(serial)

@@ -204,6 +204,12 @@ class PrinterHours(BaseModel):
     hours: float
 
 
+class PrinterEnergy(BaseModel):
+    printer: str
+    energy_kwh: float
+    energy_cost: float | None
+
+
 class PrintsPerDay(BaseModel):
     date: str   # "YYYY-MM-DD"
     count: int
@@ -229,6 +235,7 @@ class DashboardStats(BaseModel):
     material_breakdown: list[MaterialBreakdown] = []
     price_by_location: list[PriceByLocation] = []
     printer_hours: list[PrinterHours] = []
+    printer_energy: list[PrinterEnergy] = []
     recent_prints: list[PrintJobOut] = []
     low_stock: list[SpoolOut] = []
     running_job: PrintJobOut | None = None

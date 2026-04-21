@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import type { DashboardStats, PrintJob, PrinterConfig, PrinterStatus, AMSTray, Spool } from '../types'
+import type { DashboardStats, PrintJob, PrinterConfig, PrinterStatus, AMSTray, Spool, PrinterEnergy } from '../types'
 import { AlertTriangle, Printer, Zap, CheckCircle2 } from 'lucide-react'
 import { findBestSpoolMatch } from '../utils/amsMatch'
 import { formatDistanceToNow } from 'date-fns'
@@ -214,11 +214,13 @@ function PrintRow({ job }: { job: PrintJob }) {
 
 // ── Chart section ─────────────────────────────────────────────────────────────
 
-type ChartTab = 'materials' | 'cost' | 'weight' | 'location' | 'timeline'
+type ChartTab = 'materials' | 'cost' | 'weight' | 'location' | 'timeline' | 'energy'
 
 function ChartSection({ stats }: { stats: DashboardStats }) {
   const { t } = useTranslation()
   const [tab, setTab] = useState<ChartTab>('materials')
+
+  const hasEnergy = stats.printer_energy.length > 0
 
   const TAB_LABELS: { key: ChartTab; label: string }[] = [
     { key: 'materials', label: t('dashboard.tabs.materials') },
@@ -226,6 +228,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
     { key: 'weight',    label: t('dashboard.tabs.weight') },
     { key: 'location',  label: t('dashboard.tabs.location') },
     { key: 'timeline',  label: t('dashboard.tabs.timeline') },
+    ...(hasEnergy ? [{ key: 'energy' as ChartTab, label: t('dashboard.tabs.energy') }] : []),
   ]
 
   const pieData = stats.material_breakdown.map((m, i) => ({
@@ -417,6 +420,40 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                 </ResponsiveContainer>
               )
             })()
+      )}
+
+      {tab === 'energy' && (
+        (() => {
+          const energyData: (PrinterEnergy & { color: string })[] = stats.printer_energy.map((e, i) => ({
+            ...e,
+            color: PIE_COLORS[i % PIE_COLORS.length],
+          }))
+          const hasCost = energyData.some(e => e.energy_cost != null)
+          return (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={energyData} barSize={hasCost ? 20 : 40}>
+                <XAxis dataKey="printer" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={TT_STYLE}
+                  labelStyle={TT_LABEL}
+                  itemStyle={TT_ITEM}
+                  formatter={(v: number, name: string) =>
+                    name === 'energy_kwh' ? [`${v.toFixed(3)} kWh`, t('dashboard.chart.energyKwh')] : [`€${v.toFixed(4)}`, t('dashboard.chart.energyCost')]
+                  }
+                />
+                <Bar dataKey="energy_kwh" radius={[4, 4, 0, 0]} name="energy_kwh">
+                  {energyData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                </Bar>
+                {hasCost && (
+                  <Bar dataKey="energy_cost" radius={[4, 4, 0, 0]} name="energy_cost">
+                    {energyData.map((e, i) => <Cell key={i} fill={e.color} fillOpacity={0.45} />)}
+                  </Bar>
+                )}
+              </BarChart>
+            </ResponsiveContainer>
+          )
+        })()
       )}
 
     </div>

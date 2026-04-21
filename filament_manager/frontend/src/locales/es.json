@@ -72,7 +72,8 @@
       "weight": "Filamento (kg)",
       "location": "Precio medio / Lugar",
       "printers": "Horas / Impresora",
-      "timeline": "Impresiones / Día"
+      "timeline": "Impresiones / Día",
+      "energy": "Energía / Impresora"
     },
     "chart": {
       "purchased": "Comprado",
@@ -81,7 +82,9 @@
       "spools": "bobinas",
       "spool": "bobina",
       "avgPrice": "Precio medio",
-      "hours": "horas"
+      "hours": "horas",
+      "energyKwh": "Energía",
+      "energyCost": "Coste"
     }
   },
   "spools": {

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..models import Spool, PrintJob, PrintUsage, PrinterConfig, UserPreferences
-from ..schemas import DashboardStats, MaterialBreakdown, PriceByLocation, PrinterHours, PrintJobOut, SpoolOut, PrintsPerDay
+from ..schemas import DashboardStats, MaterialBreakdown, PriceByLocation, PrinterHours, PrinterEnergy, PrintJobOut, SpoolOut, PrintsPerDay
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -101,6 +101,28 @@ async def get_dashboard(db: Session = Depends(get_db)):
         key=lambda x: x.printer,
     )
 
+    # Energy per printer (from completed jobs with energy_kwh set)
+    pe_kwh: dict[str, float] = defaultdict(float)
+    pe_cost: dict[str, float] = defaultdict(float)
+    pe_has_cost: dict[str, bool] = defaultdict(bool)
+    for j in jobs:
+        if j.printer_name and j.energy_kwh is not None:
+            pe_kwh[j.printer_name] += j.energy_kwh
+            if j.energy_cost is not None:
+                pe_cost[j.printer_name] += j.energy_cost
+                pe_has_cost[j.printer_name] = True
+    printer_energy = sorted(
+        [
+            PrinterEnergy(
+                printer=name,
+                energy_kwh=round(kwh, 3),
+                energy_cost=round(pe_cost[name], 4) if pe_has_cost[name] else None,
+            )
+            for name, kwh in pe_kwh.items()
+        ],
+        key=lambda x: x.printer,
+    )
+
     # Running job: most recent open print (no finished_at)
     running_job = next((j for j in jobs if j.finished_at is None), None)
 
@@ -132,6 +154,7 @@ async def get_dashboard(db: Session = Depends(get_db)):
         material_breakdown=material_breakdown,
         price_by_location=price_by_location,
         printer_hours=printer_hours,
+        printer_energy=printer_energy,
         recent_prints=jobs[:5],
         low_stock=sorted(low_stock, key=lambda s: s.remaining_pct),
         running_job=running_job,
