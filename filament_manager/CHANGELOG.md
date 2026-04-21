@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.4
+
+- New: energy and price sensor fields show a live preview of the current HA sensor value when the field loses focus — green with the value on success, red if the entity is not found
+
 ## 0.27.3
 
 - Fix: changelog modal now shows content — CHANGELOG.md is included in the Docker image and served via the API correctly

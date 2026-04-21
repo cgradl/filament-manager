@@ -29,6 +29,14 @@ def get_version():
 
 _CHANGELOG = Path("/CHANGELOG.md")
 
+@router.get("/ha-sensor-value")
+async def get_ha_sensor_value(entity_id: str):
+    """Read the current numeric state of an HA sensor entity. Used to preview sensor values in the UI."""
+    from ..ha_client import get_ha_state
+    value = await get_ha_state(entity_id)
+    return {"entity_id": entity_id, "value": value}
+
+
 @router.get("/changelog")
 def get_changelog():
     try:

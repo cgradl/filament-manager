@@ -30,7 +30,20 @@ function CloudPrinterFormContent({
   const [autoDeduct, setAutoDeduct] = useState(initial?.auto_deduct ?? false)
   const [energySensorEntityId, setEnergySensorEntityId] = useState(initial?.energy_sensor_entity_id ?? '')
   const [priceSensorEntityId, setPriceSensorEntityId] = useState(initial?.price_sensor_entity_id ?? '')
+  const [energySensorPreview, setEnergySensorPreview] = useState<number | null | undefined>(undefined)
+  const [priceSensorPreview, setPriceSensorPreview] = useState<number | null | undefined>(undefined)
   const [activeAmsUnit, setActiveAmsUnit] = useState(1)
+
+  const fetchSensorPreview = async (entityId: string, setter: (v: number | null | undefined) => void) => {
+    if (!entityId.trim()) { setter(undefined); return }
+    setter(undefined) // reset to loading
+    try {
+      const res = await api.getHASensorValue(entityId.trim())
+      setter(res.value)
+    } catch {
+      setter(null)
+    }
+  }
 
   const isConnected = cloudStatus?.status === 'connected'
 
@@ -162,9 +175,15 @@ function CloudPrinterFormContent({
                 <input
                   className="input"
                   value={energySensorEntityId}
-                  onChange={e => setEnergySensorEntityId(e.target.value)}
+                  onChange={e => { setEnergySensorEntityId(e.target.value); setEnergySensorPreview(undefined) }}
+                  onBlur={() => fetchSensorPreview(energySensorEntityId, setEnergySensorPreview)}
                   placeholder="sensor.shelly_energy_total"
                 />
+                {energySensorEntityId && energySensorPreview !== undefined && (
+                  <p className={`text-[11px] mt-1 font-mono ${energySensorPreview === null ? 'text-red-400' : 'text-green-400'}`}>
+                    {energySensorPreview === null ? '✗ entity not found or not numeric' : `✓ ${energySensorPreview} kWh`}
+                  </p>
+                )}
                 <p className="text-[11px] text-gray-500 mt-1">{t('settings.printers.energySensorHint')}</p>
               </div>
               <div>
@@ -172,9 +191,15 @@ function CloudPrinterFormContent({
                 <input
                   className="input"
                   value={priceSensorEntityId}
-                  onChange={e => setPriceSensorEntityId(e.target.value)}
+                  onChange={e => { setPriceSensorEntityId(e.target.value); setPriceSensorPreview(undefined) }}
+                  onBlur={() => fetchSensorPreview(priceSensorEntityId, setPriceSensorPreview)}
                   placeholder="input_number.electricity_price"
                 />
+                {priceSensorEntityId && priceSensorPreview !== undefined && (
+                  <p className={`text-[11px] mt-1 font-mono ${priceSensorPreview === null ? 'text-red-400' : 'text-green-400'}`}>
+                    {priceSensorPreview === null ? '✗ entity not found or not numeric' : `✓ ${priceSensorPreview} €/kWh`}
+                  </p>
+                )}
                 <p className="text-[11px] text-gray-500 mt-1">{t('settings.printers.priceSensorHint')}</p>
               </div>
             </div>
