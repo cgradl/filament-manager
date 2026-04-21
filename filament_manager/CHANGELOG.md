@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.6
+
+- Fix: HA unmatched AMS sensor not updating when spool assignment changes — AMS assign/unassign, printer create/update/delete now all immediately trigger a sensor push
+
 ## 0.27.5
 
 - New: **Energy / Printer chart** on Dashboard — shows total kWh consumed per printer; if a price sensor is configured, a second bar shows energy cost; tab only appears when energy data exists

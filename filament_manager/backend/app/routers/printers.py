@@ -192,6 +192,8 @@ def assign_ams_tray(
         spool.ams_slot = full_key
 
     db.commit()
+    from .. import ha_publisher
+    ha_publisher.trigger()
     return {"ok": True, "previous_slot": previous_slot}
 
 
@@ -213,6 +215,8 @@ def create_printer(body: PrinterIn, db: Session = Depends(get_db)):
     db.refresh(p)
     if p.bambu_serial:
         bambu_cloud_client.register_printer(p.id, p.bambu_serial)
+    from .. import ha_publisher
+    ha_publisher.trigger()
     return p
 
 
@@ -239,6 +243,8 @@ def update_printer(printer_id: int, body: PrinterIn, db: Session = Depends(get_d
     db.refresh(p)
     if p.bambu_serial:
         bambu_cloud_client.register_printer(p.id, p.bambu_serial)
+    from .. import ha_publisher
+    ha_publisher.trigger()
     return p
 
 
@@ -249,6 +255,8 @@ def delete_printer(printer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Printer not found")
     db.delete(p)
     db.commit()
+    from .. import ha_publisher
+    ha_publisher.trigger()
 
 
 @router.get("/{printer_id}/status")
