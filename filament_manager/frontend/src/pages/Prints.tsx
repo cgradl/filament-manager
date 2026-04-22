@@ -550,7 +550,7 @@ function LogUsageModal({
                       </p>
                       <p className="text-xs text-gray-500">
                         {s.ams_slot} · {spool.remaining_pct}%
-                        {` (${(spool.current_weight_g / 1000).toFixed(3)} kg)`}
+                        {` (${(spool.current_weight_g / 1000).toFixed(5)} kg)`}
                       </p>
                     </>
                   ) : (
@@ -706,8 +706,8 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
           {job.total_cost > 0 && <p className="text-xs text-gray-400">€{job.total_cost.toFixed(2)}</p>}
           {job.energy_kwh != null && (
             <p className="text-xs text-gray-500">
-              {job.energy_kwh.toFixed(3)} kWh
-              {job.energy_cost != null && <> · €{job.energy_cost.toFixed(4)}</>}
+              {job.energy_kwh.toFixed(2)} kWh
+              {job.energy_cost != null && <> · €{job.energy_cost.toFixed(2)}</>}
             </p>
           )}
         </div>

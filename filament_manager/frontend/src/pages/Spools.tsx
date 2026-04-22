@@ -498,7 +498,7 @@ function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete }: {
       </div>
       <div className="mb-2">
         <div className="flex justify-between text-xs text-gray-400 mb-1">
-          <span>{(spool.current_weight_g / 1000).toFixed(3)} kg {t('spools.remaining')}</span>
+          <span>{(spool.current_weight_g / 1000).toFixed(5)} kg {t('spools.remaining')}</span>
           <span>{pct}%</span>
         </div>
         <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden">

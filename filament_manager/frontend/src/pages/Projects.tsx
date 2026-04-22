@@ -238,8 +238,8 @@ function ProjectCard({
           )}
           {project.total_energy_kwh != null && (
             <span>
-              {project.total_energy_kwh.toFixed(3)} kWh
-              {project.total_energy_cost != null && <> · €{project.total_energy_cost.toFixed(4)}</>}
+              {project.total_energy_kwh.toFixed(2)} kWh
+              {project.total_energy_cost != null && <> · €{project.total_energy_cost.toFixed(2)}</>}
             </span>
           )}
           {durationH && <span>{durationH}h</span>}
@@ -331,12 +331,22 @@ export default function Projects() {
   const updateMut = useMutation({
     mutationFn: (data: { name: string; description: string | null }) =>
       api.updateProject(editing!.id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); setEditing(null) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['prints'] })
+      qc.invalidateQueries({ queryKey: ['prints-count'] })
+      setEditing(null)
+    },
   })
 
   const deleteMut = useMutation({
     mutationFn: () => api.deleteProject(deleting!.id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); setDeleting(null) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['prints'] })
+      qc.invalidateQueries({ queryKey: ['prints-count'] })
+      setDeleting(null)
+    },
   })
 
   return (

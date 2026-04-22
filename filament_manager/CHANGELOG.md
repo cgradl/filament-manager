@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.28.1
+
+- Fix: renaming or deleting a project now immediately refreshes the Print History list — project name in print rows was stale until navigating away (issue #29)
+- Fix: energy kWh and cost now display with 2 decimal places; spool weight in kg displays with 5 decimal places (issue #33)
+
 ## 0.28.0
 
 - New: **Propagate catalog changes to spools** — when editing a filament catalog entry, a checkbox below the fields lets you update all spools sharing the same article number with the new brand, material, subtype, color name, and color; the checkbox state is remembered across edits; only available when the catalog entry has an article number
