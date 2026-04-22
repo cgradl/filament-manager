@@ -174,6 +174,10 @@ async def lifespan(app: FastAPI):
             conn.execute(text("ALTER TABLE print_jobs ADD COLUMN energy_cost REAL"))
             conn.commit()
             log.info("Migration: added print_jobs.energy_cost")
+        if "energy_start_kwh" not in job_cols:
+            conn.execute(text("ALTER TABLE print_jobs ADD COLUMN energy_start_kwh REAL"))
+            conn.commit()
+            log.info("Migration: added print_jobs.energy_start_kwh")
 
         # printer_configs: add energy sensor fields if missing
         if "energy_sensor_entity_id" not in printer_cols:

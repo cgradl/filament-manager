@@ -121,6 +121,8 @@ function PrintForm({
   const [printerId, setPrinterId] = useState<number | ''>('')
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [url, setUrl] = useState(initial?.url ?? '')
+  const [energyKwh, setEnergyKwh] = useState(initial?.energy_kwh?.toString() ?? '')
+  const [energyCost, setEnergyCost] = useState(initial?.energy_cost?.toString() ?? '')
   const [usages, setUsages] = useState<UsageRow[]>(() => {
     // Confirmed usages take priority
     if (initial?.usages && initial.usages.length > 0) {
@@ -224,6 +226,8 @@ function PrintForm({
       notes: notes || null,
       printer_name: selectedPrinter?.name ?? null,
       fm_project_id: fmProjectId || null,
+      energy_kwh: energyKwh ? parseFloat(energyKwh) : null,
+      energy_cost: energyCost ? parseFloat(energyCost) : null,
     }
     // Only send usages when the user explicitly entered edit mode — otherwise the
     // backend would revert and re-apply existing usages unchanged, creating noisy
@@ -332,6 +336,19 @@ function PrintForm({
               <input type="checkbox" checked={deductWeight} onChange={e => setDeductWeight(e.target.checked)} />
               {t('prints.form.deductFromSpool')}
             </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">{t('prints.form.energyKwh')}</label>
+              <input className="input" type="number" step="0.01" min="0" value={energyKwh}
+                onChange={e => setEnergyKwh(e.target.value)} placeholder="0.00" />
+            </div>
+            <div>
+              <label className="label">{t('prints.form.energyCost')}</label>
+              <input className="input" type="number" step="0.01" min="0" value={energyCost}
+                onChange={e => setEnergyCost(e.target.value)} placeholder="0.00" />
+            </div>
           </div>
 
           {/* Filament usages */}

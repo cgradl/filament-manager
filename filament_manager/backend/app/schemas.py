@@ -152,6 +152,8 @@ class PrintJobUpdate(BaseModel):
     usages: list[PrintUsageCreate] | None = None
     deduct_weight: bool = True
     fm_project_id: int | None = None
+    energy_kwh: float | None = None
+    energy_cost: float | None = None
 
 
 class PrintJobOut(PrintJobBase):

@@ -113,8 +113,9 @@ class PrintJob(Base):
     suggested_usages = Column(JSON, nullable=True)  # cloud-sourced per-tray usage hints [{ams_slot, grams, filament_type, color}]
     design_title = Column(String, nullable=True)   # MakerWorld/cloud model name (designTitle field from Bambu)
     url = Column(String, nullable=True)            # user-set URL for the model/print source
-    energy_kwh   = Column(Float, nullable=True)    # kWh consumed during this print (from HA sensor delta)
-    energy_cost  = Column(Float, nullable=True)    # energy cost in € (energy_kwh × price/kWh)
+    energy_kwh       = Column(Float, nullable=True)  # kWh consumed during this print (from HA sensor delta)
+    energy_cost      = Column(Float, nullable=True)  # energy cost in € (energy_kwh × price/kWh)
+    energy_start_kwh = Column(Float, nullable=True)  # HA energy sensor reading at print start (persisted for restart recovery)
     fm_project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
 
     project = relationship("Project", back_populates="print_jobs")

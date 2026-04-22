@@ -52,9 +52,29 @@ async def _on_print_end(
             if hasattr(job, k) and v is not None:
                 setattr(job, k, v)
 
+    # Energy calculation — start snapshot was stored in DB at print start, survives restarts
+    if printer.energy_sensor_entity_id and job.energy_start_kwh is not None:
+        try:
+            from .ha_client import get_ha_state
+            energy_end = await get_ha_state(printer.energy_sensor_entity_id)
+            if energy_end is not None and energy_end >= job.energy_start_kwh:
+                job.energy_kwh = round(energy_end - job.energy_start_kwh, 4)
+                log.info("Cloud: energy consumed = %.4f kWh for job #%d", job.energy_kwh, job_id)
+                if printer.price_sensor_entity_id:
+                    price = await get_ha_state(printer.price_sensor_entity_id)
+                    if price is not None and price > 0:
+                        job.energy_cost = round(job.energy_kwh * price, 4)
+                        log.info("Cloud: energy cost = %.4f € for job #%d", job.energy_cost, job_id)
+            else:
+                log.warning(
+                    "Cloud: energy end reading unavailable or less than start — "
+                    "skipping energy tracking for job #%d", job_id,
+                )
+        except Exception as exc:
+            log.warning("Cloud: energy calculation failed for job #%d: %s", job_id, exc)
+
     auto_deduct = getattr(printer, "auto_deduct", False)
 
-    # Commit job close first — captures duration and extra_fields immediately.
     db.commit()
     _state[printer.id] = {"stage": "idle", "job_id": None}
     log.info("Closed PrintJob #%d", job_id)
@@ -321,17 +341,18 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str, 
         db.commit()
         db.refresh(job)
 
-        # Snapshot energy sensor value at print start if configured
-        energy_snapshot: float | None = None
+        # Snapshot energy sensor value at print start — stored in DB so it survives container restarts
         if printer.energy_sensor_entity_id:
             from .ha_client import get_ha_state
             energy_snapshot = await get_ha_state(printer.energy_sensor_entity_id)
             if energy_snapshot is not None:
+                job.energy_start_kwh = energy_snapshot
+                db.commit()
                 log.info("Cloud: energy snapshot at start = %.4f kWh for job #%d", energy_snapshot, job.id)
             else:
                 log.warning("Cloud: could not read energy sensor %s at print start", printer.energy_sensor_entity_id)
 
-        _state[printer_id] = {"stage": "printing", "job_id": job.id, "energy_start": energy_snapshot}
+        _state[printer_id] = {"stage": "printing", "job_id": job.id}
         log.info("Cloud: Created PrintJob #%d for %s", job.id, printer.name)
     except Exception as exc:
         log.error("Cloud: on_cloud_print_start failed for printer_id=%s serial=%s: %s",
@@ -396,23 +417,6 @@ async def on_cloud_print_end(printer_id: int, success: bool, gcode_state: str) -
             "total_layer_num": status.get("total_layer_num"),
             "error_code":      str(status["mc_print_error_code"]) if not success and status.get("mc_print_error_code") is not None else None,
         }
-
-        # Calculate energy consumed during print
-        energy_start: float | None = prev.get("energy_start")
-        if printer.energy_sensor_entity_id and energy_start is not None:
-            from .ha_client import get_ha_state
-            energy_end = await get_ha_state(printer.energy_sensor_entity_id)
-            if energy_end is not None and energy_end >= energy_start:
-                energy_kwh = round(energy_end - energy_start, 4)
-                extra["energy_kwh"] = energy_kwh
-                log.info("Cloud: energy consumed = %.4f kWh for job #%s", energy_kwh, prev.get("job_id"))
-                if printer.price_sensor_entity_id:
-                    price = await get_ha_state(printer.price_sensor_entity_id)
-                    if price is not None and price > 0:
-                        extra["energy_cost"] = round(energy_kwh * price, 4)
-                        log.info("Cloud: energy cost = %.4f € for job #%s", extra["energy_cost"], prev.get("job_id"))
-            else:
-                log.warning("Cloud: energy end reading unavailable or less than start — skipping energy tracking")
 
         job_id = prev.get("job_id")
         try:

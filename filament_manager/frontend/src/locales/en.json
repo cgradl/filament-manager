@@ -197,6 +197,8 @@
       "printSucceeded": "Print succeeded",
       "project": "Project",
       "deductFromSpool": "Deduct from spool",
+      "energyKwh": "Energy (kWh)",
+      "energyCost": "Energy cost (€)",
       "filamentUsed": "Filament Used",
       "loadFromAMS": "Load from AMS",
       "loading": "Loading…",

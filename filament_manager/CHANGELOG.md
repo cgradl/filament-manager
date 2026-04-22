@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.29.0
+
+- Fix: energy sensor start reading is now stored in the database at print start — no longer lost when the container restarts mid-print; after a restart, the delta is calculated correctly when the print ends
+- Fix: if energy tracking fails (HA sensor unavailable, negative delta, restart), the print job now always closes cleanly with whatever data is available
+- New: **Manual energy correction** — the print create/edit form now has Energy (kWh) and Energy cost (€) fields; set or correct values manually when automatic tracking was not possible
+
 ## 0.28.1
 
 - Fix: renaming or deleting a project now immediately refreshes the Print History list — project name in print rows was stale until navigating away (issue #29)
