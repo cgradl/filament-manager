@@ -19,7 +19,8 @@ import type { Spool, PrintJob, PrinterConfig, PrinterStatus, DashboardStats, Fil
 
 export const api = {
   // Spools
-  getSpools: () => request<Spool[]>('spools'),
+  getSpools: (includeArchived = false) =>
+    request<Spool[]>(includeArchived ? 'spools?include_archived=true' : 'spools'),
   getSpool: (id: number) => request<Spool>(`spools/${id}`),
   createSpool: (data: Partial<Spool>) =>
     request<Spool>('spools', { method: 'POST', body: JSON.stringify(data) }),
@@ -27,6 +28,10 @@ export const api = {
     request<Spool>(`spools/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSpool: (id: number) =>
     request<void>(`spools/${id}`, { method: 'DELETE' }),
+  archiveSpool: (id: number) =>
+    request<Spool>(`spools/${id}/archive`, { method: 'POST' }),
+  unarchiveSpool: (id: number) =>
+    request<Spool>(`spools/${id}/unarchive`, { method: 'POST' }),
   getSpoolAudit: (id: number) =>
     request<import('./types').SpoolAuditEntry[]>(`spools/${id}/audit`),
   correctSpoolAudit: (spoolId: number, entryId: number) =>

@@ -57,6 +57,7 @@ def _spool_dict(s: Spool) -> dict:
         "storage_location": s.storage_location,
         "ams_slot": s.ams_slot,
         "notes": s.notes,
+        "archived": s.archived,
         "created_at": _dt(s.created_at),
     }
 
@@ -97,6 +98,8 @@ def _job_dict(j: PrintJob) -> dict:
         "energy_kwh": j.energy_kwh,
         "energy_cost": j.energy_cost,
         "energy_start_kwh": j.energy_start_kwh,
+        "ams_spool_snapshot": j.ams_spool_snapshot,
+        "ams_active_trays": j.ams_active_trays,
         "fm_project_id": j.fm_project_id,
         "created_at": _dt(j.created_at),
         "usages": [_usage_dict(u) for u in j.usages],
@@ -181,7 +184,7 @@ CSV_COLUMNS = [
     "initial_weight_g", "current_weight_g", "spool_weight_g", "remaining_pct",
     "purchase_price", "price_per_kg",
     "purchased_at", "purchase_location", "storage_location",
-    "article_number", "ams_slot", "notes",
+    "article_number", "ams_slot", "notes", "archived",
 ]
 
 @router.get("/export-spools-csv")
@@ -213,6 +216,7 @@ def export_spools_csv(db: Session = Depends(get_db)):
             "article_number":   s.article_number or "",
             "ams_slot":         s.ams_slot or "",
             "notes":            s.notes or "",
+            "archived":         int(s.archived),
         })
     filename = f"spools_{datetime.utcnow().strftime('%Y%m%d')}.csv"
     return StreamingResponse(
@@ -366,10 +370,11 @@ async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(
         "color_name", "color_hex", "diameter_mm",
         "initial_weight_g", "current_weight_g", "spool_weight_g",
         "purchase_price", "purchased_at", "purchase_location",
-        "storage_location", "article_number", "ams_slot", "notes",
+        "storage_location", "article_number", "ams_slot", "notes", "archived",
     }
     FLOAT_COLS = {"diameter_mm", "initial_weight_g", "current_weight_g", "spool_weight_g", "purchase_price"}
     INT_COLS: set[str] = set()
+    BOOL_COLS = {"archived"}
 
     created = updated = skipped = 0
 
@@ -390,6 +395,8 @@ async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(
                 fields[col] = _parse_float(raw)
             elif col == "purchased_at":
                 fields[col] = _parse_date(raw)
+            elif col in BOOL_COLS:
+                fields[col] = raw.lower() in ("1", "true", "yes") if raw else False
             else:
                 fields[col] = raw or None
 
@@ -577,6 +584,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             storage_location=sp.get("storage_location"),
             ams_slot=sp.get("ams_slot"),
             notes=sp.get("notes"),
+            archived=sp.get("archived", False),
             created_at=_parse_dt(sp.get("created_at")) or datetime.utcnow(),
         )
         db.add(new_spool)
@@ -629,6 +637,8 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             energy_kwh=job_data.get("energy_kwh"),
             energy_cost=job_data.get("energy_cost"),
             energy_start_kwh=job_data.get("energy_start_kwh"),
+            ams_spool_snapshot=job_data.get("ams_spool_snapshot"),
+            ams_active_trays=job_data.get("ams_active_trays"),
             fm_project_id=project_id_map.get(job_data["fm_project_id"]) if job_data.get("fm_project_id") else None,
             created_at=_parse_dt(job_data.get("created_at")) or datetime.utcnow(),
         )

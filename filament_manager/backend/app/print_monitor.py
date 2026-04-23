@@ -89,63 +89,175 @@ async def _on_print_end(
         task_data = await bambu_cloud_client.get_task_data_for_serial(serial) if serial else {}
         weight = task_data.get("weight")
         ams_detail = task_data.get("amsDetailMapping") or []
+        ams_mapping2 = task_data.get("amsMapping2") or []
 
         if weight is not None:
             job.print_weight_g = weight
             log.info("Cloud: recorded print_weight_g=%.1f for job #%d", weight, job.id)
 
+        # Spool snapshot captured at print start (spool_id + weight_g + material + color per slot)
+        spool_snapshot: dict = job.ams_spool_snapshot or {}
+
+        # Slot keys seen as active via MQTT tray_now during this print
+        active_slot_keys: set[str] = bambu_cloud_client.get_print_active_slot_keys(serial) if serial else set()
+
+        # Persist active slots to DB regardless of whether we build suggestions
+        if active_slot_keys:
+            job.ams_active_trays = list(active_slot_keys)
+
         # Build suggested_usages from amsDetailMapping (per-tray cloud breakdown)
         if ams_detail:
             suggestions = []
+            handled_slots: set[str] = set()
+
             for entry in ams_detail:
-                idx = entry.get("ams")
+                slicer_idx = entry.get("ams")
                 tray_weight = entry.get("weight")
-                if idx is None or tray_weight is None:
+                if slicer_idx is None or tray_weight is None:
                     continue
-                slot_key = bambu_cloud_client._ams_index_to_slot_key(
-                    int(idx), bambu_cloud_client.get_ams_unit_tray_counts(serial),
-                )
-                if slot_key is None:
-                    continue  # external spool — skip
+                slicer_idx = int(slicer_idx)
+                tray_weight = float(tray_weight)
+
+                # Convert slicer filament index → physical slot_key via amsMapping2 (correct)
+                # Falls back to the legacy index-based method when amsMapping2 is absent.
+                primary_slot: str | None = None
+                if slicer_idx < len(ams_mapping2):
+                    m = ams_mapping2[slicer_idx]
+                    if isinstance(m, dict):
+                        ams_unit = int(m.get("amsId", 0)) + 1
+                        tray_slot = int(m.get("slotId", 0)) + 1
+                        primary_slot = f"ams{ams_unit}_tray{tray_slot}"
+                if primary_slot is None:
+                    primary_slot = bambu_cloud_client._ams_index_to_slot_key(
+                        slicer_idx, bambu_cloud_client.get_ams_unit_tray_counts(serial),
+                    )
+                if primary_slot is None:
+                    continue  # external spool
+
+                # Material: use AMS snapshot (contains subtype e.g. "PETG HF"), fallback to cloud
+                primary_snap = spool_snapshot.get(primary_slot, {})
+                material = (primary_snap.get("material")
+                            or entry.get("filamentType")
+                            or entry.get("targetFilamentType") or "")
                 color_raw = entry.get("sourceColor") or entry.get("targetColor") or ""
-                color_hex = f"#{color_raw[:6]}" if len(color_raw) >= 6 else None
-                # Snapshot the spool currently in this slot so the UI shows the
-                # correct spool even if the AMS is changed before the user confirms.
-                full_slot = f"{job.printer_name}:{slot_key}" if job.printer_name else slot_key
-                snap_spool = (
-                    db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
-                    or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
+                color_hex = f"#{color_raw[:6]}" if len(color_raw) >= 6 else primary_snap.get("color")
+
+                primary_snap_spool_id = primary_snap.get("spool_id")
+                primary_snap_weight = float(primary_snap.get("weight_g") or 0.0)
+
+                # Current spool in primary slot — needed for swap detection
+                full_slot = f"{job.printer_name}:{primary_slot}" if job.printer_name else primary_slot
+                current_spool = (
+                    db.query(Spool).filter(Spool.ams_slot == full_slot).first()
+                    or db.query(Spool).filter(Spool.ams_slot == primary_slot).first()
                 )
-                suggestions.append({
-                    "ams_slot": slot_key,
-                    "grams": round(float(tray_weight), 1),
-                    "filament_type": entry.get("filamentType") or entry.get("targetFilamentType") or "",
-                    "color": color_hex,
-                    "spool_id": snap_spool.id if snap_spool else None,
-                })
+                current_spool_id = current_spool.id if current_spool else None
+
+                # Scenario 2 — manual swap: snapshot spool ≠ current spool in same slot
+                swap_detected = (
+                    primary_snap_spool_id is not None
+                    and current_spool_id is not None
+                    and primary_snap_spool_id != current_spool_id
+                )
+
+                # Scenario 1 — auto-switch: other active slots with matching material+color
+                auto_switch_slots: list[str] = []
+                if not swap_detected and active_slot_keys:
+                    for slot_key in sorted(active_slot_keys):
+                        if slot_key == primary_slot or slot_key in handled_slots:
+                            continue
+                        snap = spool_snapshot.get(slot_key, {})
+                        if (snap.get("spool_id") is not None
+                                and snap.get("material") == primary_snap.get("material")
+                                and snap.get("color") == primary_snap.get("color")):
+                            auto_switch_slots.append(slot_key)
+
+                if swap_detected:
+                    # Two suggestions for the same slot: original spool ran out, replacement used rest
+                    original_g = round(min(primary_snap_weight, tray_weight), 1)
+                    replacement_g = round(max(0.0, tray_weight - primary_snap_weight), 1)
+                    if original_g > 0:
+                        suggestions.append({
+                            "ams_slot": primary_slot, "grams": original_g,
+                            "filament_type": material, "color": color_hex,
+                            "spool_id": primary_snap_spool_id,
+                            "estimated": True, "swap_index": 0,
+                        })
+                    if replacement_g > 0:
+                        suggestions.append({
+                            "ams_slot": primary_slot, "grams": replacement_g,
+                            "filament_type": material, "color": color_hex,
+                            "spool_id": current_spool_id,
+                            "estimated": True, "swap_index": 1,
+                        })
+                    log.info("Cloud: swap detected on %s for job #%d — %.1fg + %.1fg",
+                             primary_slot, job.id, original_g, replacement_g)
+
+                elif auto_switch_slots:
+                    # Extra slots ran out first; primary got the remainder (stock-based split)
+                    remaining = tray_weight
+                    for extra_slot in auto_switch_slots:
+                        extra_snap = spool_snapshot.get(extra_slot, {})
+                        extra_weight = float(extra_snap.get("weight_g") or 0.0)
+                        used = round(min(extra_weight, remaining), 1)
+                        if used > 0:
+                            suggestions.append({
+                                "ams_slot": extra_slot, "grams": used,
+                                "filament_type": material, "color": color_hex,
+                                "spool_id": extra_snap.get("spool_id"),
+                                "estimated": True, "swap_index": None,
+                            })
+                            remaining -= used
+                        handled_slots.add(extra_slot)
+                    if remaining > 0:
+                        suggestions.append({
+                            "ams_slot": primary_slot, "grams": round(remaining, 1),
+                            "filament_type": material, "color": color_hex,
+                            "spool_id": primary_snap_spool_id,
+                            "estimated": True, "swap_index": None,
+                        })
+                    log.info("Cloud: auto-switch detected on %s (+ %s) for job #%d",
+                             primary_slot, auto_switch_slots, job.id)
+
+                else:
+                    # Normal single-spool case
+                    suggestions.append({
+                        "ams_slot": primary_slot, "grams": round(tray_weight, 1),
+                        "filament_type": material, "color": color_hex,
+                        "spool_id": primary_snap_spool_id or current_spool_id,
+                        "estimated": False, "swap_index": None,
+                    })
+
+                handled_slots.add(primary_slot)
+
             if suggestions:
                 job.suggested_usages = suggestions
                 log.info("Cloud: stored %d suggested_usages for job #%d", len(suggestions), job.id)
+
         elif weight is not None:
             # No per-tray detail — use total weight on the single tracked tray
-            tracked = bambu_cloud_client.get_print_trays(serial)
+            tracked = bambu_cloud_client.get_print_trays(serial) if serial else set()
             if len(tracked) == 1:
                 idx = next(iter(tracked))
                 slot_key = bambu_cloud_client._ams_index_to_slot_key(
                     idx, bambu_cloud_client.get_ams_unit_tray_counts(serial),
                 )
                 if slot_key:
-                    full_slot = f"{job.printer_name}:{slot_key}" if job.printer_name else slot_key
-                    snap_spool = (
-                        db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
-                        or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
-                    )
+                    snap = spool_snapshot.get(slot_key, {})
+                    snap_spool_id = snap.get("spool_id")
+                    if snap_spool_id is None:
+                        full_slot = f"{job.printer_name}:{slot_key}" if job.printer_name else slot_key
+                        fb_spool = (
+                            db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
+                            or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
+                        )
+                        snap_spool_id = fb_spool.id if fb_spool else None
                     job.suggested_usages = [{
-                        "ams_slot": slot_key,
-                        "grams": round(float(weight), 1),
-                        "filament_type": "",
-                        "color": None,
-                        "spool_id": snap_spool.id if snap_spool else None,
+                        "ams_slot": slot_key, "grams": round(float(weight), 1),
+                        "filament_type": snap.get("material") or "",
+                        "color": snap.get("color"),
+                        "spool_id": snap_spool_id,
+                        "estimated": False, "swap_index": None,
                     }]
                     log.info("Cloud: stored single-tray suggestion %.1fg on %s for job #%d",
                              weight, slot_key, job.id)
@@ -156,7 +268,7 @@ async def _on_print_end(
             log.info("Cloud auto-deduct: applied %d usages for job #%d",
                      suggestions_count, job.id)
 
-        if job.print_weight_g is not None or suggestions_count > 0:
+        if job.print_weight_g is not None or suggestions_count > 0 or job.ams_active_trays:
             db.commit()
     except Exception as exc:
         log.warning("post-print data fetch failed for job #%d: %s", job_id, exc)
@@ -171,10 +283,12 @@ def _apply_suggested_usages(job: PrintJob, db: Session) -> None:
     """
     if not job.suggested_usages:
         return
-    existing_slots = {u.ams_slot for u in job.usages}
+    # Dedup by (ams_slot, spool_id) — swap scenario produces two entries for the same slot
+    existing = {(u.ams_slot, u.spool_id) for u in job.usages}
     for s in job.suggested_usages:
         slot_key = s.get("ams_slot", "")
-        if slot_key in existing_slots:
+        spool_id = s.get("spool_id")
+        if (slot_key, spool_id) in existing:
             continue
         grams = float(s.get("grams") or 0)
         if grams <= 0:
@@ -282,7 +396,8 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str, 
 
         from . import bambu_cloud_client
         bambu_cloud_client.reset_print_trays(serial)
-        ams_snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(serial)
+        ams_snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(serial)  # remain_pct only (legacy field)
+        ams_detail_now = bambu_cloud_client.get_ams_detail_for_serial(serial)  # full detail for rich snapshot
         status = bambu_cloud_client.get_printer_cloud_status(serial)
 
         task_id_str = str(status["task_id"]) if status.get("task_id") is not None else None
@@ -320,6 +435,22 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str, 
         if not display_name:
             display_name = f"Print {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
+        # Rich spool snapshot: {slot_key: {spool_id, weight_g, material, color}}
+        # Used at print end for swap detection and auto-switch split calculation.
+        spool_snap: dict = {}
+        for slot_key, slot_info in ams_detail_now.items():
+            full_slot = f"{printer.name}:{slot_key}"
+            snap_spool = (
+                db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
+                or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
+            )
+            spool_snap[slot_key] = {
+                "spool_id": snap_spool.id if snap_spool else None,
+                "weight_g": snap_spool.current_weight_g if snap_spool else None,
+                "material": slot_info.get("material"),
+                "color": slot_info.get("color"),
+            }
+
         nozzle_d = status.get("nozzle_diameter")
         job = PrintJob(
             name=display_name,
@@ -330,6 +461,7 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str, 
             printer_name=printer.name,
             success=True,
             ams_snapshot_start=ams_snapshot,
+            ams_spool_snapshot=spool_snap if spool_snap else None,
             task_id=task_id_str,
             project_id=str(status["project_id"]) if status.get("project_id") is not None else None,
             total_layer_num=status.get("total_layer_num"),

@@ -1,6 +1,6 @@
 name: "Filament Manager"
 description: "Track filament inventory, print history and costs. Integrates with Bambu Lab via Home Assistant."
-version: "0.29.0"
+version: "0.31.0"
 slug: "filament_manager"
 url: "https://github.com/cgradl/filament-manager"
 init: false

@@ -153,14 +153,21 @@
       "filterNumPct": "=, >=, < (%)",
       "filterNumKg": "=, >=, < (kg, e.g. 0,5)",
       "filterNumEur": "=, >=, < (€, e.g. 12,50)",
-      "filterDate": "DD.MM.YYYY"
+      "filterDate": "DD.MM.YYYY",
+      "clearFilters": "Clear filters",
+      "columns": "Columns"
     },
     "actions": {
       "duplicate": "Duplicate",
       "delete": "Delete",
       "edit": "Edit",
-      "history": "Weight History"
+      "history": "Weight History",
+      "archive": "Archive",
+      "unarchive": "Unarchive"
     },
+    "archived": "Archived",
+    "showArchived": "Show archived",
+    "hideArchived": "Hide archived",
     "audit": {
       "title": "Weight History — {{brand}} {{color}}",
       "noEntries": "No weight changes recorded yet.",
@@ -239,6 +246,9 @@
     "saveUsage": "Save Usage",
     "gramsHint": "Enter grams used per tray. Inventory will be updated on save.",
     "cloudSuggestion": "Values pre-filled from printer data — verify and adjust before saving.",
+    "spoolSwapDetected": "Spool swap detected",
+    "swapOriginal": "ran out",
+    "swapReplacement": "replacement",
     "search": "Search prints…",
     "noResults": "No prints match your filters.",
     "filter": {

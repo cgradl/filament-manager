@@ -153,14 +153,21 @@
       "filterNumPct": "=, >=, < (%)",
       "filterNumKg": "=, >=, < (kg, z.B. 0,5)",
       "filterNumEur": "=, >=, < (€, z.B. 12,50)",
-      "filterDate": "TT.MM.JJJJ"
+      "filterDate": "TT.MM.JJJJ",
+      "clearFilters": "Filter löschen",
+      "columns": "Spalten"
     },
     "actions": {
       "duplicate": "Duplizieren",
       "delete": "Löschen",
       "edit": "Bearbeiten",
-      "history": "Gewichtsverlauf"
+      "history": "Gewichtsverlauf",
+      "archive": "Archivieren",
+      "unarchive": "Wiederherstellen"
     },
+    "archived": "Archiviert",
+    "showArchived": "Archivierte anzeigen",
+    "hideArchived": "Archivierte ausblenden",
     "audit": {
       "title": "Gewichtsverlauf — {{brand}} {{color}}",
       "noEntries": "Noch keine Gewichtsänderungen aufgezeichnet.",
@@ -239,6 +246,9 @@
     "saveUsage": "Verbrauch speichern",
     "gramsHint": "Gramm pro Fach eingeben. Lagerbestand wird beim Speichern aktualisiert.",
     "cloudSuggestion": "Werte vom Drucker vorausgefüllt — bitte prüfen und ggf. anpassen.",
+    "spoolSwapDetected": "Spulenwechsel erkannt",
+    "swapOriginal": "leer",
+    "swapReplacement": "Ersatz",
     "search": "Drucke suchen…",
     "noResults": "Keine Drucke entsprechen den Filtern.",
     "filter": {

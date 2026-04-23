@@ -9,14 +9,17 @@ function normalizeHex(hex: string): string {
  * Find the best spool for a given AMS tray based on material + color match.
  * Tie-breaking: lowest remaining weight first (use partial spools), then oldest
  * purchase date (FiFo).  Returns null if no spool matches or tray has no MQTT data.
+ * Pass excludeIds to prevent the same spool being assigned to multiple trays.
  */
-export function findBestSpoolMatch(tray: AMSTray, spools: Spool[]): Spool | null {
+export function findBestSpoolMatch(tray: AMSTray, spools: Spool[], excludeIds?: Set<number>): Spool | null {
   if (!tray.ha_material || !tray.ha_color_hex) return null
 
   const mat = tray.ha_material.toLowerCase()
   const col = normalizeHex(tray.ha_color_hex)
 
   const candidates = spools.filter(s => {
+    if (excludeIds?.has(s.id)) return false
+    if (s.archived) return false
     const spoolMat = s.subtype
       ? `${s.material} ${s.subtype}`.toLowerCase()
       : s.material.toLowerCase()

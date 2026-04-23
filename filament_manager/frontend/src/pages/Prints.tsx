@@ -488,14 +488,12 @@ function LogUsageModal({
 }) {
   const { t } = useTranslation()
 
-  // Spools list — used to display info for the snapshotted spool_id in each suggestion.
   const { data: spools = [] } = useQuery<Spool[]>({
     queryKey: ['spools'],
-    queryFn: api.getSpools,
+    queryFn: () => api.getSpools(),
   })
 
-  // Backward-compat fallback: for old suggestions without a spool_id snapshot,
-  // look up the current AMS tray to find which spool is there now.
+  // Backward-compat fallback: for old suggestions without a spool_id, look up current AMS tray.
   const { data: printers = [] } = useQuery<PrinterConfig[]>({
     queryKey: ['printers'],
     queryFn: api.getPrinters,
@@ -511,21 +509,30 @@ function LogUsageModal({
 
   const suggestions = job.suggested_usages ?? []
 
-  const [grams, setGrams] = useState<Record<string, string>>(() =>
-    Object.fromEntries(suggestions.map(s => [s.ams_slot, String(s.grams)]))
+  // Grams state keyed by index (not ams_slot) — swap scenario has two entries for same slot
+  const [grams, setGrams] = useState<Record<number, string>>(() =>
+    Object.fromEntries(suggestions.map((s, i) => [i, String(s.grams)]))
   )
 
   const handleSave = () => {
     const usages: { spool_id: number; grams_used: number; ams_slot: string }[] = []
-    for (const s of suggestions) {
-      const gramsVal = parseFloat(grams[s.ams_slot] || '0')
-      // Use snapshotted spool_id; fall back to the current AMS tray for old suggestions
+    suggestions.forEach((s, i) => {
+      const gramsVal = parseFloat(grams[i] || '0')
       const spoolId = s.spool_id ?? traysBySlot[s.ams_slot]?.spool?.id ?? null
-      if (gramsVal <= 0 || spoolId == null) continue
+      if (gramsVal <= 0 || spoolId == null) return
       usages.push({ spool_id: spoolId, grams_used: gramsVal, ams_slot: s.ams_slot })
-    }
+    })
     onSave(usages)
   }
+
+  // Group suggestions by ams_slot to detect swap rows
+  const grouped = suggestions.reduce<Record<string, Array<SuggestedUsage & { _idx: number }>>>(
+    (acc, s, i) => {
+      if (!acc[s.ams_slot]) acc[s.ams_slot] = []
+      acc[s.ams_slot].push({ ...s, _idx: i })
+      return acc
+    }, {}
+  )
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -538,7 +545,7 @@ function LogUsageModal({
           <button onClick={onCancel} className="btn-ghost p-1"><X size={16} /></button>
         </div>
 
-        <div className="p-5 space-y-3">
+        <div className="p-5 space-y-4">
           <p className="text-xs text-blue-400 bg-blue-950/40 rounded px-3 py-1.5">
             {t('prints.cloudSuggestion')}
           </p>
@@ -547,45 +554,72 @@ function LogUsageModal({
             <p className="text-sm text-gray-500">{t('prints.form.noAMSAssigned')}</p>
           )}
 
-          {suggestions.map(s => {
-            // Prefer the snapshotted spool (captured at print-end); fall back to current AMS
-            const spool = s.spool_id
-              ? (spools.find(sp => sp.id === s.spool_id) ?? null)
-              : (traysBySlot[s.ams_slot]?.spool ?? null)
+          {Object.entries(grouped).map(([slot, entries]) => {
+            const isSwap = entries.length > 1
             return (
-              <div key={s.ams_slot} className="flex items-center gap-3">
-                <span
-                  className="w-3 h-3 rounded-full shrink-0"
-                  style={{ background: spool?.color_hex ?? '#888' }}
-                />
-                <div className="flex-1 min-w-0">
-                  {spool ? (
-                    <>
-                      <p className="text-sm text-white truncate">
-                        {spool.brand} {spool.material}
-                        {spool.subtype ? ` ${spool.subtype}` : ''} · {spool.color_name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {s.ams_slot} · {spool.remaining_pct}%
-                        {` (${(spool.current_weight_g / 1000).toFixed(5)} kg)`}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-400">{s.ams_slot}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <input
-                    className="input w-20 text-sm py-1 text-right"
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    placeholder="0"
-                    value={grams[s.ams_slot] ?? ''}
-                    onChange={e => setGrams(g => ({ ...g, [s.ams_slot]: e.target.value }))}
-                  />
-                  <span className="text-xs text-gray-500">g</span>
-                </div>
+              <div key={slot} className={isSwap ? 'rounded-lg border border-amber-700/50 bg-amber-950/20 p-3 space-y-2' : ''}>
+                {isSwap && (
+                  <p className="text-xs text-amber-400 font-medium">
+                    {t('prints.spoolSwapDetected')} · {slot}
+                  </p>
+                )}
+                {entries.map(s => {
+                  const spool = s.spool_id
+                    ? (spools.find(sp => sp.id === s.spool_id) ?? null)
+                    : (traysBySlot[s.ams_slot]?.spool ?? null)
+                  const swapLabel = s.swap_index === 0
+                    ? t('prints.swapOriginal')
+                    : s.swap_index === 1
+                      ? t('prints.swapReplacement')
+                      : null
+                  return (
+                    <div key={s._idx} className="flex items-center gap-3">
+                      <span
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ background: spool?.color_hex ?? s.color ?? '#888' }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        {spool ? (
+                          <>
+                            <p className="text-sm text-white truncate">
+                              {spool.brand} {spool.material}
+                              {spool.subtype ? ` ${spool.subtype}` : ''} · {spool.color_name}
+                              {swapLabel && (
+                                <span className="ml-1.5 text-xs text-amber-400">({swapLabel})</span>
+                              )}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {!isSwap && `${slot} · `}{spool.remaining_pct}%
+                              {` (${(spool.current_weight_g / 1000).toFixed(3)} kg)`}
+                              {s.estimated && (
+                                <span className="ml-1.5 text-yellow-600">{t('common.est')}</span>
+                              )}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-sm text-gray-400">
+                            {slot}
+                            {swapLabel && (
+                              <span className="ml-1.5 text-xs text-amber-400">({swapLabel})</span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <input
+                          className="input w-20 text-sm py-1 text-right"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          placeholder="0"
+                          value={grams[s._idx] ?? ''}
+                          onChange={e => setGrams(g => ({ ...g, [s._idx]: e.target.value }))}
+                        />
+                        <span className="text-xs text-gray-500">g</span>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )
           })}
@@ -595,10 +629,7 @@ function LogUsageModal({
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-3">
           <button className="btn-ghost" onClick={onCancel}>{t('common.cancel')}</button>
-          <button
-            className="btn-primary"
-            onClick={handleSave}
-          >
+          <button className="btn-primary" onClick={handleSave}>
             {t('prints.saveUsage')}
           </button>
         </div>

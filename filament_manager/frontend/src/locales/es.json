@@ -153,14 +153,21 @@
       "filterNumPct": "=, >=, < (%)",
       "filterNumKg": "=, >=, < (kg, ej. 0,5)",
       "filterNumEur": "=, >=, < (€, ej. 12,50)",
-      "filterDate": "DD.MM.AAAA"
+      "filterDate": "DD.MM.AAAA",
+      "clearFilters": "Limpiar filtros",
+      "columns": "Columnas"
     },
     "actions": {
       "duplicate": "Duplicar",
       "delete": "Eliminar",
       "edit": "Editar",
-      "history": "Historial de peso"
+      "history": "Historial de peso",
+      "archive": "Archivar",
+      "unarchive": "Restaurar"
     },
+    "archived": "Archivada",
+    "showArchived": "Mostrar archivadas",
+    "hideArchived": "Ocultar archivadas",
     "audit": {
       "title": "Historial de peso — {{brand}} {{color}}",
       "noEntries": "No hay cambios de peso registrados aún.",
@@ -239,6 +246,9 @@
     "saveUsage": "Guardar uso",
     "gramsHint": "Introduce los gramos usados por bandeja. El inventario se actualizará al guardar.",
     "cloudSuggestion": "Valores prellenados desde la impresora — verifica y ajusta antes de guardar.",
+    "spoolSwapDetected": "Cambio de bobina detectado",
+    "swapOriginal": "agotada",
+    "swapReplacement": "repuesto",
     "search": "Buscar impresiones…",
     "noResults": "No hay impresiones que coincidan con los filtros.",
     "filter": {

@@ -525,7 +525,7 @@ export default function Dashboard() {
 
   const { data: spools = [] } = useQuery<Spool[]>({
     queryKey: ['spools'],
-    queryFn: api.getSpools,
+    queryFn: () => api.getSpools(),
   })
 
   if (isLoading) return <div className="text-gray-500 text-sm">{t('common.loading')}</div>

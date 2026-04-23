@@ -22,11 +22,14 @@ router = APIRouter(prefix="/api/spools", tags=["spools"])
 @router.get("", response_model=list[SpoolOut])
 def list_spools(
     material: str | None = None,
+    include_archived: bool = False,
     db: Session = Depends(get_db),
 ):
     q = db.query(Spool)
     if material:
         q = q.filter(Spool.material == material)
+    if not include_archived:
+        q = q.filter(Spool.archived == False)  # noqa: E712
     return q.order_by(Spool.brand, Spool.material).all()
 
 
@@ -135,6 +138,34 @@ def delete_spool(spool_id: int, db: Session = Depends(get_db)):
     db.commit()
     from .. import ha_publisher
     ha_publisher.trigger()
+
+
+@router.post("/{spool_id}/archive", response_model=SpoolOut)
+def archive_spool(spool_id: int, db: Session = Depends(get_db)):
+    spool = db.get(Spool, spool_id)
+    if not spool:
+        raise HTTPException(404, "Spool not found")
+    spool.archived = True
+    spool.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(spool)
+    from .. import ha_publisher
+    ha_publisher.trigger()
+    return spool
+
+
+@router.post("/{spool_id}/unarchive", response_model=SpoolOut)
+def unarchive_spool(spool_id: int, db: Session = Depends(get_db)):
+    spool = db.get(Spool, spool_id)
+    if not spool:
+        raise HTTPException(404, "Spool not found")
+    spool.archived = False
+    spool.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(spool)
+    from .. import ha_publisher
+    ha_publisher.trigger()
+    return spool
 
 
 @router.get("/materials/list")

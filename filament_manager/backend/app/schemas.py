@@ -23,6 +23,7 @@ class SpoolBase(BaseModel):
     article_number: str | None = None
     ams_slot: str | None = None
     notes: str | None = None
+    archived: bool = False
 
 
 class SpoolCreate(SpoolBase):
@@ -48,12 +49,14 @@ class SpoolUpdate(BaseModel):
     article_number: str | None = None
     ams_slot: str | None = None
     notes: str | None = None
+    archived: bool | None = None
 
 
 class SpoolOut(SpoolBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    archived: bool
     remaining_pct: float
     price_per_kg: float | None
     cost_per_gram: float | None

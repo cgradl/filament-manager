@@ -46,6 +46,7 @@ class Spool(Base):
     article_number = Column(String, nullable=True)
     ams_slot = Column(String)
     notes = Column(Text)
+    archived = Column(Boolean, default=False, nullable=False, server_default='0')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -116,6 +117,10 @@ class PrintJob(Base):
     energy_kwh       = Column(Float, nullable=True)  # kWh consumed during this print (from HA sensor delta)
     energy_cost      = Column(Float, nullable=True)  # energy cost in € (energy_kwh × price/kWh)
     energy_start_kwh = Column(Float, nullable=True)  # HA energy sensor reading at print start (persisted for restart recovery)
+    # {slot_key: {spool_id, weight_g, material, color}} — spool identity + weight captured at print start
+    ams_spool_snapshot = Column(JSON, nullable=True)
+    # [slot_key, ...] — physical AMS slots active during the print (for auto-switch split detection)
+    ams_active_trays = Column(JSON, nullable=True)
     fm_project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
 
     project = relationship("Project", back_populates="print_jobs")

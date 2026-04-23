@@ -1,9 +1,9 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { Spool, BrandSpoolWeight, FilamentCatalog, SpoolAuditEntry } from '../types'
-import { Plus, Pencil, Trash2, X, LayoutGrid, Table2, ChevronUp, ChevronDown, ChevronsUpDown, Copy, History, RotateCcw } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, LayoutGrid, Table2, ChevronUp, ChevronDown, ChevronsUpDown, Copy, History, RotateCcw, Archive, ArchiveRestore, Columns3 } from 'lucide-react'
 import Modal from '../components/Modal'
 import { formatDateOnly } from '../utils/time'
 
@@ -468,15 +468,16 @@ function SpoolAuditModal({ spool, onClose }: { spool: Spool; onClose: () => void
 
 // ── Spool Card ────────────────────────────────────────────────────────────────
 
-function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete }: {
+function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete, onArchive, onUnarchive }: {
   spool: Spool; onEdit: () => void; onDuplicate: () => void; onHistory: () => void; onDelete: () => void
+  onArchive: () => void; onUnarchive: () => void
 }) {
   const { t } = useTranslation()
   const pct = spool.remaining_pct
   const barColor = pct > 40 ? '#3b82f6' : pct > 15 ? '#f59e0b' : '#ef4444'
 
   return (
-    <div className="card">
+    <div className={`card${spool.archived ? ' opacity-50' : ''}`}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="w-4 h-4 rounded-full shrink-0 ring-1 ring-white/10" style={{ background: spool.color_hex }} />
@@ -487,12 +488,19 @@ function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete }: {
               {spool.subtype2 ? ` · ${spool.subtype2}` : ''}
             </p>
             <p className="text-xs text-gray-400">{spool.color_name}</p>
+            {spool.archived && (
+              <span className="text-xs text-gray-500 italic">{t('spools.archived')}</span>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-0.5 shrink-0 ml-2">
           <button onClick={onEdit} className="btn-ghost p-1" title={t('spools.actions.edit')}><Pencil size={13} /></button>
           <button onClick={onDuplicate} className="btn-ghost p-1 text-blue-400" title={t('spools.actions.duplicate')}><Copy size={13} /></button>
           <button onClick={onHistory} className="btn-ghost p-1 text-amber-400" title={t('spools.actions.history')}><History size={13} /></button>
+          {spool.archived
+            ? <button onClick={onUnarchive} className="btn-ghost p-1 text-green-400 hover:text-green-300" title={t('spools.actions.unarchive')}><ArchiveRestore size={13} /></button>
+            : <button onClick={onArchive} className="btn-ghost p-1 text-gray-400 hover:text-gray-200" title={t('spools.actions.archive')}><Archive size={13} /></button>
+          }
           <button onClick={onDelete} className="btn-ghost p-1 text-red-400 hover:text-red-300" title={t('spools.actions.delete')}><Trash2 size={13} /></button>
         </div>
       </div>
@@ -524,6 +532,8 @@ type SortKey = 'custom_id' | 'brand' | 'material' | 'subtype' | 'color_name' | '
                'price_per_kg' | 'purchased_at' | 'purchase_location' | 'storage_location' | 'ams_slot'
 type SortDir = 'asc' | 'desc'
 
+type ColDef = { key: SortKey; label: string; width?: string; always?: boolean }
+
 function SortIcon({ col, sort }: { col: SortKey; sort: { key: SortKey; dir: SortDir } }) {
   if (sort.key !== col) return <ChevronsUpDown size={12} className="text-gray-600" />
   return sort.dir === 'asc'
@@ -531,13 +541,43 @@ function SortIcon({ col, sort }: { col: SortKey; sort: { key: SortKey; dir: Sort
     : <ChevronDown size={12} className="text-accent" />
 }
 
-function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete }: {
+function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchive, onUnarchive }: {
   spools: Spool[]; onEdit: (s: Spool) => void; onDuplicate: (s: Spool) => void; onHistory: (s: Spool) => void; onDelete: (s: Spool) => void
+  onArchive: (s: Spool) => void; onUnarchive: (s: Spool) => void
 }) {
   const { t } = useTranslation()
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'ams_slot', dir: 'asc' })
   const actionsLast = localStorage.getItem('fm_actions_last') === 'true'
   const [filters, setFilters] = useState<Partial<Record<SortKey, string>>>({})
+  const [showColPicker, setShowColPicker] = useState(false)
+  const colPickerRef = useRef<HTMLDivElement>(null)
+
+  // Column visibility stored in localStorage; always-true cols can't be hidden
+  const [colVis, setColVis] = useState<Partial<Record<SortKey, boolean>>>(() => {
+    try {
+      const s = localStorage.getItem('fm_spool_columns')
+      return s ? JSON.parse(s) : {}
+    } catch { return {} }
+  })
+
+  useEffect(() => {
+    if (!showColPicker) return
+    const handler = (e: MouseEvent) => {
+      if (colPickerRef.current && !colPickerRef.current.contains(e.target as Node)) {
+        setShowColPicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showColPicker])
+
+  const toggleColVis = (key: SortKey) => {
+    setColVis(prev => {
+      const next = { ...prev, [key]: !(prev[key] !== false) }
+      localStorage.setItem('fm_spool_columns', JSON.stringify(next))
+      return next
+    })
+  }
 
   const setFilter = (k: SortKey, v: string) =>
     setFilters(f => ({ ...f, [k]: v }))
@@ -621,31 +661,33 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete }: {
     return rows
   }, [spools, sort, filters])
 
-  const cols: { key: SortKey; label: string; width?: string }[] = [
-    { key: 'custom_id',        label: '#',                            width: 'w-14' },
-    { key: 'brand',            label: t('spools.table.brand'),        width: 'w-24' },
-    { key: 'material',         label: t('spools.table.material'),     width: 'w-20' },
-    { key: 'subtype',          label: t('spools.table.subtype'),      width: 'w-24' },
-    { key: 'color_name',       label: t('spools.table.color'),         width: 'w-32' },
-    { key: 'article_number',   label: t('spools.table.articleNumber'), width: 'w-28' },
-    { key: 'remaining_pct',    label: t('spools.table.remaining'),     width: 'w-28' },
-    { key: 'current_weight_g', label: t('spools.table.currentWeight'),width: 'w-24' },
-    { key: 'initial_weight_g', label: t('spools.table.initialWeight'),width: 'w-20' },
-    { key: 'purchase_price',   label: t('spools.table.price'),        width: 'w-20' },
-    { key: 'price_per_kg',     label: t('spools.table.pricePerKg'),   width: 'w-20' },
-    { key: 'purchased_at',     label: t('spools.table.purchaseDate'), width: 'w-24' },
-    { key: 'purchase_location',label: t('spools.table.location'),        width: 'w-24' },
-    { key: 'storage_location', label: t('spools.table.storageLocation'), width: 'w-24' },
-    { key: 'ams_slot',         label: t('spools.table.amsSlot'),         width: 'w-24' },
+  const COLUMN_DEFS: ColDef[] = [
+    { key: 'custom_id',         label: '#',                                 width: 'w-14' },
+    { key: 'brand',             label: t('spools.table.brand'),             width: 'w-24', always: true },
+    { key: 'material',          label: t('spools.table.material'),          width: 'w-20' },
+    { key: 'subtype',           label: t('spools.table.subtype'),           width: 'w-24' },
+    { key: 'color_name',        label: t('spools.table.color'),             width: 'w-32', always: true },
+    { key: 'article_number',    label: t('spools.table.articleNumber'),     width: 'w-28' },
+    { key: 'remaining_pct',     label: t('spools.table.remaining'),         width: 'w-28', always: true },
+    { key: 'current_weight_g',  label: t('spools.table.currentWeight'),     width: 'w-24' },
+    { key: 'initial_weight_g',  label: t('spools.table.initialWeight'),     width: 'w-20' },
+    { key: 'purchase_price',    label: t('spools.table.price'),             width: 'w-20' },
+    { key: 'price_per_kg',      label: t('spools.table.pricePerKg'),        width: 'w-20' },
+    { key: 'purchased_at',      label: t('spools.table.purchaseDate'),      width: 'w-24' },
+    { key: 'purchase_location', label: t('spools.table.location'),          width: 'w-24' },
+    { key: 'storage_location',  label: t('spools.table.storageLocation'),   width: 'w-24' },
+    { key: 'ams_slot',          label: t('spools.table.amsSlot'),           width: 'w-24' },
   ]
 
-  const actionHeaderCell = <th className="px-3 py-2 w-28" />
+  const visibleCols = COLUMN_DEFS.filter(c => c.always || colVis[c.key] !== false)
+
+  const actionHeaderCell = <th className="px-3 py-2 w-32" />
   const actionFilterCell = (
     <td className="px-2 py-1">
       <button
         className="text-xs text-gray-500 hover:text-white"
         onClick={() => setFilters({})}
-        title="Clear all filters"
+        title={t('spools.table.clearFilters')}
       >
         ✕
       </button>
@@ -657,18 +699,93 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete }: {
         <button onClick={() => onEdit(s)} className="btn-ghost p-1" title={t('spools.actions.edit')}><Pencil size={12} /></button>
         <button onClick={() => onDuplicate(s)} className="btn-ghost p-1 text-blue-400" title={t('spools.actions.duplicate')}><Copy size={12} /></button>
         <button onClick={() => onHistory(s)} className="btn-ghost p-1 text-amber-400" title={t('spools.actions.history')}><History size={12} /></button>
+        {s.archived
+          ? <button onClick={() => onUnarchive(s)} className="btn-ghost p-1 text-green-400 hover:text-green-300" title={t('spools.actions.unarchive')}><ArchiveRestore size={12} /></button>
+          : <button onClick={() => onArchive(s)} className="btn-ghost p-1 text-gray-500 hover:text-gray-300" title={t('spools.actions.archive')}><Archive size={12} /></button>
+        }
         <button onClick={() => onDelete(s)} className="btn-ghost p-1 text-red-400" title={t('spools.actions.delete')}><Trash2 size={12} /></button>
       </div>
     </td>
   )
 
+  const renderDataCell = (c: ColDef, s: Spool) => {
+    const pct = s.remaining_pct
+    const barColor = pct > 40 ? '#3b82f6' : pct > 15 ? '#f59e0b' : '#ef4444'
+    switch (c.key) {
+      case 'custom_id':        return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono">{s.custom_id ?? '—'}</td>
+      case 'brand':            return <td key={c.key} className="px-3 py-2 font-medium text-white whitespace-nowrap">{s.brand}</td>
+      case 'material':         return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.material}</td>
+      case 'subtype':          return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-300">{[s.subtype, s.subtype2].filter(Boolean).join(' · ') || '—'}</td>
+      case 'color_name':       return <td key={c.key} className="px-3 py-2 whitespace-nowrap"><span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/10" style={{ background: s.color_hex }} />{s.color_name}</span></td>
+      case 'article_number':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono">{s.article_number ?? '—'}</td>
+      case 'remaining_pct':    return <td key={c.key} className="px-3 py-2 whitespace-nowrap"><div className="flex items-center gap-2"><div className="w-16 h-1.5 rounded-full bg-surface-3 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} /></div><span style={{ color: barColor }}>{pct}%</span></div></td>
+      case 'current_weight_g': return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-300">{(s.current_weight_g / 1000).toFixed(3)} kg</td>
+      case 'initial_weight_g': return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{(s.initial_weight_g / 1000).toFixed(2)} kg</td>
+      case 'purchase_price':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.purchase_price != null ? `€${s.purchase_price.toFixed(2)}` : '—'}</td>
+      case 'price_per_kg':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.price_per_kg != null ? `€${s.price_per_kg.toFixed(2)}` : '—'}</td>
+      case 'purchased_at':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.purchased_at ? formatDateOnly(s.purchased_at) : '—'}</td>
+      case 'purchase_location':return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.purchase_location ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-gray-400">{s.purchase_location}</span> : <span className="text-gray-600">—</span>}</td>
+      case 'storage_location': return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.storage_location ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-green-400">{s.storage_location}</span> : <span className="text-gray-600">—</span>}</td>
+      case 'ams_slot':         return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-blue-400">{s.ams_slot ?? '—'}</td>
+      default:                 return <td key={c.key} />
+    }
+  }
+
+  const renderFootCell = (c: ColDef, idx: number) => {
+    const n = processed.length
+    const avgPct = processed.reduce((s, r) => s + r.remaining_pct, 0) / n
+    const totalRemKg = processed.reduce((s, r) => s + r.current_weight_g, 0) / 1000
+    const withPrice = processed.filter(r => r.purchase_price != null)
+    const avgPrice = withPrice.length ? withPrice.reduce((s, r) => s + r.purchase_price!, 0) / withPrice.length : null
+    const withPpkg = processed.filter(r => r.price_per_kg != null)
+    const avgPpkg = withPpkg.length ? withPpkg.reduce((s, r) => s + r.price_per_kg!, 0) / withPpkg.length : null
+    if (idx === 0) return <td key={c.key} className="px-3 py-2 text-xs text-gray-400">{n} {n !== 1 ? t('dashboard.chart.spools') : t('dashboard.chart.spool')}</td>
+    switch (c.key) {
+      case 'remaining_pct':    return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs"><span className="text-gray-300">{avgPct.toFixed(1)}%</span></td>
+      case 'current_weight_g': return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">{totalRemKg.toFixed(3)} kg</td>
+      case 'initial_weight_g': return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">{(processed.reduce((s, r) => s + r.initial_weight_g, 0) / 1000).toFixed(2)} kg</td>
+      case 'purchase_price':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">{avgPrice != null ? `€${avgPrice.toFixed(2)}` : '—'}</td>
+      case 'price_per_kg':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">{avgPpkg != null ? `€${avgPpkg.toFixed(2)}` : '—'}</td>
+      default:                 return <td key={c.key} />
+    }
+  }
+
   return (
+    <div>
+      {/* Column picker — rendered OUTSIDE the overflow-x-auto container so the popover is not clipped */}
+      <div className="relative flex justify-end mb-1" ref={colPickerRef}>
+        <button
+          className="btn-ghost px-2 py-1 text-xs flex items-center gap-1 text-gray-500 hover:text-white"
+          onClick={() => setShowColPicker(v => !v)}
+          title={t('spools.table.columns')}
+        >
+          <Columns3 size={13} />
+          {t('spools.table.columns')}
+        </button>
+        {showColPicker && (
+          <div className="absolute right-0 top-full mt-1 z-50 bg-surface-2 border border-surface-3 rounded-lg shadow-lg p-2 min-w-[180px]">
+            <p className="text-xs text-gray-400 font-medium mb-1.5 px-1">{t('spools.table.columns')}</p>
+            {COLUMN_DEFS.map(c => (
+              <label key={c.key} className={`flex items-center gap-2 px-1 py-0.5 rounded cursor-pointer text-xs ${c.always ? 'text-gray-600' : 'hover:bg-surface-3 text-gray-300'}`}>
+                <input
+                  type="checkbox"
+                  className="accent-accent"
+                  checked={!!(c.always || colVis[c.key] !== false)}
+                  disabled={!!c.always}
+                  onChange={() => !c.always && toggleColVis(c.key)}
+                />
+                {c.label}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
     <div className="overflow-x-auto rounded-xl border border-surface-3 bg-surface-2">
       <table className="w-full text-xs text-left">
         <thead>
           <tr className="border-b border-surface-3">
             {!actionsLast && actionHeaderCell}
-            {cols.map(c => (
+            {visibleCols.map(c => (
               <th
                 key={c.key}
                 className={`px-3 py-2 text-gray-400 font-medium whitespace-nowrap cursor-pointer select-none hover:text-white ${c.width ?? ''}`}
@@ -683,7 +800,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete }: {
           </tr>
           <tr className="border-b border-surface-3 bg-surface-3/30">
             {!actionsLast && actionFilterCell}
-            {cols.map(c => (
+            {visibleCols.map(c => (
               <td key={c.key} className="px-2 py-1">
                 <input
                   className="w-full bg-surface-3 rounded px-2 py-0.5 text-xs text-gray-100 placeholder-gray-600
@@ -698,118 +815,35 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete }: {
           </tr>
         </thead>
         <tbody>
-          {processed.map(s => {
-            const pct = s.remaining_pct
-            const barColor = pct > 40 ? '#3b82f6' : pct > 15 ? '#f59e0b' : '#ef4444'
-            return (
-              <tr
-                key={s.id}
-                className="border-b border-surface-3/50 hover:bg-surface-3/40 transition-colors"
-              >
-                {!actionsLast && actionDataCell(s)}
-                <td className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono">{s.custom_id ?? '—'}</td>
-                <td className="px-3 py-2 font-medium text-white whitespace-nowrap">{s.brand}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{s.material}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                  {[s.subtype, s.subtype2].filter(Boolean).join(' · ') || '—'}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/10" style={{ background: s.color_hex }} />
-                    {s.color_name}
-                  </span>
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono">{s.article_number ?? '—'}</td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <div className="w-16 h-1.5 rounded-full bg-surface-3 overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} />
-                    </div>
-                    <span style={{ color: barColor }}>{pct}%</span>
-                  </div>
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                  {(s.current_weight_g / 1000).toFixed(3)} kg
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-gray-400">
-                  {(s.initial_weight_g / 1000).toFixed(2)} kg
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  {s.purchase_price != null ? `€${s.purchase_price.toFixed(2)}` : '—'}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-gray-400">
-                  {s.price_per_kg != null ? `€${s.price_per_kg.toFixed(2)}` : '—'}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-gray-400">
-                  {s.purchased_at ? formatDateOnly(s.purchased_at) : '—'}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  {s.purchase_location
-                    ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-gray-400">{s.purchase_location}</span>
-                    : <span className="text-gray-600">—</span>
-                  }
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  {s.storage_location
-                    ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-green-400">{s.storage_location}</span>
-                    : <span className="text-gray-600">—</span>
-                  }
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-blue-400">
-                  {s.ams_slot ?? '—'}
-                </td>
-                {actionsLast && actionDataCell(s)}
-              </tr>
-            )
-          })}
+          {processed.map(s => (
+            <tr
+              key={s.id}
+              className={`border-b border-surface-3/50 hover:bg-surface-3/40 transition-colors${s.archived ? ' opacity-40' : ''}`}
+            >
+              {!actionsLast && actionDataCell(s)}
+              {visibleCols.map(c => renderDataCell(c, s))}
+              {actionsLast && actionDataCell(s)}
+            </tr>
+          ))}
           {processed.length === 0 && (
             <tr>
-              <td colSpan={cols.length + 1} className="px-3 py-6 text-center text-gray-500">
+              <td colSpan={visibleCols.length + 1} className="px-3 py-6 text-center text-gray-500">
                 {t('spools.noMatch')}
               </td>
             </tr>
           )}
         </tbody>
-        {processed.length > 0 && (() => {
-          const n = processed.length
-          const avgPct = processed.reduce((s, r) => s + r.remaining_pct, 0) / n
-          const totalRemKg = processed.reduce((s, r) => s + r.current_weight_g, 0) / 1000
-          const withPrice = processed.filter(r => r.purchase_price != null)
-          const avgPrice = withPrice.length
-            ? withPrice.reduce((s, r) => s + r.purchase_price!, 0) / withPrice.length
-            : null
-          const withPpkg = processed.filter(r => r.price_per_kg != null)
-          const avgPpkg = withPpkg.length
-            ? withPpkg.reduce((s, r) => s + r.price_per_kg!, 0) / withPpkg.length
-            : null
-          return (
-            <tfoot>
-              <tr className="border-t-2 border-surface-3 bg-surface-3/40 text-gray-300 font-medium">
-                {!actionsLast && <td />}
-                <td className="px-3 py-2 text-xs text-gray-400" colSpan={5}>
-                  {n} {n !== 1 ? t('dashboard.chart.spools') : t('dashboard.chart.spool')}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs">
-                  <span className="text-gray-300">{avgPct.toFixed(1)}%</span>
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs">
-                  {totalRemKg.toFixed(3)} kg
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">
-                  {(processed.reduce((s, r) => s + r.initial_weight_g, 0) / 1000).toFixed(2)} kg
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs">
-                  {avgPrice != null ? `€${avgPrice.toFixed(2)}` : '—'}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">
-                  {avgPpkg != null ? `€${avgPpkg.toFixed(2)}` : '—'}
-                </td>
-                <td colSpan={actionsLast ? 5 : 4} />
-              </tr>
-            </tfoot>
-          )
-        })()}
+        {processed.length > 0 && (
+          <tfoot>
+            <tr className="border-t-2 border-surface-3 bg-surface-3/40 text-gray-300 font-medium">
+              {!actionsLast && <td />}
+              {visibleCols.map((c, i) => renderFootCell(c, i))}
+              {actionsLast && <td />}
+            </tr>
+          </tfoot>
+        )}
       </table>
+    </div>
     </div>
   )
 }
@@ -824,10 +858,11 @@ export default function Spools() {
   const [duplicating, setDuplicating] = useState<Spool | null>(null)
   const [auditSpool, setAuditSpool] = useState<Spool | null>(null)
   const [view, setView] = useState<'cards' | 'table'>('table')
+  const [showArchived, setShowArchived] = useState(false)
 
   const { data: spools = [], isLoading } = useQuery<Spool[]>({
-    queryKey: ['spools'],
-    queryFn: () => api.getSpools(),
+    queryKey: ['spools', showArchived],
+    queryFn: () => api.getSpools(showArchived),
   })
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['spools'] })
@@ -838,6 +873,8 @@ export default function Spools() {
     onSuccess: () => { invalidate(); setEditing(null) },
   })
   const deleteMut = useMutation({ mutationFn: api.deleteSpool, onSuccess: invalidate })
+  const archiveMut = useMutation({ mutationFn: (id: number) => api.archiveSpool(id), onSuccess: invalidate })
+  const unarchiveMut = useMutation({ mutationFn: (id: number) => api.unarchiveSpool(id), onSuccess: invalidate })
 
   const buildPayload = (form: typeof EMPTY_FORM): Partial<Spool> => ({
     ...form,
@@ -878,8 +915,16 @@ export default function Spools() {
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-lg font-bold">{t('spools.title')} ({spools.length})</h2>
+        <h2 className="text-lg font-bold">{t('spools.title')} ({spools.filter(s => !s.archived).length})</h2>
         <div className="flex items-center gap-2">
+          <button
+            className={`btn-ghost px-2.5 py-1.5 text-xs flex items-center gap-1 transition-colors ${showArchived ? 'text-amber-400' : 'text-gray-400'}`}
+            onClick={() => setShowArchived(v => !v)}
+            title={showArchived ? t('spools.hideArchived') : t('spools.showArchived')}
+          >
+            <Archive size={13} />
+            {showArchived ? t('spools.hideArchived') : t('spools.showArchived')}
+          </button>
           <div className="flex rounded-lg border border-surface-3 overflow-hidden">
             <button
               className={`px-2.5 py-1.5 text-xs flex items-center gap-1 transition-colors ${view === 'cards' ? 'bg-accent text-white' : 'text-gray-400 hover:text-white hover:bg-surface-3'}`}
@@ -915,6 +960,8 @@ export default function Spools() {
               onDuplicate={() => setDuplicating(spool)}
               onHistory={() => setAuditSpool(spool)}
               onDelete={() => handleDelete(spool)}
+              onArchive={() => archiveMut.mutate(spool.id)}
+              onUnarchive={() => unarchiveMut.mutate(spool.id)}
             />
           ))}
         </div>
@@ -925,6 +972,8 @@ export default function Spools() {
           onDuplicate={s => setDuplicating(s)}
           onHistory={s => setAuditSpool(s)}
           onDelete={handleDelete}
+          onArchive={s => archiveMut.mutate(s.id)}
+          onUnarchive={s => unarchiveMut.mutate(s.id)}
         />
       )}
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.31.0
+
+- New: **Spool archive** — retire a spool with the archive action (box icon); archived spools are hidden from the main inventory list, excluded from AMS auto-match, and do not count towards low-stock alerts; the "Show archived" toggle in the toolbar reveals them dimmed; each can be individually unarchived (issue #36)
+- New: **Configurable spool table columns** — click the Columns icon in the filter row to show or hide any column; selection persists in localStorage; brand, color, remaining %, and actions columns are always visible (issue #37)
+
+## 0.30.1
+
+- Fix: **Auto-match no longer assigns the same spool to multiple AMS trays** — the auto-match-all button now accumulates matched spool IDs and excludes already-matched spools from subsequent tray matches; the per-tray sparkle button also excludes spools already assigned to other trays in the same AMS unit (issue #40)
+
+## 0.30.0
+
+- New: **Reliable spool identification for auto-print suggestions** — at print start, spool identity (id, weight, material, color) is now snapshotted per AMS slot to the database; at print end, suggestions use the print-time spool rather than whatever is currently loaded, so AMS changes after a print no longer produce wrong suggestions
+- Fix: **`amsMapping2` slot conversion** — slicer filament index is now mapped to physical AMS slot via `amsMapping2` from the cloud task API instead of treating it as a raw physical index; fixes incorrect slot keys for multi-AMS and non-trivial slot arrangements
+- Fix: **Filament subtype in suggestions** — material name now uses the AMS MQTT `tray_sub_brands` value (e.g. "PETG HF") instead of the generic cloud API `filamentType` ("PETG")
+- New: **Manual spool swap detection (Scenario 2)** — when a spool is replaced mid-print (filament runout pause + manual swap), the Log Usage modal shows two rows for the affected slot: the original spool (ran out) and the replacement; grams are split based on what the original spool had at print start; both values are editable
+- New: **AMS auto-switch detection (Scenario 1)** — when the printer automatically switches to a backup tray with the same material, both spools appear as separate rows in the Log Usage modal; split is based on remaining stock at print start and flagged as estimated
+- New: **Active tray tracking persisted to DB** — the `ams_active_trays` field on each print job now records which physical AMS slots were active during the print (from MQTT `tray_now` events); required for auto-switch detection after a restart
+
 ## 0.29.0
 
 - Fix: energy sensor start reading is now stored in the database at print start — no longer lost when the container restarts mid-print; after a restart, the delta is calculated correctly when the print ends

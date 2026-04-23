@@ -2,7 +2,7 @@
 
 A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.29.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.31.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -20,7 +20,8 @@ Spools, print history, and all other data are unaffected.
 
 - **Automatic print detection** — monitors your Bambu Lab printer via Bambu Cloud MQTT; creates print records automatically when a print starts
 - **AMS filament tracking** — snapshots filament levels at print start/end; calculates grams used per spool per tray
-- **Suggested filament usage** — on print completion the app pre-fills grams used per tray for review; an optional per-printer *auto-deduct* flag applies the deduction immediately without confirmation
+- **Suggested filament usage** — on print completion the app pre-fills grams used per tray for review; spool identity is snapshotted at print start so suggestions always reference the correct spool even if the AMS is changed afterwards; an optional per-printer *auto-deduct* flag applies the deduction immediately without confirmation
+- **Multi-spool print support** — manual spool swaps (runout pause + replace) and AMS auto-switches (backup tray same material) are both detected; the Log Usage modal shows two rows for the affected slot with the split pre-calculated from print-start stock; all estimates are editable
 - **Live print status** — active print jobs show real-time stage, progress, remaining time, and active tray from Bambu Cloud MQTT
 - **Spool inventory** — full CRUD for filament spools with brand, material, subtype, color, article number, weight, cost, purchase location, and storage location
 - **Filament catalog** — manage a master list of filament products (brand, material, subtype, color, article number, hex); CSV import and export (semicolon or comma delimited, Excel UTF-8 BOM supported); selecting a catalog entry auto-fills the spool form; an optional checkbox propagates catalog changes to all spools sharing the same article number
@@ -37,6 +38,8 @@ Spools, print history, and all other data are unaffected.
 - **Data export / import** — organised into four tabs: full JSON backup/restore (Filament Manager), spool CSV export/import (Spools), Bambu Cloud print history import, and experimental Spoolman export
 - **Spool CSV export / import** — export all spool data as a semicolon-delimited CSV; re-import to update or restore spools; upserts by ID
 - **Spool weight history** — every weight change is logged with action type, before/after values, and linked print name; viewable per spool via the history icon
+- **Spool archive** — retire empty or inactive spools with the archive action; archived spools are hidden from inventory, excluded from AMS auto-match, and do not trigger low-stock alerts; toggle "Show archived" in the toolbar to view or restore them
+- **Configurable spool table columns** — show or hide individual columns in the spool table via the column picker; selection is saved locally and persists across sessions
 - **Regional overrides** — timezone, currency, and country can be set manually in Settings → Appearance; overrides take precedence over Home Assistant; app works fully without HA when all three are set
 
 ---

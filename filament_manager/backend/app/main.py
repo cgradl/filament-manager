@@ -75,6 +75,12 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added spools.article_number")
 
+        # spools: add archived flag if missing
+        if "archived" not in spool_cols:
+            conn.execute(text("ALTER TABLE spools ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+            log.info("Migration: added spools.archived")
+
         # printer_configs: rebuild to cloud-only schema (removes all greghesp HA columns)
         printer_cols = [c["name"] for c in insp.get_columns("printer_configs")]
         _ha_cols = {"device_slug", "ams_device_slug", "sensor_print_stage",
@@ -178,6 +184,14 @@ async def lifespan(app: FastAPI):
             conn.execute(text("ALTER TABLE print_jobs ADD COLUMN energy_start_kwh REAL"))
             conn.commit()
             log.info("Migration: added print_jobs.energy_start_kwh")
+        if "ams_spool_snapshot" not in job_cols:
+            conn.execute(text("ALTER TABLE print_jobs ADD COLUMN ams_spool_snapshot TEXT"))
+            conn.commit()
+            log.info("Migration: added print_jobs.ams_spool_snapshot")
+        if "ams_active_trays" not in job_cols:
+            conn.execute(text("ALTER TABLE print_jobs ADD COLUMN ams_active_trays TEXT"))
+            conn.commit()
+            log.info("Migration: added print_jobs.ams_active_trays")
 
         # printer_configs: add energy sensor fields if missing
         if "energy_sensor_entity_id" not in printer_cols:

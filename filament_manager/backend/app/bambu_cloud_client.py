@@ -82,6 +82,9 @@ _ams_cache: dict[str, dict[str, float]] = {}
 # serial → set of 0-based tray indices seen during the current print (tray_now tracking)
 _print_active_trays: dict[str, set[int]] = {}
 
+# serial → set of slot_keys (e.g. "ams1_tray3") seen as active during the current print
+_print_active_slot_keys: dict[str, set[str]] = {}
+
 # serial → {unit_id (1-based): max tray number seen for that unit}
 # Derived from actual MQTT data — tells us how many slots each AMS unit really has.
 _ams_unit_tray_counts: dict[str, dict[int, int]] = {}
@@ -276,7 +279,7 @@ def _http_get_task_data(serial: str, token: str) -> dict:
       weight (float | None)       — total filament weight in grams
       amsDetailMapping (list)     — per-tray breakdown [{ams, weight, filamentType, sourceColor, ...}]
     """
-    result: dict = {"weight": None, "amsDetailMapping": []}
+    result: dict = {"weight": None, "amsDetailMapping": [], "amsMapping2": []}
     try:
         headers = {"Authorization": f"Bearer {token}"}
         resp = requests.get(
@@ -296,6 +299,9 @@ def _http_get_task_data(serial: str, token: str) -> dict:
             ams_map = task.get("amsDetailMapping")
             if isinstance(ams_map, list):
                 result["amsDetailMapping"] = ams_map
+            ams_mapping2 = task.get("amsMapping2")
+            if isinstance(ams_mapping2, list):
+                result["amsMapping2"] = ams_mapping2
     except Exception as exc:
         log.warning("Bambu Cloud task data fetch failed for %s: %s", serial, exc)
     return result
@@ -476,10 +482,14 @@ def _process_device_message(serial: str, data: dict) -> None:
                 # Track active trays during print for suggested_usages fallback
                 try:
                     idx = int(tray_now_val)
-                    if _ams_index_to_slot_key(idx, get_ams_unit_tray_counts(serial)) is not None:
+                    slot_key = _ams_index_to_slot_key(idx, get_ams_unit_tray_counts(serial))
+                    if slot_key is not None:
                         if serial not in _print_active_trays:
                             _print_active_trays[serial] = set()
                         _print_active_trays[serial].add(idx)
+                        if serial not in _print_active_slot_keys:
+                            _print_active_slot_keys[serial] = set()
+                        _print_active_slot_keys[serial].add(slot_key)
                 except (TypeError, ValueError):
                     pass
     _printer_status_cache[serial] = current
@@ -897,6 +907,7 @@ async def logout() -> None:
     _printer_status_cache.clear()
     _ams_cache.clear()
     _print_active_trays.clear()
+    _print_active_slot_keys.clear()
     _ams_unit_tray_counts.clear()
     _pending.clear()
     _reauth_in_progress = False
@@ -954,13 +965,19 @@ def get_ams_detail_for_serial(serial: str) -> dict[str, dict]:
 
 
 def reset_print_trays(serial: str) -> None:
-    """Clear the active tray set for a serial — call at print start."""
+    """Clear the active tray tracking for a serial — call at print start."""
     _print_active_trays[serial] = set()
+    _print_active_slot_keys[serial] = set()
 
 
 def get_print_trays(serial: str) -> set[int]:
     """Return the set of 0-based tray indices seen during the current/last print."""
     return set(_print_active_trays.get(serial, set()))
+
+
+def get_print_active_slot_keys(serial: str) -> set[str]:
+    """Return the set of slot_keys (e.g. 'ams1_tray3') active during the current/last print."""
+    return set(_print_active_slot_keys.get(serial, set()))
 
 
 def register_printer(printer_id: int, serial: str) -> None:

@@ -18,6 +18,7 @@ export interface Spool {
   article_number: string | null
   ams_slot: string | null
   notes: string | null
+  archived: boolean
   remaining_pct: number
   price_per_kg: number | null
   cost_per_gram: number | null
@@ -42,6 +43,8 @@ export interface SuggestedUsage {
   filament_type: string
   color: string | null
   spool_id: number | null
+  estimated?: boolean        // true = stock-based split (auto-switch or swap estimate)
+  swap_index?: number | null // 0 = original spool (ran out), 1 = replacement spool
 }
 
 export interface PrintJob {

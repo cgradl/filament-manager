@@ -384,12 +384,19 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
     mutationFn: async () => {
       const visibleTrays = (trays ?? []).filter(t => t.ams_id === visibleUnit)
       let matched = 0
+      // seed with spools already assigned to other AMS units on this printer
+      const assignedIds = new Set<number>(
+        (trays ?? [])
+          .filter(t => t.ams_id !== visibleUnit && t.spool?.id != null)
+          .map(t => t.spool!.id)
+      )
       for (const tray of visibleTrays) {
-        const best = findBestSpoolMatch(tray, spools as Spool[])
+        const best = findBestSpoolMatch(tray, spools as Spool[], assignedIds)
         if (best && best.id !== tray.spool?.id) {
           await api.assignAMSTray(printer.id, tray.slot_key, best.id)
           matched++
         }
+        if (best) assignedIds.add(best.id)
       }
       return matched
     },
@@ -457,18 +464,26 @@ function AMSTrayPanel({ printer }: { printer: PrinterConfig }) {
       </div>
 
       <div className="space-y-1.5">
-        {trays.filter(t => t.ams_id === visibleUnit).map(tray => (
-          <AMSTrayRow
-            key={tray.slot_key}
-            tray={tray}
-            spools={spools}
-            onAssign={(spoolId) => assignMut.mutate({ slot: tray.slot_key, spoolId })}
-            saving={assignMut.isPending}
-            onSyncWeight={() => syncSlotMut.mutate(tray.slot_key)}
-            syncingWeight={syncingSlot === tray.slot_key}
-            canSync={tray.ha_remaining != null && parseFloat(tray.ha_remaining) >= 0}
-          />
-        ))}
+        {trays.filter(t => t.ams_id === visibleUnit).map(tray => {
+          const otherAssigned = new Set<number>(
+            trays
+              .filter(t => t.slot_key !== tray.slot_key && t.spool?.id != null)
+              .map(t => t.spool!.id)
+          )
+          return (
+            <AMSTrayRow
+              key={tray.slot_key}
+              tray={tray}
+              spools={spools}
+              onAssign={(spoolId) => assignMut.mutate({ slot: tray.slot_key, spoolId })}
+              saving={assignMut.isPending}
+              onSyncWeight={() => syncSlotMut.mutate(tray.slot_key)}
+              syncingWeight={syncingSlot === tray.slot_key}
+              canSync={tray.ha_remaining != null && parseFloat(tray.ha_remaining) >= 0}
+              excludeIds={otherAssigned}
+            />
+          )
+        })}
       </div>
     </div>
   )
@@ -482,6 +497,7 @@ function AMSTrayRow({
   onSyncWeight,
   syncingWeight,
   canSync,
+  excludeIds,
 }: {
   tray: AMSTray
   spools: Spool[]
@@ -490,6 +506,7 @@ function AMSTrayRow({
   onSyncWeight: () => void
   syncingWeight: boolean
   canSync: boolean
+  excludeIds?: Set<number>
 }) {
   const { t } = useTranslation()
   const selectedId = tray.spool?.id ?? null
@@ -541,7 +558,7 @@ function AMSTrayRow({
 
       {/* Auto-match button — only when printer reports material+color for this tray */}
       {tray.ha_material && tray.ha_color_hex && (() => {
-        const match = findBestSpoolMatch(tray, spools)
+        const match = findBestSpoolMatch(tray, spools, excludeIds)
         const alreadyOptimal = match != null && tray.spool?.id === match.id
         return (
           <button
