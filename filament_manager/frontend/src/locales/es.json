@@ -480,7 +480,11 @@
       "importCloudBtn": "Importar desde Bambu Cloud",
       "importingCloud": "Importando…",
       "importCloudResult": "{{imported}} de {{total}} trabajos importados ({{skipped}} ya existían).",
-      "importCloudError": "Error al importar desde la nube: {{error}}"
+      "importCloudError": "Error al importar desde la nube: {{error}}",
+      "importSpoolmanBtn": "Importar desde Spoolman",
+      "importingSpoolman": "Importando…",
+      "importSpoolmanResult": "Importación de Spoolman completada — {{imported}} importadas, {{skipped}} omitidas",
+      "importSpoolmanHint": "Sube un JSON exportado de Spoolman (desde la opción de exportación de Spoolman) para importar todas las bobinas a tu inventario. La importación es aditiva — las bobinas existentes no se ven afectadas."
     }
   },
   "projects": {

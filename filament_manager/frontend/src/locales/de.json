@@ -480,7 +480,11 @@
       "importCloudBtn": "Von Bambu Cloud importieren",
       "importingCloud": "Importiere…",
       "importCloudResult": "{{imported}} von {{total}} Cloud-Drucken importiert ({{skipped}} bereits vorhanden).",
-      "importCloudError": "Cloud-Import fehlgeschlagen: {{error}}"
+      "importCloudError": "Cloud-Import fehlgeschlagen: {{error}}",
+      "importSpoolmanBtn": "Von Spoolman importieren",
+      "importingSpoolman": "Importiere…",
+      "importSpoolmanResult": "Spoolman-Import abgeschlossen — {{imported}} importiert, {{skipped}} übersprungen",
+      "importSpoolmanHint": "Lade einen Spoolman-JSON-Export hoch (aus Spoolmans Exportfunktion), um alle Spulen in den Bestand zu importieren. Der Import ist additiv — bestehende Spulen werden nicht verändert."
     }
   },
   "projects": {

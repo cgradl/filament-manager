@@ -11,6 +11,7 @@ Spool IDs in print_usages are remapped from the source database to the target da
 
 import csv
 import io
+import json
 from datetime import datetime
 from typing import Any
 
@@ -292,7 +293,7 @@ def export_spoolman(db: Session = Depends(get_db)):
                 "comment": subtype_comment,
                 "settings_extruder_temp": None,
                 "settings_bed_temp": None,
-                "article_number": None,
+                "article_number": spool.article_number,
                 "external_id": None,
                 "extra": {},
             }
@@ -323,8 +324,8 @@ def export_spoolman(db: Session = Depends(get_db)):
             "spool_weight": spool.spool_weight_g or None,
             "remaining_weight": remaining,
             "used_weight": used,
-            "archived": remaining <= 0,
-            "location": None,
+            "archived": bool(spool.archived),
+            "location": spool.storage_location,
             "lot_nr": None,
             "comment": " | ".join(comment_parts) or None,
             "extra": {},
@@ -341,6 +342,117 @@ def export_spoolman(db: Session = Depends(get_db)):
         content=bundle,
         headers={"Content-Disposition": 'attachment; filename="spoolman_export.json"'},
     )
+
+
+# ── Spoolman import ───────────────────────────────────────────────────────────
+
+@router.post("/import-spoolman")
+async def import_spoolman(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """
+    Import spools from a Spoolman JSON export.
+
+    Accepts either:
+    - A raw JSON array of spool objects (from Spoolman's GET /api/v1/export/spools?fmt=json)
+    - The FM spoolman_export bundle ({"spoolman_export": true, "spools": [...]})
+
+    Each spool must have an embedded filament object. Import is additive — existing
+    spools are not affected. Spoolman IDs are not preserved (new FM IDs are assigned).
+    """
+    content = await file.read()
+    try:
+        data = json.loads(content)
+    except Exception:
+        from fastapi import HTTPException
+        raise HTTPException(400, "Invalid JSON")
+
+    if isinstance(data, list):
+        spool_list = data
+    elif isinstance(data, dict):
+        spool_list = data.get("spools", [])
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(400, "Unexpected JSON structure: expected a list or a Spoolman export bundle")
+
+    imported = skipped = 0
+
+    for item in spool_list:
+        if not isinstance(item, dict):
+            skipped += 1
+            continue
+
+        filament = item.get("filament") or {}
+        if not filament:
+            skipped += 1
+            continue
+
+        vendor = filament.get("vendor") or {}
+
+        brand = (vendor.get("name") or "Unknown").strip()
+        material = (filament.get("material") or "PLA").strip()
+        color_name = (filament.get("name") or "").strip() or None
+
+        raw_hex = (filament.get("color_hex") or "888888").lstrip("#")[:6]
+        color_hex = f"#{raw_hex.upper()}" if raw_hex else "#888888"
+
+        diameter = float(filament["diameter"]) if filament.get("diameter") is not None else 1.75
+
+        # initial_weight: spool-level overrides filament nominal weight
+        if item.get("initial_weight") is not None:
+            initial_weight = float(item["initial_weight"])
+        elif filament.get("weight") is not None:
+            initial_weight = float(filament["weight"])
+        else:
+            initial_weight = None
+
+        # spool_weight: spool-level overrides filament-level
+        if item.get("spool_weight") is not None:
+            spool_weight = float(item["spool_weight"])
+        elif filament.get("spool_weight") is not None:
+            spool_weight = float(filament["spool_weight"])
+        else:
+            spool_weight = None
+
+        # current weight: prefer explicit remaining_weight, fall back to initial - used
+        if item.get("remaining_weight") is not None:
+            current_weight = float(item["remaining_weight"])
+        elif initial_weight is not None and item.get("used_weight") is not None:
+            current_weight = max(0.0, initial_weight - float(item["used_weight"]))
+        else:
+            current_weight = 0.0
+
+        price = float(item["price"]) if item.get("price") is not None else None
+        location = item.get("location") or None
+        article_number = filament.get("article_number") or None
+        archived = bool(item.get("archived", False))
+
+        notes_parts = list(filter(None, [
+            f"Lot: {item['lot_nr']}" if item.get("lot_nr") else None,
+            item.get("comment") or None,
+        ]))
+        notes = " | ".join(notes_parts) or None
+
+        created_at = _parse_dt(item.get("registered")) or datetime.utcnow()
+
+        db.add(Spool(
+            brand=brand,
+            material=material,
+            color_name=color_name or material,
+            color_hex=color_hex,
+            diameter_mm=diameter,
+            initial_weight_g=initial_weight,
+            current_weight_g=current_weight,
+            spool_weight_g=spool_weight,
+            purchase_price=price,
+            article_number=article_number,
+            storage_location=location,
+            notes=notes,
+            archived=archived,
+            created_at=created_at,
+        ))
+        imported += 1
+
+    db.commit()
+    return {"imported": imported, "skipped": skipped}
 
 
 # ── Spool CSV import ──────────────────────────────────────────────────────────

@@ -480,7 +480,11 @@
       "importCloudBtn": "Import from Bambu Cloud",
       "importingCloud": "Importing…",
       "importCloudResult": "Imported {{imported}} of {{total}} cloud jobs ({{skipped}} already existed).",
-      "importCloudError": "Cloud import failed: {{error}}"
+      "importCloudError": "Cloud import failed: {{error}}",
+      "importSpoolmanBtn": "Import from Spoolman",
+      "importingSpoolman": "Importing…",
+      "importSpoolmanResult": "Spoolman import done — {{imported}} imported, {{skipped}} skipped",
+      "importSpoolmanHint": "Upload a Spoolman JSON export (from Spoolman's Export option) to import all spools into your inventory. Import is additive — existing spools are not affected."
     }
   },
   "projects": {

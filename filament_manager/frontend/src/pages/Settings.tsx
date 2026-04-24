@@ -924,6 +924,7 @@ function DataTransferSection() {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const csvSpoolsRef = useRef<HTMLInputElement>(null)
+  const spoolmanJsonRef = useRef<HTMLInputElement>(null)
   const [exporting, setExporting] = useState(false)
   const [exportingSpoolsCsv, setExportingSpoolsCsv] = useState(false)
   const [exportingSpoolman, setExportingSpoolman] = useState(false)
@@ -936,6 +937,9 @@ function DataTransferSection() {
   const [importingCloud, setImportingCloud] = useState(false)
   const [cloudImportResult, setCloudImportResult] = useState<{ imported: number; skipped: number; total: number } | null>(null)
   const [cloudImportError, setCloudImportError] = useState<string | null>(null)
+  const [importingSpoolman, setImportingSpoolman] = useState(false)
+  const [importSpoolmanResult, setImportSpoolmanResult] = useState<{ imported: number; skipped: number } | null>(null)
+  const [importSpoolmanError, setImportSpoolmanError] = useState<string | null>(null)
 
   const { data: cloudStatus } = useQuery({
     queryKey: ['bambu-cloud-status'],
@@ -1046,6 +1050,24 @@ function DataTransferSection() {
       setCloudImportError(e instanceof Error ? e.message : String(e))
     } finally {
       setImportingCloud(false)
+    }
+  }
+
+  const handleImportSpoolmanJson = async (e: { target: HTMLInputElement }) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportingSpoolman(true)
+    setImportSpoolmanResult(null)
+    setImportSpoolmanError(null)
+    try {
+      const result = await api.importSpoolmanJson(file)
+      setImportSpoolmanResult(result)
+      qc.invalidateQueries({ queryKey: ['spools'] })
+    } catch (err: unknown) {
+      setImportSpoolmanError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setImportingSpoolman(false)
+      if (spoolmanJsonRef.current) spoolmanJsonRef.current.value = ''
     }
   }
 
@@ -1186,6 +1208,8 @@ function DataTransferSection() {
       {transferTab === 'experimental' && (
         <div className="space-y-4">
           <p className="text-xs text-gray-400">{t('settings.dataTransfer.experimentalDesc')}</p>
+
+          {/* Export for Spoolman */}
           <div className="flex flex-wrap gap-3">
             <button onClick={handleExportSpoolman} disabled={exportingSpoolman} className="btn-ghost flex items-center gap-2">
               <Download size={14} />
@@ -1196,6 +1220,33 @@ function DataTransferSection() {
             </button>
           </div>
           <p className="text-xs text-gray-500">{t('settings.dataTransfer.exportSpoolmanHint')}</p>
+
+          <hr className="border-surface-3" />
+
+          {/* Import from Spoolman */}
+          <div className="flex flex-wrap gap-3">
+            <label className={`btn-ghost flex items-center gap-2 cursor-pointer ${importingSpoolman ? 'opacity-50 pointer-events-none' : ''}`}>
+              <Upload size={14} />
+              {importingSpoolman ? t('settings.dataTransfer.importingSpoolman') : t('settings.dataTransfer.importSpoolmanBtn')}
+              <span className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-900/60 text-yellow-400 border border-yellow-700">
+                {t('settings.dataTransfer.experimental')}
+              </span>
+              <input ref={spoolmanJsonRef} type="file" accept=".json" className="hidden" onChange={handleImportSpoolmanJson} disabled={importingSpoolman} />
+            </label>
+          </div>
+          {importSpoolmanResult && (
+            <div className="rounded-lg bg-green-900/30 border border-green-700 p-3 text-sm text-green-300 flex items-center justify-between">
+              <span>{t('settings.dataTransfer.importSpoolmanResult', importSpoolmanResult)}</span>
+              <button className="ml-4 text-green-400 hover:text-white" onClick={() => setImportSpoolmanResult(null)}>✕</button>
+            </div>
+          )}
+          {importSpoolmanError && (
+            <div className="rounded-lg bg-red-900/30 border border-red-700 p-3 text-sm text-red-300 flex items-start gap-2">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <span>{importSpoolmanError}</span>
+            </div>
+          )}
+          <p className="text-xs text-gray-500">{t('settings.dataTransfer.importSpoolmanHint')}</p>
         </div>
       )}
     </div>

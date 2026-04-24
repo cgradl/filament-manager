@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.32.0
+
+- Fix: **Spoolman export** now correctly sets `archived` from the spool's archived flag (was always `false` for non-empty spools), maps `location` from `storage_location` (was always `null`), and includes `article_number` on filament objects (was always `null`)
+- New: **Import from Spoolman** — upload a Spoolman JSON export to migrate your spool inventory into Filament Manager; available under Settings → Export / Import → Experimental; import is additive and Spoolman IDs are not preserved
+
 ## 0.31.0
 
 - New: **Spool archive** — retire a spool with the archive action (box icon); archived spools are hidden from the main inventory list, excluded from AMS auto-match, and do not count towards low-stock alerts; the "Show archived" toggle in the toolbar reveals them dimmed; each can be individually unarchived (issue #36)

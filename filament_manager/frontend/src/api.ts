@@ -222,6 +222,11 @@ export const api = {
       .then(r => r.ok ? r.json() : r.json().then((e: { detail: string }) => { throw new Error(e.detail) }))
   },
   exportSpoolman: () => fetch(`${BASE}/data/export-spoolman`).then(r => r.blob()),
+  importSpoolmanJson: (file: File) => {
+    const fd = new FormData(); fd.append('file', file)
+    return fetch(`${BASE}/data/import-spoolman`, { method: 'POST', body: fd })
+      .then(r => r.ok ? r.json() : r.json().then((e: { detail: string }) => { throw new Error(e.detail) }))
+  },
   importData: (bundle: unknown) =>
     request<{ ok: boolean; imported: Record<string, number> }>('data/import', {
       method: 'POST',
