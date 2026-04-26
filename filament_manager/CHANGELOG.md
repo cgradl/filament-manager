@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.33.2
+
+- Fix: **Test/production cost split now shown in project expanded view** — when a project has test prints, a summary row below the print list shows print count, filament, and cost separately for production and test prints; the data was computed by the backend but never rendered in the UI
+
 ## 0.33.1
 
 - Fix: **Test print toggle now works for all project prints** — on upgrade, existing prints that were assigned to projects before v0.33.0 had no `project_print` row, causing the flask button to silently fail with 404; the startup backfill now always runs on every startup (idempotent) instead of only when the table is first created

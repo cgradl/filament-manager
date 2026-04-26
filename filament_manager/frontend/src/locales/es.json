@@ -512,6 +512,8 @@
     "assignHint": "Selecciona las impresiones que pertenecen a este proyecto. Solo se muestran las impresiones sin asignar y las ya incluidas en este proyecto.",
     "selected": "seleccionadas",
     "markTestPrint": "Marcar como impresión de prueba",
-    "unmarkTestPrint": "Quitar marca de impresión de prueba"
+    "unmarkTestPrint": "Quitar marca de impresión de prueba",
+    "normalStats": "Producción",
+    "testStats": "Prueba"
   }
 }

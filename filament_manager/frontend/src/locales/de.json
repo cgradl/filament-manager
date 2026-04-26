@@ -512,6 +512,8 @@
     "assignHint": "Drucke auswählen, die zu diesem Projekt gehören sollen. Es werden nur nicht zugewiesene Drucke und bereits in diesem Projekt enthaltene Drucke angezeigt.",
     "selected": "ausgewählt",
     "markTestPrint": "Als Testdruck markieren",
-    "unmarkTestPrint": "Testdruck-Markierung entfernen"
+    "unmarkTestPrint": "Testdruck-Markierung entfernen",
+    "normalStats": "Produktion",
+    "testStats": "Test"
   }
 }

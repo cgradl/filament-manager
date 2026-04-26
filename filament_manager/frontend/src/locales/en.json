@@ -512,6 +512,8 @@
     "assignHint": "Check prints to include in this project. Only unassigned prints and prints already in this project are shown.",
     "selected": "selected",
     "markTestPrint": "Mark as test print",
-    "unmarkTestPrint": "Unmark as test print"
+    "unmarkTestPrint": "Unmark as test print",
+    "normalStats": "Production",
+    "testStats": "Test"
   }
 }
