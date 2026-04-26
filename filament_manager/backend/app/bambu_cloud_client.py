@@ -739,6 +739,12 @@ def _start_mqtt_for_serial(serial: str, email: str, token: str) -> None:
             if _mqtt_clients.get(serial) is not c:
                 return  # stale client disconnecting — ignore
             log.warning("Bambu Cloud MQTT disconnected for %s, rc=%s", serial, rc)
+            printer_id = _serial_to_printer_id.get(serial)
+            if printer_id is not None and _loop is not None:
+                from . import print_monitor
+                asyncio.run_coroutine_threadsafe(
+                    print_monitor.on_printer_disconnect(printer_id), _loop
+                )
 
         def on_log(c, userdata, level, buf):
             log.debug("paho [%s]: %s", serial, buf)

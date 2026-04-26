@@ -387,7 +387,10 @@
       "energySensor": "Sensor de energía (ID de entidad HA)",
       "energySensorHint": "Sensor kWh acumulativo, p. ej. de un enchufe Shelly. Se lee al inicio y al final de la impresión para calcular el consumo.",
       "priceSensor": "Sensor de precio de electricidad (ID de entidad HA)",
-      "priceSensorHint": "Sensor o ayudante que devuelve el precio en €/kWh. Se usa para calcular el coste energético por impresión."
+      "priceSensorHint": "Sensor o ayudante que devuelve el precio en €/kWh. Se usa para calcular el coste energético por impresión.",
+      "standbyKwh": "Consumo en espera",
+      "standbyHint": "Electricidad consumida mientras la impresora está inactiva entre impresiones. Medida desde el fin de la impresión hasta el inicio de la siguiente.",
+      "resetStandby": "Reiniciar"
     },
     "brandWeights": {
       "title": "Pesos de bobina vacía por marca",
@@ -507,6 +510,8 @@
     "managePrints": "Gestionar impresiones",
     "assignPrints": "Asignar impresiones — {{name}}",
     "assignHint": "Selecciona las impresiones que pertenecen a este proyecto. Solo se muestran las impresiones sin asignar y las ya incluidas en este proyecto.",
-    "selected": "seleccionadas"
+    "selected": "seleccionadas",
+    "markTestPrint": "Marcar como impresión de prueba",
+    "unmarkTestPrint": "Quitar marca de impresión de prueba"
   }
 }

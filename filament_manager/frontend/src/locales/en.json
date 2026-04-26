@@ -387,7 +387,10 @@
       "energySensor": "Energy Sensor (HA entity ID)",
       "energySensorHint": "Cumulative kWh sensor, e.g. from a Shelly plug. Read at print start and end to calculate consumption.",
       "priceSensor": "Electricity Price Sensor (HA entity ID)",
-      "priceSensorHint": "Sensor or helper returning the price in €/kWh. Used to calculate energy cost per print."
+      "priceSensorHint": "Sensor or helper returning the price in €/kWh. Used to calculate energy cost per print.",
+      "standbyKwh": "Standby Energy Consumption",
+      "standbyHint": "Electricity consumed while the printer is idle between prints. Measured from print end to next print start.",
+      "resetStandby": "Reset"
     },
     "brandWeights": {
       "title": "Brand Spool Tare Weights",
@@ -507,6 +510,8 @@
     "managePrints": "Manage prints",
     "assignPrints": "Assign prints — {{name}}",
     "assignHint": "Check prints to include in this project. Only unassigned prints and prints already in this project are shown.",
-    "selected": "selected"
+    "selected": "selected",
+    "markTestPrint": "Mark as test print",
+    "unmarkTestPrint": "Unmark as test print"
   }
 }

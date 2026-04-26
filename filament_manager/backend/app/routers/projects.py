@@ -1,14 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
-from ..models import PrintJob, PrintUsage, Project, Spool
+from ..models import PrintJob, PrintUsage, Project, ProjectPrint, Spool
 from ..schemas import ProjectCreate, ProjectDetailOut, ProjectOut, ProjectUpdate, PrintJobOut
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
 def _project_out(project: Project) -> ProjectOut:
+    # Build lookup: print_job_id → is_test_print
+    pp_by_job: dict[int, bool] = {pp.print_job_id: pp.is_test_print for pp in project.project_prints}
+
     jobs = project.print_jobs
     print_count = len(jobs)
     total_duration_seconds = sum(j.duration_seconds or 0 for j in jobs)
@@ -30,6 +34,16 @@ def _project_out(project: Project) -> ProjectOut:
     energy_cost_values = [j.energy_cost for j in jobs if j.energy_cost is not None]
     total_energy_cost = round(sum(energy_cost_values), 4) if energy_cost_values else None
 
+    # Test / normal split
+    test_jobs = [j for j in jobs if pp_by_job.get(j.id, False)]
+    test_print_count = len(test_jobs)
+    test_total_grams = round(sum(j.total_grams for j in test_jobs), 2)
+    test_total_cost = round(sum(j.total_cost for j in test_jobs), 4)
+    test_energy_vals = [j.energy_kwh for j in test_jobs if j.energy_kwh is not None]
+    test_total_energy_kwh = round(sum(test_energy_vals), 4) if test_energy_vals else None
+    test_energy_cost_vals = [j.energy_cost for j in test_jobs if j.energy_cost is not None]
+    test_total_energy_cost = round(sum(test_energy_cost_vals), 4) if test_energy_cost_vals else None
+
     return ProjectOut(
         id=project.id,
         name=project.name,
@@ -45,6 +59,11 @@ def _project_out(project: Project) -> ProjectOut:
         date_first=date_first,
         date_last=date_last,
         created_at=project.created_at,
+        test_print_count=test_print_count,
+        test_total_grams=test_total_grams,
+        test_total_cost=test_total_cost,
+        test_total_energy_kwh=test_total_energy_kwh,
+        test_total_energy_cost=test_total_energy_cost,
     )
 
 
@@ -55,6 +74,7 @@ def _load_project(db: Session, project_id: int) -> Project:
             joinedload(Project.print_jobs)
             .joinedload(PrintJob.usages)
             .joinedload(PrintUsage.spool),
+            joinedload(Project.project_prints),
         )
         .filter(Project.id == project_id)
         .first()
@@ -72,6 +92,7 @@ def list_projects(db: Session = Depends(get_db)):
             joinedload(Project.print_jobs)
             .joinedload(PrintJob.usages)
             .joinedload(PrintUsage.spool),
+            joinedload(Project.project_prints),
         )
         .order_by(Project.name)
         .all()
@@ -91,7 +112,12 @@ def create_project(body: ProjectCreate, db: Session = Depends(get_db)):
 def get_project(project_id: int, db: Session = Depends(get_db)):
     p = _load_project(db, project_id)
     base = _project_out(p)
-    print_jobs = [PrintJobOut.model_validate(j) for j in p.print_jobs]
+    pp_by_job: dict[int, bool] = {pp.print_job_id: pp.is_test_print for pp in p.project_prints}
+    print_jobs = []
+    for j in p.print_jobs:
+        job_out = PrintJobOut.model_validate(j)
+        job_out.is_test_print = pp_by_job.get(j.id, False)
+        print_jobs.append(job_out)
     print_jobs.sort(key=lambda j: j.started_at, reverse=True)
     return ProjectDetailOut(**base.model_dump(), print_jobs=print_jobs)
 
@@ -112,7 +138,6 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     p = db.get(Project, project_id)
     if not p:
         raise HTTPException(404, "Project not found")
-    # Unlink print jobs (FK is SET NULL, but we do it explicitly so it's clear)
     for job in p.print_jobs:
         job.fm_project_id = None
     db.delete(p)
@@ -121,7 +146,7 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{project_id}/assign", response_model=ProjectOut)
 def assign_prints(project_id: int, body: dict, db: Session = Depends(get_db)):
-    """Assign (or unassign) a list of print job IDs to this project."""
+    """Assign a list of print job IDs to this project."""
     p = _load_project(db, project_id)
     job_ids: list[int] = body.get("job_ids", [])
     for job_id in job_ids:
@@ -129,6 +154,10 @@ def assign_prints(project_id: int, body: dict, db: Session = Depends(get_db)):
         if not job:
             raise HTTPException(404, f"Print job {job_id} not found")
         job.fm_project_id = project_id
+        # Upsert into project_print join table
+        pp = db.query(ProjectPrint).filter_by(project_id=project_id, print_job_id=job_id).first()
+        if not pp:
+            db.add(ProjectPrint(project_id=project_id, print_job_id=job_id, is_test_print=False))
     db.commit()
     return _project_out(_load_project(db, project_id))
 
@@ -142,5 +171,25 @@ def unassign_prints(project_id: int, body: dict, db: Session = Depends(get_db)):
         job = db.get(PrintJob, job_id)
         if job and job.fm_project_id == project_id:
             job.fm_project_id = None
+        pp = db.query(ProjectPrint).filter_by(project_id=project_id, print_job_id=job_id).first()
+        if pp:
+            db.delete(pp)
+    db.commit()
+    return _project_out(_load_project(db, project_id))
+
+
+class PrintFlagUpdate(BaseModel):
+    is_test_print: bool
+
+
+@router.patch("/{project_id}/prints/{print_id}", response_model=ProjectOut)
+def update_project_print(
+    project_id: int, print_id: int, body: PrintFlagUpdate, db: Session = Depends(get_db)
+):
+    """Toggle the is_test_print flag for a print job within a project."""
+    pp = db.query(ProjectPrint).filter_by(project_id=project_id, print_job_id=print_id).first()
+    if not pp:
+        raise HTTPException(404, "Print not assigned to this project")
+    pp.is_test_print = body.is_test_print
     db.commit()
     return _project_out(_load_project(db, project_id))

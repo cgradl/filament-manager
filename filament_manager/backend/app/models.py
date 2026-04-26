@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -81,7 +81,22 @@ class Project(Base):
     created_at  = Column(DateTime, default=datetime.utcnow)
     updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    print_jobs = relationship("PrintJob", back_populates="project")
+    print_jobs     = relationship("PrintJob", back_populates="project")
+    project_prints = relationship("ProjectPrint", back_populates="project", cascade="all, delete-orphan")
+
+
+class ProjectPrint(Base):
+    """Join table: project ↔ print_job, carries the is_test_print flag."""
+    __tablename__ = "project_print"
+
+    id           = Column(Integer, primary_key=True)
+    project_id   = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    print_job_id = Column(Integer, ForeignKey("print_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_test_print = Column(Boolean, default=False, nullable=False)
+
+    __table_args__ = (UniqueConstraint("project_id", "print_job_id"),)
+
+    project = relationship("Project", back_populates="project_prints")
 
 
 class PrintJob(Base):
@@ -133,8 +148,12 @@ class PrintJob(Base):
         return sum(u.grams_used for u in self.usages)
 
     @property
-    def total_cost(self) -> float:
+    def material_cost(self) -> float:
         return sum((u.cost or 0) for u in self.usages)
+
+    @property
+    def total_cost(self) -> float:
+        return self.material_cost + (self.energy_cost or 0)
 
     @property
     def duration_hours(self) -> float | None:
@@ -283,6 +302,10 @@ class PrinterConfig(Base):
     # HA sensor entity IDs for energy tracking (optional)
     energy_sensor_entity_id = Column(String, nullable=True)   # cumulative kWh sensor (e.g. sensor.shelly_energy_total)
     price_sensor_entity_id  = Column(String, nullable=True)   # €/kWh price sensor (e.g. input_number.electricity_price)
+
+    # Standby energy tracking: kWh consumed while printer is IDLE between prints
+    standby_kwh       = Column(Float, nullable=True)   # total accumulated standby consumption
+    standby_start_kwh = Column(Float, nullable=True)   # energy sensor snapshot at last print end (cleared on next print start or disconnect)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

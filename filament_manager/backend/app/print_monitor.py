@@ -52,26 +52,41 @@ async def _on_print_end(
             if hasattr(job, k) and v is not None:
                 setattr(job, k, v)
 
-    # Energy calculation — start snapshot was stored in DB at print start, survives restarts
-    if printer.energy_sensor_entity_id and job.energy_start_kwh is not None:
+    # Read energy sensor once — used for both print energy and standby snapshot
+    energy_now: float | None = None
+    if printer.energy_sensor_entity_id:
         try:
             from .ha_client import get_ha_state
-            energy_end = await get_ha_state(printer.energy_sensor_entity_id)
-            if energy_end is not None and energy_end >= job.energy_start_kwh:
-                job.energy_kwh = round(energy_end - job.energy_start_kwh, 4)
-                log.info("Cloud: energy consumed = %.4f kWh for job #%d", job.energy_kwh, job_id)
-                if printer.price_sensor_entity_id:
+            energy_now = await get_ha_state(printer.energy_sensor_entity_id)
+        except Exception as exc:
+            log.warning("Cloud: energy sensor read failed for job #%d: %s", job_id, exc)
+
+    # Print energy calculation
+    if energy_now is not None and job.energy_start_kwh is not None:
+        if energy_now >= job.energy_start_kwh:
+            job.energy_kwh = round(energy_now - job.energy_start_kwh, 4)
+            log.info("Cloud: energy consumed = %.4f kWh for job #%d", job.energy_kwh, job_id)
+            if printer.price_sensor_entity_id:
+                try:
+                    from .ha_client import get_ha_state
                     price = await get_ha_state(printer.price_sensor_entity_id)
                     if price is not None and price > 0:
                         job.energy_cost = round(job.energy_kwh * price, 4)
                         log.info("Cloud: energy cost = %.4f € for job #%d", job.energy_cost, job_id)
-            else:
-                log.warning(
-                    "Cloud: energy end reading unavailable or less than start — "
-                    "skipping energy tracking for job #%d", job_id,
-                )
-        except Exception as exc:
-            log.warning("Cloud: energy calculation failed for job #%d: %s", job_id, exc)
+                except Exception as exc:
+                    log.warning("Cloud: price sensor read failed for job #%d: %s", job_id, exc)
+        else:
+            log.warning(
+                "Cloud: energy end reading unavailable or less than start — "
+                "skipping energy tracking for job #%d", job_id,
+            )
+    elif printer.energy_sensor_entity_id and energy_now is None and job.energy_start_kwh is not None:
+        log.warning("Cloud: energy end reading failed — skipping energy tracking for job #%d", job_id)
+
+    # Standby snapshot: start measuring idle consumption from now
+    if energy_now is not None:
+        printer.standby_start_kwh = energy_now
+        log.info("Standby: started measuring from %.4f kWh for %s", energy_now, printer.name)
 
     auto_deduct = getattr(printer, "auto_deduct", False)
 
@@ -328,6 +343,21 @@ def _apply_suggested_usages(job: PrintJob, db: Session) -> None:
     job.suggested_usages = None  # mark as confirmed so the UI yellow icon goes away
 
 
+async def on_printer_disconnect(printer_id: int) -> None:
+    """Called when MQTT disconnects. Clears standby snapshot so offline time is not counted."""
+    db: Session = SessionLocal()
+    try:
+        printer = db.get(PrinterConfig, printer_id)
+        if printer and printer.standby_start_kwh is not None:
+            printer.standby_start_kwh = None
+            db.commit()
+            log.info("Standby: paused for %s (MQTT disconnected)", printer.name)
+    except Exception as exc:
+        log.warning("Standby: disconnect handler failed for printer_id=%s: %s", printer_id, exc)
+    finally:
+        db.close()
+
+
 # ── Bambu Cloud MQTT bridge ───────────────────────────────────────────────────
 
 async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str, design_title: str = "", title: str = "") -> None:
@@ -393,6 +423,20 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str, 
         prev = _state.get(printer_id, {})
         if prev.get("stage") in _PRINTING_STAGES:
             return
+
+        # Finalize standby measurement: idle period ends when new print starts
+        if printer.energy_sensor_entity_id and printer.standby_start_kwh is not None:
+            try:
+                from .ha_client import get_ha_state
+                energy_now = await get_ha_state(printer.energy_sensor_entity_id)
+                if energy_now is not None and energy_now >= printer.standby_start_kwh:
+                    delta = round(energy_now - printer.standby_start_kwh, 4)
+                    printer.standby_kwh = round((printer.standby_kwh or 0.0) + delta, 4)
+                    log.info("Standby: +%.4f kWh for %s (total: %.4f)", delta, printer.name, printer.standby_kwh)
+                printer.standby_start_kwh = None
+                db.commit()
+            except Exception as exc:
+                log.warning("Standby: finalization failed for %s: %s", printer.name, exc)
 
         from . import bambu_cloud_client
         bambu_cloud_client.reset_print_trays(serial)
@@ -531,6 +575,18 @@ async def on_cloud_print_end(printer_id: int, success: bool, gcode_state: str) -
                             printer, db, stale.id,
                             success=(gcode_state != "FAILED"),
                         )
+                        # _on_print_end already takes a standby snapshot
+                    elif gcode_state == "IDLE" and printer.energy_sensor_entity_id and printer.standby_start_kwh is None:
+                        # Reconnect or initial startup in IDLE — restart standby measurement
+                        try:
+                            from .ha_client import get_ha_state
+                            energy_now = await get_ha_state(printer.energy_sensor_entity_id)
+                            if energy_now is not None:
+                                printer.standby_start_kwh = energy_now
+                                db.commit()
+                                log.info("Standby: started from %.4f kWh for %s (idle/reconnect)", energy_now, printer.name)
+                        except Exception as exc:
+                            log.warning("Standby: reconnect snapshot failed for %s: %s", printer.name, exc)
             finally:
                 db.close()
         return

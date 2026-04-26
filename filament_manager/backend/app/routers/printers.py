@@ -33,6 +33,7 @@ class PrinterOut(BaseModel):
     bambu_source: str
     energy_sensor_entity_id: str | None
     price_sensor_entity_id: str | None
+    standby_kwh: float | None = None
 
     class Config:
         from_attributes = True
@@ -257,6 +258,18 @@ def delete_printer(printer_id: int, db: Session = Depends(get_db)):
     db.commit()
     from .. import ha_publisher
     ha_publisher.trigger()
+
+
+@router.post("/{printer_id}/reset-standby", response_model=PrinterOut)
+def reset_standby(printer_id: int, db: Session = Depends(get_db)):
+    p = db.get(PrinterConfig, printer_id)
+    if not p:
+        raise HTTPException(404, "Printer not found")
+    p.standby_kwh = 0.0
+    p.standby_start_kwh = None
+    db.commit()
+    db.refresh(p)
+    return p
 
 
 @router.get("/{printer_id}/status")

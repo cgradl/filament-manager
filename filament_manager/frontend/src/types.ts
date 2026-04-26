@@ -62,6 +62,8 @@ export interface PrintJob {
   source: string
   total_grams: number
   total_cost: number
+  material_cost: number
+  is_test_print: boolean
   usages: PrintUsage[]
   created_at: string
   fm_project_id: number | null
@@ -90,6 +92,11 @@ export interface Project {
   date_first: string | null
   date_last: string | null
   created_at: string
+  test_print_count: number
+  test_total_grams: number
+  test_total_cost: number
+  test_total_energy_kwh: number | null
+  test_total_energy_cost: number | null
 }
 
 export interface ProjectDetail extends Project {
@@ -106,6 +113,7 @@ export interface PrinterConfig {
   bambu_source: string   // always "cloud"
   energy_sensor_entity_id: string | null
   price_sensor_entity_id: string | null
+  standby_kwh: number | null
 }
 
 export interface BambuCloudStatus {

@@ -52,6 +52,8 @@ export const api = {
     request<Project>(`projects/${projectId}/assign`, { method: 'POST', body: JSON.stringify({ job_ids: jobIds }) }),
   unassignPrintsFromProject: (projectId: number, jobIds: number[]) =>
     request<Project>(`projects/${projectId}/unassign`, { method: 'POST', body: JSON.stringify({ job_ids: jobIds }) }),
+  updateProjectPrint: (projectId: number, printId: number, data: { is_test_print: boolean }) =>
+    request<Project>(`projects/${projectId}/prints/${printId}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   // Prints
   getPrints: (limit = 50, offset = 0, search?: string, dateFrom?: string, dateTo?: string, tz?: string) => {
@@ -104,6 +106,8 @@ export const api = {
     request<{ slot_key: string; spool_id: number; spool_name: string; remaining_pct: number; new_weight_g: number }>(
       `printers/${printerId}/ams/${slotKey}/sync`, { method: 'POST' }
     ),
+  resetPrinterStandby: (id: number) =>
+    request<PrinterConfig>(`printers/${id}/reset-standby`, { method: 'POST' }),
 
   // Dashboard
   getDashboard: () => request<DashboardStats>('dashboard'),

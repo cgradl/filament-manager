@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.33.0
+
+- New: **Standby energy tracking** — the app now measures electricity consumed while the printer is idle between prints; standby is tracked from print end to next print start, paused when the printer goes offline, and shown under Settings → Printers with a Reset button (issue #41)
+- New: **Test print flag for project prints** — individual prints within a project can be marked as test prints using the flask icon in the expanded project view; test print count is shown in the project card header (issue #42)
+- New: **Per-print cost breakdown in project detail** — the expanded project view now shows material cost, energy kWh + cost, and total cost for each assigned print
+- New: **`total_cost` now includes energy cost** — print total cost = material cost + energy cost; the Prints page cost column now reflects the full cost per print
+- New: **Export/import updated** — full JSON backup now includes project-print assignments (with test-print flags) and printer standby energy; old backups without these fields are imported correctly with defaults
+
 ## 0.32.0
 
 - Fix: **Spoolman export** now correctly sets `archived` from the spool's archived flag (was always `false` for non-empty spools), maps `location` from `storage_location` (was always `null`), and includes `article_number` on filament objects (was always `null`)

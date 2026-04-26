@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { Project, ProjectDetail, PrintJob } from '../types'
-import { Plus, Pencil, Trash2, X, FolderOpen, ChevronDown, ChevronRight, Layers } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, FolderOpen, ChevronDown, ChevronRight, Layers, FlaskConical } from 'lucide-react'
 import { useHATZ } from '../hooks/useHATZ'
 import { formatDateTimeTZ } from '../utils/time'
 
@@ -223,6 +223,12 @@ function ProjectCard({
           <div className="flex items-center gap-2">
             <span className="font-semibold text-white truncate">{project.name}</span>
             <span className="text-xs text-gray-500 shrink-0">{project.print_count} {t('projects.prints')}</span>
+            {project.test_print_count > 0 && (
+              <span className="text-xs text-amber-500 shrink-0 flex items-center gap-0.5">
+                <FlaskConical size={11} />
+                {project.test_print_count}
+              </span>
+            )}
           </div>
           {project.description && (
             <p className="text-xs text-gray-400 truncate">{project.description}</p>
@@ -274,7 +280,7 @@ function ProjectCard({
             <p className="text-xs text-gray-500">{t('projects.noPrints')}</p>
           )}
           {detail && detail.print_jobs.map(job => (
-            <PrintJobRow key={job.id} job={job} />
+            <PrintJobRow key={job.id} job={job} projectId={project.id} />
           ))}
         </div>
       )}
@@ -282,8 +288,19 @@ function ProjectCard({
   )
 }
 
-function PrintJobRow({ job }: { job: PrintJob }) {
+function PrintJobRow({ job, projectId }: { job: PrintJob; projectId: number }) {
+  const { t } = useTranslation()
   const tz = useHATZ()
+  const qc = useQueryClient()
+
+  const toggleTestMut = useMutation({
+    mutationFn: (isTest: boolean) => api.updateProjectPrint(projectId, job.id, { is_test_print: isTest }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects', projectId] })
+      qc.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+
   return (
     <div className="flex items-center gap-3 py-1.5 text-sm border-b border-surface-3 last:border-0">
       <span className={job.success ? 'text-green-400' : 'text-red-400'}>
@@ -294,9 +311,29 @@ function PrintJobRow({ job }: { job: PrintJob }) {
       {job.total_grams > 0 && (
         <span className="text-xs text-gray-400 shrink-0">{job.total_grams.toFixed(1)}g</span>
       )}
+      {job.material_cost > 0 && (
+        <span className="text-xs text-gray-400 shrink-0">€{job.material_cost.toFixed(2)}</span>
+      )}
+      {job.energy_kwh != null && (
+        <span className="text-xs text-yellow-500 shrink-0">
+          {job.energy_kwh.toFixed(2)} kWh
+          {job.energy_cost != null && <> · €{job.energy_cost.toFixed(2)}</>}
+        </span>
+      )}
+      {job.total_cost > 0 && (
+        <span className="text-xs text-white shrink-0 font-medium">= €{job.total_cost.toFixed(2)}</span>
+      )}
       {job.nozzle_diameter && (
         <span className="text-xs text-blue-400 shrink-0">⌀{job.nozzle_diameter}</span>
       )}
+      <button
+        title={job.is_test_print ? t('projects.unmarkTestPrint') : t('projects.markTestPrint')}
+        className={`shrink-0 p-1 rounded transition-colors ${job.is_test_print ? 'text-amber-400 bg-amber-400/10' : 'text-gray-600 hover:text-amber-400'}`}
+        onClick={() => toggleTestMut.mutate(!job.is_test_print)}
+        disabled={toggleTestMut.isPending}
+      >
+        <FlaskConical size={13} />
+      </button>
     </div>
   )
 }

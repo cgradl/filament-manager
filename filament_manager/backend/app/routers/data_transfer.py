@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import (
-    Spool, PrintJob, PrintUsage, Project,
+    Spool, PrintJob, PrintUsage, Project, ProjectPrint,
     BrandSpoolWeight, FilamentMaterial, FilamentSubtype, FilamentBrand,
     PurchaseLocation, StorageLocation, PrinterConfig, FilamentCatalog, UserPreferences, MATERIAL_DENSITY,
 )
@@ -114,6 +114,7 @@ def export_data(db: Session = Depends(get_db)):
     spools          = db.query(Spool).order_by(Spool.id).all()
     jobs            = db.query(PrintJob).order_by(PrintJob.id).all()
     projects        = db.query(Project).order_by(Project.id).all()
+    project_prints  = db.query(ProjectPrint).order_by(ProjectPrint.project_id, ProjectPrint.print_job_id).all()
     printers        = db.query(PrinterConfig).order_by(PrinterConfig.id).all()
     bw              = db.query(BrandSpoolWeight).order_by(BrandSpoolWeight.brand).all()
     materials       = db.query(FilamentMaterial).order_by(FilamentMaterial.name).all()
@@ -129,6 +130,10 @@ def export_data(db: Session = Depends(get_db)):
         "exported_at": datetime.utcnow().isoformat(),
         "spools": [_spool_dict(s) for s in spools],
         "projects": [{"id": p.id, "name": p.name, "description": p.description, "created_at": _dt(p.created_at)} for p in projects],
+        "project_prints": [
+            {"project_id": pp.project_id, "print_job_id": pp.print_job_id, "is_test_print": pp.is_test_print}
+            for pp in project_prints
+        ],
         "print_jobs": [_job_dict(j) for j in jobs],
         "printer_configs": [
             {
@@ -140,6 +145,7 @@ def export_data(db: Session = Depends(get_db)):
                 "auto_deduct": p.auto_deduct,
                 "energy_sensor_entity_id": p.energy_sensor_entity_id,
                 "price_sensor_entity_id": p.price_sensor_entity_id,
+                "standby_kwh": p.standby_kwh,
             }
             for p in printers
         ],
@@ -539,6 +545,7 @@ class ImportBundle(BaseModel):
     version: int
     spools: list[dict[str, Any]] = []
     projects: list[dict[str, Any]] = []
+    project_prints: list[dict[str, Any]] = []
     print_jobs: list[dict[str, Any]] = []
     printer_configs: list[dict[str, Any]] = []
     settings: dict[str, Any] = {}
@@ -553,6 +560,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
     stats: dict[str, int] = {
         "spools": 0,
         "projects": 0,
+        "project_prints": 0,
         "print_jobs": 0,
         "print_usages": 0,
         "printer_configs": 0,
@@ -666,6 +674,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             auto_deduct=p.get("auto_deduct", False),
             energy_sensor_entity_id=p.get("energy_sensor_entity_id"),
             price_sensor_entity_id=p.get("price_sensor_entity_id"),
+            standby_kwh=p.get("standby_kwh"),
         ))
         if serial:
             existing_serials.add(serial)
@@ -721,7 +730,9 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
         stats["projects"] += 1
 
     # ── print jobs + usages: remap spool IDs ──────────────────────────────────
+    job_id_map: dict[int, int] = {}
     for job_data in bundle.print_jobs:
+        old_job_id = job_data.get("id")
         job = PrintJob(
             name=job_data.get("name", "Imported print"),
             model_name=job_data.get("model_name"),
@@ -756,6 +767,8 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
         )
         db.add(job)
         db.flush()
+        if old_job_id is not None:
+            job_id_map[old_job_id] = job.id
         stats["print_jobs"] += 1
 
         for u in job_data.get("usages", []):
@@ -776,6 +789,40 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
                 ams_slot=u.get("ams_slot"),
             ))
             stats["print_usages"] += 1
+
+    # ── project_prints: restore from bundle or derive from fm_project_id ──────
+    if bundle.project_prints:
+        # New bundle format: explicit project_print rows with is_test_print
+        for pp_data in bundle.project_prints:
+            old_proj_id = pp_data.get("project_id")
+            old_job_id = pp_data.get("print_job_id")
+            new_proj_id = project_id_map.get(old_proj_id) if old_proj_id is not None else None
+            new_job_id = job_id_map.get(old_job_id) if old_job_id is not None else None
+            if new_proj_id is None or new_job_id is None:
+                continue
+            db.add(ProjectPrint(
+                project_id=new_proj_id,
+                print_job_id=new_job_id,
+                is_test_print=bool(pp_data.get("is_test_print", False)),
+            ))
+            stats["project_prints"] += 1
+    else:
+        # Old bundle format: derive project_print rows from fm_project_id
+        for job_data in bundle.print_jobs:
+            old_job_id = job_data.get("id")
+            old_proj_id = job_data.get("fm_project_id")
+            if old_job_id is None or old_proj_id is None:
+                continue
+            new_job_id = job_id_map.get(old_job_id)
+            new_proj_id = project_id_map.get(old_proj_id)
+            if new_job_id is None or new_proj_id is None:
+                continue
+            db.add(ProjectPrint(
+                project_id=new_proj_id,
+                print_job_id=new_job_id,
+                is_test_print=False,
+            ))
+            stats["project_prints"] += 1
 
     db.commit()
     return {"ok": True, "imported": stats}

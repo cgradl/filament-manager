@@ -114,6 +114,12 @@ class ProjectOut(BaseModel):
     date_first: datetime | None
     date_last: datetime | None
     created_at: datetime
+    # Test-print split
+    test_print_count: int = 0
+    test_total_grams: float = 0.0
+    test_total_cost: float = 0.0
+    test_total_energy_kwh: float | None = None
+    test_total_energy_cost: float | None = None
 
 
 class ProjectDetailOut(ProjectOut):
@@ -166,11 +172,13 @@ class PrintJobOut(PrintJobBase):
     source: str
     total_grams: float
     total_cost: float
+    material_cost: float = 0.0
     duration_hours: float | None
     usages: list[PrintUsageOut] = []
     created_at: datetime
     fm_project_id: int | None = None
     project_name: str | None = None
+    is_test_print: bool = False
 
     # Energy tracking (from HA sensors)
     energy_kwh: float | None = None

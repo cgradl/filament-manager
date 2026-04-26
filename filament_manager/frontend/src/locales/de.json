@@ -387,7 +387,10 @@
       "energySensor": "Energiesensor (HA-Entity-ID)",
       "energySensorHint": "Kumulativer kWh-Sensor, z. B. von einem Shelly-Plug. Wird beim Druckstart und -ende ausgelesen, um den Verbrauch zu berechnen.",
       "priceSensor": "Strompreissensor (HA-Entity-ID)",
-      "priceSensorHint": "Sensor oder Helfer, der den Preis in €/kWh liefert. Wird zur Berechnung der Energiekosten pro Druck verwendet."
+      "priceSensorHint": "Sensor oder Helfer, der den Preis in €/kWh liefert. Wird zur Berechnung der Energiekosten pro Druck verwendet.",
+      "standbyKwh": "Standby-Energieverbrauch",
+      "standbyHint": "Stromverbrauch während der Drucker zwischen Drucken im Leerlauf ist. Gemessen vom Druckende bis zum nächsten Druckstart.",
+      "resetStandby": "Zurücksetzen"
     },
     "brandWeights": {
       "title": "Leerspulengewichte je Marke",
@@ -507,6 +510,8 @@
     "managePrints": "Drucke verwalten",
     "assignPrints": "Drucke zuweisen — {{name}}",
     "assignHint": "Drucke auswählen, die zu diesem Projekt gehören sollen. Es werden nur nicht zugewiesene Drucke und bereits in diesem Projekt enthaltene Drucke angezeigt.",
-    "selected": "ausgewählt"
+    "selected": "ausgewählt",
+    "markTestPrint": "Als Testdruck markieren",
+    "unmarkTestPrint": "Testdruck-Markierung entfernen"
   }
 }

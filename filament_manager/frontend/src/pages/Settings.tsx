@@ -605,6 +605,40 @@ function AMSTrayRow({
   )
 }
 
+// ── Standby Section (inside PrinterCard) ─────────────────────────────────────
+
+function StandbySection({ printer }: { printer: PrinterConfig }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+
+  const resetMut = useMutation({
+    mutationFn: () => api.resetPrinterStandby(printer.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['printers'] }),
+  })
+
+  return (
+    <div className="mt-3 border-t border-surface-3 pt-2">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-0.5">{t('settings.printers.standbyKwh')}</p>
+          <p className="text-sm text-gray-200">
+            {printer.standby_kwh != null ? `${printer.standby_kwh.toFixed(3)} kWh` : '—'}
+          </p>
+          <p className="text-[10px] text-gray-500 mt-0.5">{t('settings.printers.standbyHint')}</p>
+        </div>
+        <button
+          className="btn-ghost text-xs px-3 py-1.5 shrink-0"
+          onClick={() => resetMut.mutate()}
+          disabled={resetMut.isPending}
+          title={t('settings.printers.resetStandby')}
+        >
+          {t('settings.printers.resetStandby')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Printer Card ──────────────────────────────────────────────────────────────
 
 function PrinterCard({ printer, onEdit, onDelete }: {
@@ -1945,6 +1979,11 @@ function CloudPrinterStatus({ printer }: { printer: PrinterConfig }) {
             <p className="text-xs text-gray-400 font-mono">{printer.price_sensor_entity_id}</p>
           )}
         </div>
+      )}
+
+      {/* Standby energy */}
+      {printer.energy_sensor_entity_id && (
+        <StandbySection printer={printer} />
       )}
 
       {/* Raw MQTT cache dump */}
