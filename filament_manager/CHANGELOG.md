@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.33.1
+
+- Fix: **Test print toggle now works for all project prints** — on upgrade, existing prints that were assigned to projects before v0.33.0 had no `project_print` row, causing the flask button to silently fail with 404; the startup backfill now always runs on every startup (idempotent) instead of only when the table is first created
+
 ## 0.33.0
 
 - New: **Standby energy tracking** — the app now measures electricity consumed while the printer is idle between prints; standby is tracked from print end to next print start, paused when the printer goes offline, and shown under Settings → Printers with a Reset button (issue #41)

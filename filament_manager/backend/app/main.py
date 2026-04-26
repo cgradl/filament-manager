@@ -215,25 +215,16 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added printer_configs.standby_start_kwh")
 
-        # project_print: create join table if missing
-        if not insp.has_table("project_print"):
-            conn.execute(text("""
-                CREATE TABLE project_print (
-                    id INTEGER PRIMARY KEY,
-                    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-                    print_job_id INTEGER NOT NULL REFERENCES print_jobs(id) ON DELETE CASCADE,
-                    is_test_print INTEGER NOT NULL DEFAULT 0,
-                    UNIQUE (project_id, print_job_id)
-                )
-            """))
-            conn.execute(text("""
-                INSERT OR IGNORE INTO project_print (project_id, print_job_id, is_test_print)
-                SELECT fm_project_id, id, 0
-                FROM print_jobs
-                WHERE fm_project_id IS NOT NULL
-            """))
-            conn.commit()
-            log.info("Migration: created project_print table and backfilled from fm_project_id")
+        # project_print: table is created by create_all; always backfill any missing rows
+        # INSERT OR IGNORE is idempotent — safe to run on every startup
+        conn.execute(text("""
+            INSERT OR IGNORE INTO project_print (project_id, print_job_id, is_test_print)
+            SELECT fm_project_id, id, 0
+            FROM print_jobs
+            WHERE fm_project_id IS NOT NULL
+        """))
+        conn.commit()
+        log.info("Migration: backfilled project_print rows from fm_project_id (idempotent)")
 
         # print_usages: make spool_id nullable (SQLite can't ALTER COLUMN — rebuild table)
         usage_cols_info = insp.get_columns("print_usages")
