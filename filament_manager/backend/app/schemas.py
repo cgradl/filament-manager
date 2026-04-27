@@ -94,11 +94,13 @@ class PrintUsageOut(PrintUsageBase):
 class ProjectCreate(BaseModel):
     name: str
     description: str | None = None
+    url: str | None = None
 
 
 class ProjectUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    url: str | None = None
 
 
 class ProjectOut(BaseModel):
@@ -106,6 +108,7 @@ class ProjectOut(BaseModel):
     id: int
     name: str
     description: str | None
+    url: str | None = None
     print_count: int
     total_duration_seconds: int
     total_cost: float

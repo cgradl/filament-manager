@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { Project, ProjectDetail, PrintJob } from '../types'
-import { Plus, Pencil, Trash2, X, FolderOpen, ChevronDown, ChevronRight, Layers, FlaskConical } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, FolderOpen, ChevronDown, ChevronRight, Layers, FlaskConical, ExternalLink } from 'lucide-react'
 import { useHATZ } from '../hooks/useHATZ'
 import { formatDateTimeTZ } from '../utils/time'
 
@@ -38,12 +38,13 @@ function ProjectForm({
   onCancel,
 }: {
   initial?: Project
-  onSave: (data: { name: string; description: string | null }) => void
+  onSave: (data: { name: string; description: string | null; url: string | null }) => void
   onCancel: () => void
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
+  const [url, setUrl] = useState(initial?.url ?? '')
 
   return (
     <div className="space-y-4">
@@ -66,12 +67,22 @@ function ProjectForm({
           placeholder={t('projects.descriptionPlaceholder')}
         />
       </div>
+      <div>
+        <label className="label">{t('projects.url')}</label>
+        <input
+          className="input"
+          type="url"
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          placeholder={t('projects.urlPlaceholder')}
+        />
+      </div>
       <div className="flex justify-end gap-2 pt-2">
         <button className="btn-ghost px-4 py-2" onClick={onCancel}>{t('common.cancel')}</button>
         <button
           className="btn-primary px-4 py-2"
           disabled={!name.trim()}
-          onClick={() => onSave({ name: name.trim(), description: description.trim() || null })}
+          onClick={() => onSave({ name: name.trim(), description: description.trim() || null, url: url.trim() || null })}
         >
           {t('common.save')}
         </button>
@@ -228,6 +239,18 @@ function ProjectCard({
                 <FlaskConical size={11} />
                 {project.test_print_count}
               </span>
+            )}
+            {project.url && (
+              <a
+                href={project.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="text-gray-500 hover:text-blue-400 shrink-0"
+                title={project.url}
+              >
+                <ExternalLink size={11} />
+              </a>
             )}
           </div>
           {project.description && (
@@ -391,12 +414,12 @@ export default function Projects() {
   })
 
   const createMut = useMutation({
-    mutationFn: (data: { name: string; description: string | null }) => api.createProject(data),
+    mutationFn: (data: { name: string; description: string | null; url: string | null }) => api.createProject(data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); setShowForm(false) },
   })
 
   const updateMut = useMutation({
-    mutationFn: (data: { name: string; description: string | null }) =>
+    mutationFn: (data: { name: string; description: string | null; url: string | null }) =>
       api.updateProject(editing!.id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['projects'] })

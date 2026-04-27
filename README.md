@@ -2,7 +2,7 @@
 
 A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.35.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.35.1-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -28,7 +28,7 @@ Spools, print history, and all other data are unaffected.
 - **Home Assistant sensor entities** — three sensors pushed automatically via the HA States API: pending filament usage confirmations, low-stock spool count, and unmatched AMS trays; sensors update on print completion, spool change, and every 5 minutes; no HA configuration required
 - **Print description & model URL** — descriptions show below the print name in history; each print can have a URL (MakerWorld, Printables, etc.) shown as a clickable link icon
 - **Energy tracking** — configure a cumulative kWh HA sensor (e.g. Shelly plug) and an optional electricity price sensor per printer; energy consumed (kWh) and cost (€) are recorded per print and aggregated on projects; standby energy (idle between prints) is tracked separately per printer with a reset button in Settings
-- **Print Projects** — group print jobs into named projects; each project aggregates print count, total time, total filament, total cost, energy (kWh), energy cost, materials used, and nozzle diameters; per-print cost breakdown (material, energy, total) shown in the expanded project view; prints can be individually marked as test prints with the flask icon; assign prints from the project page or from the print form; full export/import support
+- **Print Projects** — group print jobs into named projects; each project aggregates print count, total time, total filament, total cost, energy (kWh), energy cost, materials used, and nozzle diameters; per-print cost breakdown (material, energy, total) shown in the expanded project view; prints can be individually marked as test prints with the flask icon; assign prints from the project page or from the print form; optional URL field shown as a clickable link icon; full export/import support
 - **AMS spool auto-match** — per-tray sparkle button and "Auto-match" header button find the best inventory spool by material + color; tiebreakers: lowest remaining weight first, then oldest purchase date (FiFo); Dashboard warns when a loaded AMS tray has no matching spool in inventory
 - **Cost analytics** — per-print cost, price per kg, inventory value, and spend by purchase location
 - **Dashboard** — overview charts, low-stock alerts, and recent print history

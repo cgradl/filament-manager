@@ -503,6 +503,8 @@
     "namePlaceholder": "p.ej. Construcción de carcasa",
     "description": "Descripción",
     "descriptionPlaceholder": "Notas opcionales sobre este proyecto",
+    "url": "URL",
+    "urlPlaceholder": "https://makerworld.com/…",
     "prints": "impresiones",
     "noPrints": "Aún no hay impresiones asignadas. Haz clic en el icono de capas para asignar impresiones.",
     "empty": "Aún no hay proyectos.",

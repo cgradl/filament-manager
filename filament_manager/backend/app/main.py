@@ -221,6 +221,13 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added printer_configs.standby_start_kwh")
 
+        # projects: add url if missing
+        project_cols = [c["name"] for c in insp.get_columns("projects")]
+        if "url" not in project_cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN url TEXT"))
+            conn.commit()
+            log.info("Migration: added projects.url")
+
         # project_print: table is created by create_all; always backfill any missing rows
         # INSERT OR IGNORE is idempotent — safe to run on every startup
         conn.execute(text("""

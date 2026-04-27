@@ -82,6 +82,7 @@ export interface Project {
   id: number
   name: string
   description: string | null
+  url: string | null
   print_count: number
   total_duration_seconds: number
   total_cost: number

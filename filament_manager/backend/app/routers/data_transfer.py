@@ -130,7 +130,7 @@ def export_data(db: Session = Depends(get_db)):
         "version": EXPORT_VERSION,
         "exported_at": datetime.utcnow().isoformat(),
         "spools": [_spool_dict(s) for s in spools],
-        "projects": [{"id": p.id, "name": p.name, "description": p.description, "created_at": _dt(p.created_at)} for p in projects],
+        "projects": [{"id": p.id, "name": p.name, "description": p.description, "url": p.url, "created_at": _dt(p.created_at)} for p in projects],
         "project_prints": [
             {"project_id": pp.project_id, "print_job_id": pp.print_job_id, "is_test_print": pp.is_test_print}
             for pp in project_prints
@@ -726,6 +726,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
         new_proj = Project(
             name=proj_data.get("name", "Imported project"),
             description=proj_data.get("description"),
+            url=proj_data.get("url"),
             created_at=_parse_dt(proj_data.get("created_at")) or datetime.utcnow(),
         )
         db.add(new_proj)

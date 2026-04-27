@@ -503,6 +503,8 @@
     "namePlaceholder": "z.B. Gehäuse-Bau",
     "description": "Beschreibung",
     "descriptionPlaceholder": "Optionale Notizen zu diesem Projekt",
+    "url": "URL",
+    "urlPlaceholder": "https://makerworld.com/…",
     "prints": "Drucke",
     "noPrints": "Noch keine Drucke zugewiesen. Auf das Ebenen-Symbol klicken, um Drucke zuzuweisen.",
     "empty": "Noch keine Projekte vorhanden.",

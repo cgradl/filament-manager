@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.35.1
+
+- New: **URL field on projects** — each project can have an optional URL (MakerWorld, Printables, etc.); shown as a clickable link icon next to the project name; set in the create/edit project form (issue #47)
+
 ## 0.35.0
 
 - New: **Last Dried date on spools** — each spool now has an optional "Last Dried" date field; visible in the spool table (toggleable column) and in the add/edit spool form; exported in JSON backup and spool CSV

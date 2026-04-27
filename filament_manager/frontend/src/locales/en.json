@@ -503,6 +503,8 @@
     "namePlaceholder": "e.g. Enclosure build",
     "description": "Description",
     "descriptionPlaceholder": "Optional notes about this project",
+    "url": "URL",
+    "urlPlaceholder": "https://makerworld.com/…",
     "prints": "prints",
     "noPrints": "No prints assigned yet. Click the layers icon to assign prints.",
     "empty": "No projects yet.",

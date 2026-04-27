@@ -42,9 +42,9 @@ export const api = {
   // Projects
   getProjects: () => request<Project[]>('projects'),
   getProject: (id: number) => request<ProjectDetail>(`projects/${id}`),
-  createProject: (data: { name: string; description?: string | null }) =>
+  createProject: (data: { name: string; description?: string | null; url?: string | null }) =>
     request<Project>('projects', { method: 'POST', body: JSON.stringify(data) }),
-  updateProject: (id: number, data: { name?: string; description?: string | null }) =>
+  updateProject: (id: number, data: { name?: string; description?: string | null; url?: string | null }) =>
     request<Project>(`projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteProject: (id: number) =>
     request<void>(`projects/${id}`, { method: 'DELETE' }),

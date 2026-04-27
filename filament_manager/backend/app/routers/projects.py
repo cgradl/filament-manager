@@ -48,6 +48,7 @@ def _project_out(project: Project) -> ProjectOut:
         id=project.id,
         name=project.name,
         description=project.description,
+        url=project.url,
         print_count=print_count,
         total_duration_seconds=total_duration_seconds,
         total_cost=round(total_cost, 4),
@@ -102,7 +103,7 @@ def list_projects(db: Session = Depends(get_db)):
 
 @router.post("", response_model=ProjectOut, status_code=201)
 def create_project(body: ProjectCreate, db: Session = Depends(get_db)):
-    project = Project(name=body.name, description=body.description)
+    project = Project(name=body.name, description=body.description, url=body.url)
     db.add(project)
     db.commit()
     return _project_out(_load_project(db, project.id))
