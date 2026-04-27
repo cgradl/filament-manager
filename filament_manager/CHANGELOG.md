@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.34.0
+
+- New: **Energy in test/production split summary** — the production vs test summary row in the expanded project view now also shows energy consumed (kWh) and energy cost (€) for each category when energy tracking is configured
+- New: **Sticky toolbar on Spools page** — the title, archive toggle, view toggle, and Add Spool button remain visible while scrolling through a long spool list
+- New: **Sticky date filter bar on Prints page** — the month/week/day filter bar stays visible at the top while scrolling through print history
+- New: **Sticky add-row in Settings → Data lists** — the input row for adding brands, materials, subtypes, and locations sticks to the top of each list while scrolling; the Filament Catalog header (title + export/import/add buttons) also sticks at the top (issue #45)
+
 ## 0.33.2
 
 - Fix: **Test/production cost split now shown in project expanded view** — when a project has test prints, a summary row below the print list shows print count, filament, and cost separately for production and test prints; the data was computed by the backend but never rendered in the UI

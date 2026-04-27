@@ -912,8 +912,8 @@ export default function Prints() {
   const totalCost  = filtered.reduce((s, j) => s + j.total_cost, 0)
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="flex flex-col gap-4 h-full">
+      <div className="flex-none flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-bold">
             {t('prints.history')} ({isFiltered ? `${filtered.length} of ` : ''}{shown.length}{totalCount > shown.length ? ` of ${totalCount}` : ''})
@@ -941,7 +941,7 @@ export default function Prints() {
       </div>
 
       {/* Date filter bar */}
-      <div className="card py-2.5 px-3 flex items-center gap-2 flex-wrap">
+      <div className="flex-none card py-2.5 px-3 flex items-center gap-2 flex-wrap">
         <CalendarDays size={13} className="text-gray-500 shrink-0" />
 
         {(['month', 'week', 'day'] as FilterMode[]).map(m => (
@@ -1015,13 +1015,13 @@ export default function Prints() {
         )}
       </div>
 
-      {isLoading && shown.length === 0 && <p className="text-gray-500 text-sm">{t('common.loading')}</p>}
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+        {isLoading && shown.length === 0 && <p className="text-gray-500 text-sm">{t('common.loading')}</p>}
 
-      {isFiltered && filtered.length === 0 && shown.length > 0 && (
-        <p className="text-sm text-gray-500">{t('prints.noResults')}</p>
-      )}
+        {isFiltered && filtered.length === 0 && shown.length > 0 && (
+          <p className="text-sm text-gray-500">{t('prints.noResults')}</p>
+        )}
 
-      <div className="space-y-2">
         {filtered.map(job => (
           <PrintRow
             key={job.id}
@@ -1032,19 +1032,19 @@ export default function Prints() {
             onLogUsage={() => setLoggingUsage(job)}
           />
         ))}
-      </div>
 
-      {hasMore && (
-        <div className="flex justify-center pt-2">
-          <button
-            className="btn-ghost text-sm px-6"
-            onClick={() => setPage(p => p + 1)}
-            disabled={isLoading}
-          >
-            {isLoading ? t('common.loading') : t('prints.loadMore', { n: totalCount - shown.length })}
-          </button>
-        </div>
-      )}
+        {hasMore && (
+          <div className="flex justify-center pt-2">
+            <button
+              className="btn-ghost text-sm px-6"
+              onClick={() => setPage(p => p + 1)}
+              disabled={isLoading}
+            >
+              {isLoading ? t('common.loading') : t('prints.loadMore', { n: totalCount - shown.length })}
+            </button>
+          </div>
+        )}
+      </div>
 
       {(showForm || editing) && (
         <Modal>

@@ -778,6 +778,7 @@ function BrandWeightsSection({ actionsLast }: { actionsLast: boolean }) {
           </button>
         </div>
 
+        <div className="overflow-y-auto max-h-64 space-y-2">
         {entries.length === 0 && (
           <p className="text-xs text-gray-500 py-1">{t('settings.brandWeights.noEntries')}</p>
         )}
@@ -829,6 +830,7 @@ function BrandWeightsSection({ actionsLast }: { actionsLast: boolean }) {
             )}
           </div>
         ))}
+        </div>
       </div>
     </div>
   )
@@ -905,6 +907,7 @@ function NameListSection({
           </button>
         </div>
 
+        <div className="overflow-y-auto max-h-64 space-y-2">
         {entries.length === 0 && (
           <p className="text-xs text-gray-500 py-1">{noEntries}</p>
         )}
@@ -946,6 +949,7 @@ function NameListSection({
             )}
           </div>
         ))}
+        </div>
       </div>
     </div>
   )
@@ -1534,7 +1538,7 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-surface pb-1 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-300">{t('settings.filamentCatalog.title')}</h3>
         <div className="flex items-center gap-2">
           <input
@@ -1636,11 +1640,11 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-surface-3 bg-surface-2">
+      <div className="overflow-x-auto overflow-y-auto max-h-[calc(100svh-18rem)] rounded-xl border border-surface-3 bg-surface-2">
         <table className="w-full text-xs text-left" style={{ minWidth: '700px' }}>
           <thead>
             <tr className="border-b border-surface-3">
-              {!actionsLast && <th className="px-3 py-2 w-16" />}
+              {!actionsLast && <th className="sticky top-0 z-10 px-3 py-2 w-16 bg-surface-2" />}
               {([
                 ['brand',          t('settings.filamentCatalog.brand')],
                 ['material',       t('settings.filamentCatalog.material')],
@@ -1652,7 +1656,7 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
               ] as [CatalogSortKey, string][]).map(([key, label]) => (
                 <th
                   key={key}
-                  className="px-3 py-2 text-gray-400 font-medium whitespace-nowrap cursor-pointer select-none hover:text-white"
+                  className="sticky top-0 z-10 bg-surface-2 px-3 py-2 text-gray-400 font-medium whitespace-nowrap cursor-pointer select-none hover:text-white"
                   onClick={() => toggleSort(key)}
                 >
                   <span className="flex items-center gap-1">
@@ -1660,11 +1664,11 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
                   </span>
                 </th>
               ))}
-              {actionsLast && <th className="px-3 py-2 w-16" />}
+              {actionsLast && <th className="sticky top-0 z-10 px-3 py-2 w-16 bg-surface-2" />}
             </tr>
-            <tr className="border-b border-surface-3 bg-surface-3/30">
+            <tr className="border-b border-surface-3">
               {!actionsLast && (
-                <td className="px-2 py-1">
+                <td className="sticky top-9 z-10 bg-surface-3 px-2 py-1">
                   <button
                     className="text-xs text-gray-500 hover:text-white"
                     onClick={() => setFilters({})}
@@ -1673,7 +1677,7 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
                 </td>
               )}
               {(['brand', 'material', 'subtype', 'subtype2', 'color_name', 'color_hex', 'article_number'] as CatalogSortKey[]).map(key => (
-                <td key={key} className="px-2 py-1">
+                <td key={key} className="sticky top-9 z-10 bg-surface-3 px-2 py-1">
                   <input
                     className="w-full bg-surface-3 rounded px-2 py-0.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-accent"
                     placeholder="filter…"
@@ -1683,7 +1687,7 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
                 </td>
               ))}
               {actionsLast && (
-                <td className="px-2 py-1">
+                <td className="sticky top-9 z-10 bg-surface-3 px-2 py-1">
                   <button
                     className="text-xs text-gray-500 hover:text-white"
                     onClick={() => setFilters({})}

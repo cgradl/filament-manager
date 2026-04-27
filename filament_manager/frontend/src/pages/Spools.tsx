@@ -681,9 +681,9 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
 
   const visibleCols = COLUMN_DEFS.filter(c => c.always || colVis[c.key] !== false)
 
-  const actionHeaderCell = <th className="px-3 py-2 w-32" />
+  const actionHeaderCell = <th className="sticky top-0 z-10 px-3 py-2 w-32 bg-surface-2" />
   const actionFilterCell = (
-    <td className="px-2 py-1">
+    <td className="sticky top-9 z-10 bg-surface-3 px-2 py-1">
       <button
         className="text-xs text-gray-500 hover:text-white"
         onClick={() => setFilters({})}
@@ -751,8 +751,8 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
   }
 
   return (
-    <div>
-      {/* Column picker — rendered OUTSIDE the overflow-x-auto container so the popover is not clipped */}
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Column picker — rendered OUTSIDE the overflow container so the popover is not clipped */}
       <div className="relative flex justify-end mb-1" ref={colPickerRef}>
         <button
           className="btn-ghost px-2 py-1 text-xs flex items-center gap-1 text-gray-500 hover:text-white"
@@ -780,7 +780,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
           </div>
         )}
       </div>
-    <div className="overflow-x-auto rounded-xl border border-surface-3 bg-surface-2">
+    <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto rounded-xl border border-surface-3 bg-surface-2">
       <table className="w-full text-xs text-left">
         <thead>
           <tr className="border-b border-surface-3">
@@ -788,7 +788,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
             {visibleCols.map(c => (
               <th
                 key={c.key}
-                className={`px-3 py-2 text-gray-400 font-medium whitespace-nowrap cursor-pointer select-none hover:text-white ${c.width ?? ''}`}
+                className={`sticky top-0 z-10 bg-surface-2 px-3 py-2 text-gray-400 font-medium whitespace-nowrap cursor-pointer select-none hover:text-white ${c.width ?? ''}`}
                 onClick={() => toggleSort(c.key)}
               >
                 <span className="flex items-center gap-1">
@@ -798,10 +798,10 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
             ))}
             {actionsLast && actionHeaderCell}
           </tr>
-          <tr className="border-b border-surface-3 bg-surface-3/30">
+          <tr className="border-b border-surface-3">
             {!actionsLast && actionFilterCell}
             {visibleCols.map(c => (
-              <td key={c.key} className="px-2 py-1">
+              <td key={c.key} className="sticky top-9 z-10 bg-surface-3 px-2 py-1">
                 <input
                   className="w-full bg-surface-3 rounded px-2 py-0.5 text-xs text-gray-100 placeholder-gray-600
                              focus:outline-none focus:ring-1 focus:ring-accent"
@@ -912,9 +912,9 @@ export default function Spools() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4 h-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex-none flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-lg font-bold">{t('spools.title')} ({spools.filter(s => !s.archived).length})</h2>
         <div className="flex items-center gap-2">
           <button
@@ -951,19 +951,21 @@ export default function Spools() {
       {isLoading && <p className="text-gray-500 text-sm">{t('common.loading')}</p>}
 
       {view === 'cards' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {spools.map(spool => (
-            <SpoolCard
-              key={spool.id}
-              spool={spool}
-              onEdit={() => setEditing(spool)}
-              onDuplicate={() => setDuplicating(spool)}
-              onHistory={() => setAuditSpool(spool)}
-              onDelete={() => handleDelete(spool)}
-              onArchive={() => archiveMut.mutate(spool.id)}
-              onUnarchive={() => unarchiveMut.mutate(spool.id)}
-            />
-          ))}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {spools.map(spool => (
+              <SpoolCard
+                key={spool.id}
+                spool={spool}
+                onEdit={() => setEditing(spool)}
+                onDuplicate={() => setDuplicating(spool)}
+                onHistory={() => setAuditSpool(spool)}
+                onDelete={() => handleDelete(spool)}
+                onArchive={() => archiveMut.mutate(spool.id)}
+                onUnarchive={() => unarchiveMut.mutate(spool.id)}
+              />
+            ))}
+          </div>
         </div>
       ) : (
         <SpoolTable

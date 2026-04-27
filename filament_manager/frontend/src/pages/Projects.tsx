@@ -282,26 +282,36 @@ function ProjectCard({
           {detail && detail.print_jobs.map(job => (
             <PrintJobRow key={job.id} job={job} projectId={project.id} />
           ))}
-          {project.test_print_count > 0 && project.print_count > 0 && (
-            <div className="mt-2 pt-2 border-t border-surface-3 flex gap-6 text-xs">
-              <div>
-                <span className="text-gray-500">{t('projects.normalStats')}: </span>
-                <span className="text-gray-300">
-                  {project.print_count - project.test_print_count} {t('projects.prints')}
-                  {' · '}{((project.total_grams - project.test_total_grams) / 1000).toFixed(2)} {t('common.kg')}
-                  {' · '}€{(project.total_cost - project.test_total_cost).toFixed(2)}
-                </span>
+          {project.test_print_count > 0 && project.print_count > 0 && (() => {
+            const prodEnergyKwh = project.total_energy_kwh != null && project.test_total_energy_kwh != null
+              ? project.total_energy_kwh - project.test_total_energy_kwh : project.total_energy_kwh
+            const prodEnergyCost = project.total_energy_cost != null && project.test_total_energy_cost != null
+              ? project.total_energy_cost - project.test_total_energy_cost : project.total_energy_cost
+            return (
+              <div className="mt-2 pt-2 border-t border-surface-3 flex gap-6 text-xs flex-wrap">
+                <div>
+                  <span className="text-gray-500">{t('projects.normalStats')}: </span>
+                  <span className="text-gray-300">
+                    {project.print_count - project.test_print_count} {t('projects.prints')}
+                    {' · '}{((project.total_grams - project.test_total_grams) / 1000).toFixed(2)} {t('common.kg')}
+                    {' · '}€{(project.total_cost - project.test_total_cost).toFixed(2)}
+                    {prodEnergyKwh != null && <>{' · '}{prodEnergyKwh.toFixed(3)} kWh</>}
+                    {prodEnergyCost != null && <>{' · '}€{prodEnergyCost.toFixed(2)}</>}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-amber-500 flex items-center gap-1 inline-flex"><FlaskConical size={11} />{t('projects.testStats')}: </span>
+                  <span className="text-gray-300">
+                    {project.test_print_count} {t('projects.prints')}
+                    {' · '}{(project.test_total_grams / 1000).toFixed(2)} {t('common.kg')}
+                    {' · '}€{project.test_total_cost.toFixed(2)}
+                    {project.test_total_energy_kwh != null && <>{' · '}{project.test_total_energy_kwh.toFixed(3)} kWh</>}
+                    {project.test_total_energy_cost != null && <>{' · '}€{project.test_total_energy_cost.toFixed(2)}</>}
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className="text-amber-500 flex items-center gap-1 inline-flex"><FlaskConical size={11} />{t('projects.testStats')}: </span>
-                <span className="text-gray-300">
-                  {project.test_print_count} {t('projects.prints')}
-                  {' · '}{(project.test_total_grams / 1000).toFixed(2)} {t('common.kg')}
-                  {' · '}€{project.test_total_cost.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
       )}
     </div>
