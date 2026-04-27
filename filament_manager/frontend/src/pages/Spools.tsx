@@ -14,7 +14,7 @@ const EMPTY_FORM = {
   brand: '', material: 'PLA', subtype: '', subtype2: '', color_name: '', color_hex: '#888888',
   diameter_mm: '', initial_weight_g: 1000, current_weight_g: 1000,
   purchase_price: '', purchased_at: '', purchase_location: '', storage_location: '',
-  article_number: '', ams_slot: '', notes: '',
+  article_number: '', last_dried_at: '', ams_slot: '', notes: '',
 }
 
 function SpoolForm({
@@ -39,6 +39,7 @@ function SpoolForm({
     purchase_location: initial?.purchase_location ?? '',
     storage_location: initial?.storage_location ?? '',
     article_number: initial?.article_number ?? '',
+    last_dried_at: initial?.last_dried_at ? initial.last_dried_at.slice(0, 10) : '',
     initial_weight_g: initial?.initial_weight_g ?? 1000,
     current_weight_g: initial?.current_weight_g ?? 1000,
   })
@@ -196,12 +197,16 @@ function SpoolForm({
                   value={/^#[0-9a-fA-F]{6}$/.test(form.color_hex) ? form.color_hex : '#888888'}
                   onChange={set('color_hex')}
                 />
-                <input
-                  className={`input flex-1 ${form.color_hex && !/^#[0-9a-fA-F]{6}$/.test(form.color_hex) ? 'border-red-500 focus:border-red-500' : ''}`}
-                  value={form.color_hex}
-                  onChange={set('color_hex')}
-                  placeholder="#ffffff"
-                />
+                <div className="flex items-center flex-1">
+                  <span className="px-2 py-1.5 text-sm text-gray-400 bg-surface-3 border border-r-0 border-surface-3 rounded-l-lg select-none">#</span>
+                  <input
+                    className={`input flex-1 rounded-l-none ${form.color_hex && !/^#[0-9a-fA-F]{6}$/.test(form.color_hex) ? 'border-red-500 focus:border-red-500' : ''}`}
+                    value={form.color_hex.replace(/^#/, '')}
+                    onChange={e => setForm(f => ({ ...f, color_hex: '#' + e.target.value.replace(/^#/, '') }))}
+                    placeholder="ffffff"
+                    maxLength={6}
+                  />
+                </div>
               </div>
               {form.color_hex && !/^#[0-9a-fA-F]{6}$/.test(form.color_hex) && (
                 <p className="text-xs text-red-400 mt-1">{t('spools.form.colorHexInvalid')}</p>
@@ -316,9 +321,15 @@ function SpoolForm({
             </div>
           </div>
 
-          <div>
-            <label className="label">{t('spools.form.amsSlot')}</label>
-            <input className="input" value={form.ams_slot ?? ''} onChange={set('ams_slot')} placeholder="ams1_tray1" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label">{t('spools.form.amsSlot')}</label>
+              <input className="input" value={form.ams_slot ?? ''} onChange={set('ams_slot')} placeholder="ams1_tray1" />
+            </div>
+            <div>
+              <label className="label">{t('spools.form.lastDried')}</label>
+              <input className="input" type="date" value={form.last_dried_at ?? ''} onChange={set('last_dried_at')} />
+            </div>
           </div>
 
           <div>
@@ -529,7 +540,7 @@ function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete, onArchive,
 
 type SortKey = 'custom_id' | 'brand' | 'material' | 'subtype' | 'color_name' | 'article_number' | 'remaining_pct' |
                'current_weight_g' | 'initial_weight_g' | 'purchase_price' |
-               'price_per_kg' | 'purchased_at' | 'purchase_location' | 'storage_location' | 'ams_slot'
+               'price_per_kg' | 'purchased_at' | 'purchase_location' | 'storage_location' | 'last_dried_at' | 'ams_slot'
 type SortDir = 'asc' | 'desc'
 
 type ColDef = { key: SortKey; label: string; width?: string; always?: boolean }
@@ -590,7 +601,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
   ])
   const WEIGHT_COLS  = new Set<SortKey>(['current_weight_g', 'initial_weight_g'])
   const PRICE_COLS   = new Set<SortKey>(['purchase_price', 'price_per_kg'])
-  const DATE_COLS    = new Set<SortKey>(['purchased_at'])
+  const DATE_COLS    = new Set<SortKey>(['purchased_at', 'last_dried_at'])
 
   const filterPlaceholder = (key: SortKey): string => {
     if (DATE_COLS.has(key))    return t('spools.table.filterDate')
@@ -674,6 +685,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
     { key: 'purchase_price',    label: t('spools.table.price'),             width: 'w-20' },
     { key: 'price_per_kg',      label: t('spools.table.pricePerKg'),        width: 'w-20' },
     { key: 'purchased_at',      label: t('spools.table.purchaseDate'),      width: 'w-24' },
+    { key: 'last_dried_at',     label: t('spools.table.lastDried'),         width: 'w-24' },
     { key: 'purchase_location', label: t('spools.table.location'),          width: 'w-24' },
     { key: 'storage_location',  label: t('spools.table.storageLocation'),   width: 'w-24' },
     { key: 'ams_slot',          label: t('spools.table.amsSlot'),           width: 'w-24' },
@@ -724,6 +736,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
       case 'purchase_price':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.purchase_price != null ? `€${s.purchase_price.toFixed(2)}` : '—'}</td>
       case 'price_per_kg':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.price_per_kg != null ? `€${s.price_per_kg.toFixed(2)}` : '—'}</td>
       case 'purchased_at':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.purchased_at ? formatDateOnly(s.purchased_at) : '—'}</td>
+      case 'last_dried_at':    return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.last_dried_at ? formatDateOnly(s.last_dried_at) : '—'}</td>
       case 'purchase_location':return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.purchase_location ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-gray-400">{s.purchase_location}</span> : <span className="text-gray-600">—</span>}</td>
       case 'storage_location': return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.storage_location ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-green-400">{s.storage_location}</span> : <span className="text-gray-600">—</span>}</td>
       case 'ams_slot':         return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-blue-400">{s.ams_slot ?? '—'}</td>
@@ -885,6 +898,7 @@ export default function Spools() {
     purchase_location: form.purchase_location || null,
     storage_location: form.storage_location || null,
     article_number: form.article_number || null,
+    last_dried_at: form.last_dried_at || null,
     subtype: form.subtype || null,
     subtype2: form.subtype2 || null,
     ams_slot: form.ams_slot || null,

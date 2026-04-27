@@ -1356,7 +1356,10 @@ function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands
         <td className="px-2 py-1">
           <div className="flex items-center gap-1">
             <input type="color" className="w-6 h-6 rounded cursor-pointer border border-surface-3 bg-transparent p-0 shrink-0" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} />
-            <input className="input text-xs py-0.5 w-20 font-mono" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} maxLength={7} />
+            <div className="flex items-center">
+              <span className="px-1.5 py-0.5 text-xs text-gray-400 bg-surface-3 border border-r-0 border-surface-3 rounded-l select-none">#</span>
+              <input className="input text-xs py-0.5 w-16 font-mono rounded-l-none" value={editForm.color_hex.replace(/^#/, '')} onChange={e => set('color_hex', '#' + e.target.value.replace(/^#/, ''))} maxLength={6} />
+            </div>
           </div>
         </td>
         <td className="px-2 py-1"><input className="input text-xs py-0.5 w-full" value={editForm.article_number ?? ''} onChange={e => set('article_number', e.target.value)} /></td>
@@ -1620,7 +1623,10 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
               <label className="label text-xs">{t('settings.filamentCatalog.colorHex')}</label>
               <div className="flex items-center gap-2">
                 <input type="color" className="w-8 h-8 rounded cursor-pointer border border-surface-3 bg-transparent p-0.5 shrink-0" value={form.color_hex} onChange={e => setForm(f => ({ ...f, color_hex: e.target.value }))} />
-                <input className="input text-xs py-1 font-mono flex-1" value={form.color_hex} onChange={e => setForm(f => ({ ...f, color_hex: e.target.value }))} maxLength={7} />
+                <div className="flex items-center flex-1">
+                  <span className="px-2 py-1 text-xs text-gray-400 bg-surface-3 border border-r-0 border-surface-3 rounded-l select-none">#</span>
+                  <input className="input text-xs py-1 font-mono flex-1 rounded-l-none" value={form.color_hex.replace(/^#/, '')} onChange={e => setForm(f => ({ ...f, color_hex: '#' + e.target.value.replace(/^#/, '') }))} maxLength={6} />
+                </div>
               </div>
             </div>
             <div>

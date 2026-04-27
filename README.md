@@ -2,7 +2,7 @@
 
 A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.34.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.35.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -23,7 +23,7 @@ Spools, print history, and all other data are unaffected.
 - **Suggested filament usage** — on print completion the app pre-fills grams used per tray for review; spool identity is snapshotted at print start so suggestions always reference the correct spool even if the AMS is changed afterwards; an optional per-printer *auto-deduct* flag applies the deduction immediately without confirmation
 - **Multi-spool print support** — manual spool swaps (runout pause + replace) and AMS auto-switches (backup tray same material) are both detected; the Log Usage modal shows two rows for the affected slot with the split pre-calculated from print-start stock; all estimates are editable
 - **Live print status** — active print jobs show real-time stage, progress, remaining time, and active tray from Bambu Cloud MQTT
-- **Spool inventory** — full CRUD for filament spools with brand, material, subtype, color, article number, weight, cost, purchase location, and storage location
+- **Spool inventory** — full CRUD for filament spools with brand, material, subtype, color, article number, weight, cost, purchase location, storage location, and last drying date
 - **Filament catalog** — manage a master list of filament products (brand, material, subtype, color, article number, hex); CSV import and export (semicolon or comma delimited, Excel UTF-8 BOM supported); selecting a catalog entry auto-fills the spool form; an optional checkbox propagates catalog changes to all spools sharing the same article number
 - **Home Assistant sensor entities** — three sensors pushed automatically via the HA States API: pending filament usage confirmations, low-stock spool count, and unmatched AMS trays; sensors update on print completion, spool change, and every 5 minutes; no HA configuration required
 - **Print description & model URL** — descriptions show below the print name in history; each print can have a URL (MakerWorld, Printables, etc.) shown as a clickable link icon

@@ -44,6 +44,7 @@ class Spool(Base):
     purchase_location = Column(String)
     storage_location = Column(String)
     article_number = Column(String, nullable=True)
+    last_dried_at = Column(DateTime, nullable=True)
     ams_slot = Column(String)
     notes = Column(Text)
     archived = Column(Boolean, default=False, nullable=False, server_default='0')

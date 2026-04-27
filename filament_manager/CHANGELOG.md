@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.35.0
+
+- New: **Last Dried date on spools** — each spool now has an optional "Last Dried" date field; visible in the spool table (toggleable column) and in the add/edit spool form; exported in JSON backup and spool CSV
+- Fix: **Hex color inputs no longer require typing `#`** — the `#` prefix is shown as a fixed label in the spool form and filament catalog; only the 6-digit code is typed (moved from v0.34.1)
+
+## 0.34.1
+
+- Fix: **Hex color inputs no longer require typing `#`** — the `#` prefix is now shown as a fixed label in the spool form and filament catalog (add and edit); the user only types the 6-digit hex code
+
 ## 0.34.0
 
 - New: **Energy in test/production split summary** — the production vs test summary row in the expanded project view now also shows energy consumed (kWh) and energy cost (€) for each category when energy tracking is configured

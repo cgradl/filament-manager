@@ -55,6 +55,7 @@ def _spool_dict(s: Spool) -> dict:
         "purchased_at": _dt(s.purchased_at),
         "purchase_location": s.purchase_location,
         "article_number": s.article_number,
+        "last_dried_at": _dt(s.last_dried_at),
         "storage_location": s.storage_location,
         "ams_slot": s.ams_slot,
         "notes": s.notes,
@@ -191,7 +192,7 @@ CSV_COLUMNS = [
     "initial_weight_g", "current_weight_g", "spool_weight_g", "remaining_pct",
     "purchase_price", "price_per_kg",
     "purchased_at", "purchase_location", "storage_location",
-    "article_number", "ams_slot", "notes", "archived",
+    "article_number", "last_dried_at", "ams_slot", "notes", "archived",
 ]
 
 @router.get("/export-spools-csv")
@@ -221,6 +222,7 @@ def export_spools_csv(db: Session = Depends(get_db)):
             "purchase_location": s.purchase_location or "",
             "storage_location": s.storage_location or "",
             "article_number":   s.article_number or "",
+            "last_dried_at":    _dt(s.last_dried_at) or "",
             "ams_slot":         s.ams_slot or "",
             "notes":            s.notes or "",
             "archived":         int(s.archived),
@@ -488,7 +490,7 @@ async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(
         "color_name", "color_hex", "diameter_mm",
         "initial_weight_g", "current_weight_g", "spool_weight_g",
         "purchase_price", "purchased_at", "purchase_location",
-        "storage_location", "article_number", "ams_slot", "notes", "archived",
+        "storage_location", "article_number", "last_dried_at", "ams_slot", "notes", "archived",
     }
     FLOAT_COLS = {"diameter_mm", "initial_weight_g", "current_weight_g", "spool_weight_g", "purchase_price"}
     INT_COLS: set[str] = set()
@@ -512,6 +514,8 @@ async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(
             if col in FLOAT_COLS:
                 fields[col] = _parse_float(raw)
             elif col == "purchased_at":
+                fields[col] = _parse_date(raw)
+            elif col == "last_dried_at":
                 fields[col] = _parse_date(raw)
             elif col in BOOL_COLS:
                 fields[col] = raw.lower() in ("1", "true", "yes") if raw else False
@@ -701,6 +705,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             purchase_price=sp.get("purchase_price"),
             purchased_at=_parse_dt(sp.get("purchased_at")),
             article_number=sp.get("article_number"),
+            last_dried_at=_parse_dt(sp.get("last_dried_at")),
             purchase_location=sp.get("purchase_location"),
             storage_location=sp.get("storage_location"),
             ams_slot=sp.get("ams_slot"),

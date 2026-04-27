@@ -21,6 +21,7 @@ class SpoolBase(BaseModel):
     purchase_location: str | None = None
     storage_location: str | None = None
     article_number: str | None = None
+    last_dried_at: datetime | None = None
     ams_slot: str | None = None
     notes: str | None = None
     archived: bool = False
@@ -47,6 +48,7 @@ class SpoolUpdate(BaseModel):
     purchase_location: str | None = None
     storage_location: str | None = None
     article_number: str | None = None
+    last_dried_at: datetime | None = None
     ams_slot: str | None = None
     notes: str | None = None
     archived: bool | None = None
@@ -57,6 +59,7 @@ class SpoolOut(SpoolBase):
 
     id: int
     archived: bool
+    last_dried_at: datetime | None = None
     remaining_pct: float
     price_per_kg: float | None
     cost_per_gram: float | None

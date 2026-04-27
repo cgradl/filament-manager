@@ -75,6 +75,12 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added spools.article_number")
 
+        # spools: add last_dried_at if missing
+        if "last_dried_at" not in spool_cols:
+            conn.execute(text("ALTER TABLE spools ADD COLUMN last_dried_at DATETIME"))
+            conn.commit()
+            log.info("Migration: added spools.last_dried_at")
+
         # spools: add archived flag if missing
         if "archived" not in spool_cols:
             conn.execute(text("ALTER TABLE spools ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"))

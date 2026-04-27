@@ -16,6 +16,7 @@ export interface Spool {
   purchase_location: string | null
   storage_location: string | null
   article_number: string | null
+  last_dried_at: string | null
   ams_slot: string | null
   notes: string | null
   archived: boolean
