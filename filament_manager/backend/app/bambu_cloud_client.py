@@ -239,22 +239,34 @@ def _ams_index_to_slot_key(
     index: int,
     unit_tray_counts: dict[int, int] | None = None,
 ) -> str | None:
-    """Convert 0-based global AMS tray index (tray_now / amsDetailMapping[].ams) to slot key.
+    """Convert a global AMS tray index (tray_now / amsDetailMapping[].ams) to slot key.
 
-    When unit_tray_counts is supplied ({1: 4, 2: 1} etc.) the actual per-unit tray counts
-    are used to compute the unit/tray from the global offset.  Falls back to the legacy
-    4-trays-per-unit assumption when no counts are available.
+    Two distinct index spaces exist in Bambu's protocol:
+    - Standard AMS / AMS-Lite / N3F (AMS 2 Pro):
+        flat index = ams_id * 4 + slot_id  (both 0-based, range 0-127)
+        unit_tray_counts keys are 1-based (1, 2, 3, 4 …)
+    - N3S (AMS HT), single-slot units:
+        flat index = raw ams_id directly (128-152)
+        unit_tray_counts keys are raw_ams_id + 1 (129, 130 …)
 
-    Returns "ams{unit}_tray{slot}" (1-based), or None for external spool (254, 255) or
-    an index that exceeds the known AMS capacity.
+    Returns "ams{unit}_tray{slot}" (1-based), or None for external spool (254/255)
+    or an index that exceeds the known AMS capacity.
     """
     if index is None or index in (254, 255):
         return None
 
+    # N3S (AMS HT): raw ams_id 128-152 is used directly as the flat index.
+    # Internal convention adds 1 (1-based unit); slot is always 1 (single-slot unit).
+    if 128 <= index <= 152:
+        return f"ams{index + 1}_tray1"
+
+    # Standard AMS / AMS-Lite / N3F: sequential flat index (0-based, range 0-127).
     if unit_tray_counts:
+        # Exclude N3S entries (1-based uid >= 129) from the sequential offset walk.
+        standard_counts = {uid: cnt for uid, cnt in unit_tray_counts.items() if uid < 129}
         offset = 0
-        for unit_id in sorted(unit_tray_counts.keys()):
-            count = unit_tray_counts[unit_id]
+        for unit_id in sorted(standard_counts.keys()):
+            count = standard_counts[unit_id]
             if index < offset + count:
                 tray = (index - offset) + 1  # 1-based
                 return f"ams{unit_id}_tray{tray}"

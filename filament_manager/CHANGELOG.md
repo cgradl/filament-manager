@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.36.3
+
+- Fix: **N3S (AMS HT) slot tracking now works correctly** — the tray-index fallback used when `amsMapping2` is absent assumed all AMS indices are sequential starting from 0; N3S units use raw IDs 128–152 as their flat index (not `ams_id × 4 + slot_id`), so they were silently returning no slot; the fallback now resolves N3S indices directly to `ams{id+1}_tray1` and excludes N3S entries from the sequential offset walk for standard AMS units
+
 ## 0.36.2
 
 - Fix: **Filament catalog propagation now only updates changed fields** — previously, saving a catalog entry always pushed all six fields (brand, material, subtype, subtype2, color name, color hex) to matching spools, even fields the user did not change; now only fields whose value actually differs are written, preventing unintended overwrites (e.g. clearing a subtype on spools when only color was edited)
