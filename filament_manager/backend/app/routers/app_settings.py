@@ -399,6 +399,9 @@ def create_filament_catalog(body: FilamentCatalogCreate, db: Session = Depends(g
     return entry
 
 
+_PROPAGATE_FIELDS = ("brand", "material", "subtype", "subtype2", "color_name", "color_hex")
+
+
 @router.patch("/filament-catalog/{entry_id}", response_model=FilamentCatalogOut)
 def update_filament_catalog(entry_id: int, body: FilamentCatalogUpdate, db: Session = Depends(get_db)):
     from ..models import Spool
@@ -407,14 +410,20 @@ def update_filament_catalog(entry_id: int, body: FilamentCatalogUpdate, db: Sess
         raise HTTPException(404, "Not found")
     updates = body.model_dump(exclude_unset=True)
     propagate = updates.pop("propagate_to_spools", False)
+    # Snapshot pre-update values so we can compute what actually changed
+    old_values = {k: getattr(entry, k) for k in _PROPAGATE_FIELDS}
     for field, value in updates.items():
         setattr(entry, field, value)
     db.commit()
     db.refresh(entry)
     if propagate and entry.article_number:
-        spool_fields = {k: updates[k] for k in ("brand", "material", "subtype", "subtype2", "color_name", "color_hex") if k in updates}
-        if spool_fields:
-            db.query(Spool).filter(Spool.article_number == entry.article_number).update(spool_fields)
+        # Only propagate fields whose value genuinely changed — the frontend always
+        # sends all fields, so comparing against old values is the only reliable way
+        # to avoid overwriting spool data that the user did not intend to touch.
+        changed = {k: updates[k] for k in _PROPAGATE_FIELDS
+                   if k in updates and updates[k] != old_values[k]}
+        if changed:
+            db.query(Spool).filter(Spool.article_number == entry.article_number).update(changed)
             db.commit()
     return entry
 

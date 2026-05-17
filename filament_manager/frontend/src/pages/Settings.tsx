@@ -1327,7 +1327,8 @@ function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands
 }) {
   const { t } = useTranslation()
   const set = (k: keyof CatalogEntry, v: string) => setEditForm({ ...editForm, [k]: v })
-  const canSave = editForm.brand.trim() && editForm.material.trim() && editForm.color_name.trim()
+  const hexValid = /^#[0-9a-fA-F]{6}$/.test(editForm.color_hex)
+  const canSave = editForm.brand.trim() && editForm.material.trim() && editForm.color_name.trim() && hexValid
   const colSpan = 8 // actions + 7 data columns
   const actionCell = (
     <td className="px-2 py-1">
@@ -1359,7 +1360,7 @@ function CatalogEditRow({ entry, editForm, setEditForm, onSave, onCancel, brands
             <input type="color" className="w-6 h-6 rounded cursor-pointer border border-surface-3 bg-transparent p-0 shrink-0" value={editForm.color_hex} onChange={e => set('color_hex', e.target.value)} />
             <div className="flex items-center">
               <span className="px-1.5 py-0.5 text-xs text-gray-400 bg-surface-3 border border-r-0 border-surface-3 rounded-l select-none">#</span>
-              <input className="input text-xs py-0.5 w-16 font-mono rounded-l-none" value={editForm.color_hex.replace(/^#/, '')} onChange={e => set('color_hex', '#' + e.target.value.replace(/^#/, ''))} maxLength={6} />
+              <input className={`input text-xs py-0.5 w-16 font-mono rounded-l-none ${!hexValid ? 'border-red-500 focus:border-red-500' : ''}`} value={editForm.color_hex.replace(/^#/, '')} onChange={e => set('color_hex', '#' + e.target.value.replace(/^#/, ''))} maxLength={6} />
             </div>
           </div>
         </td>
@@ -1516,7 +1517,8 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
     setEditForm({ brand: e.brand, material: e.material, subtype: e.subtype ?? '', subtype2: e.subtype2 ?? '', color_name: e.color_name, color_hex: e.color_hex, article_number: e.article_number ?? '' })
   }
 
-  const canAdd = form.brand.trim() && form.material.trim() && form.color_name.trim()
+  const addHexValid = /^#[0-9a-fA-F]{6}$/.test(form.color_hex)
+  const canAdd = form.brand.trim() && form.material.trim() && form.color_name.trim() && addHexValid
 
   const processed = useMemo(() => {
     let rows = [...catalog]
@@ -1626,7 +1628,7 @@ function FilamentDataSection({ actionsLast }: { actionsLast: boolean }) {
                 <input type="color" className="w-8 h-8 rounded cursor-pointer border border-surface-3 bg-transparent p-0.5 shrink-0" value={form.color_hex} onChange={e => setForm(f => ({ ...f, color_hex: e.target.value }))} />
                 <div className="flex items-center flex-1">
                   <span className="px-2 py-1 text-xs text-gray-400 bg-surface-3 border border-r-0 border-surface-3 rounded-l select-none">#</span>
-                  <input className="input text-xs py-1 font-mono flex-1 rounded-l-none" value={form.color_hex.replace(/^#/, '')} onChange={e => setForm(f => ({ ...f, color_hex: '#' + e.target.value.replace(/^#/, '') }))} maxLength={6} />
+                  <input className={`input text-xs py-1 font-mono flex-1 rounded-l-none ${!addHexValid ? 'border-red-500 focus:border-red-500' : ''}`} value={form.color_hex.replace(/^#/, '')} onChange={e => setForm(f => ({ ...f, color_hex: '#' + e.target.value.replace(/^#/, '') }))} maxLength={6} />
                 </div>
               </div>
             </div>

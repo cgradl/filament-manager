@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.36.2
+
+- Fix: **Filament catalog propagation now only updates changed fields** — previously, saving a catalog entry always pushed all six fields (brand, material, subtype, subtype2, color name, color hex) to matching spools, even fields the user did not change; now only fields whose value actually differs are written, preventing unintended overwrites (e.g. clearing a subtype on spools when only color was edited)
+- Fix: **Color hex validation in filament catalog forms** — the hex input now shows a red border when the value is not a valid 6-digit code, and the Save / Add button is disabled until it is corrected
+
 ## 0.36.1
 
 - Fix: **Wrong AMS slot in filament usage suggestions** — Bambu's external-spool sentinel values (254/255) in `amsMapping2` were not filtered, causing the slot to be computed as `ams256_tray256` instead of being skipped; the phantom AMS unit also corrupted slot-index resolution for multi-AMS printers (issue #50 related)
