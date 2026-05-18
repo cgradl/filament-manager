@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.37.2
+
+- Fix: **No suggestions after print finish** — Bambu Cloud takes 15–60 s after print end to finalise `amsDetailMapping`; the immediate fetch returned empty data and no suggestions were ever stored; the fetch is now scheduled as a background asyncio task with two attempts (immediately, then 45 s later) each using its own DB session; the print-end path closes promptly without waiting; errors are now logged with full tracebacks instead of being silently swallowed
+
 ## 0.37.1
 
 - Fix: **Bambu filament API — switch to v2 endpoints** — the filament list, create, update, and delete endpoints all 404'd because Bambu moved their filament API from `/my/filament` to `/my/filament/v2`; the update route also now passes `id` in the request body (not the URL path) as required by the v2 spec (`UpdateFilamentV2Req`)
