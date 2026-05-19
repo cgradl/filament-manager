@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.37.3
+
+- Fix: **Log Usage banner never appeared when Bambu returned no usable slot data** — after the background retry (v0.37.2) ran both attempts, if no suggestions could be built (no `amsDetailMapping` and no matching spool), `suggested_usages` stayed `null` and the banner was hidden; now the banner always appears after a finished auto-detected print (even with empty pre-fill) so material can be logged manually
+- Fix: **Fallback weight estimate used stale live AMS cache** — the single-tray weight fallback called `get_print_trays()` at retry time rather than the slot keys captured at print end; if a new print started in the 45 s window the cache was reset and the fallback silently produced nothing; now uses the snapshot captured at print-end
+
 ## 0.37.2
 
 - Fix: **No suggestions after print finish** — Bambu Cloud takes 15–60 s after print end to finalise `amsDetailMapping`; the immediate fetch returned empty data and no suggestions were ever stored; the fetch is now scheduled as a background asyncio task with two attempts (immediately, then 45 s later) each using its own DB session; the print-end path closes promptly without waiting; errors are now logged with full tracebacks instead of being silently swallowed

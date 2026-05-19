@@ -265,31 +265,27 @@ def _build_suggestions(
 
         return suggestions
 
-    # No amsDetailMapping — fallback: use total weight on the single tracked tray
-    if weight is not None:
-        tracked = bambu_cloud_client.get_print_trays(serial) if serial else set()
-        if len(tracked) == 1:
-            idx = next(iter(tracked))
-            slot_key = bambu_cloud_client._ams_index_to_slot_key(
-                idx, bambu_cloud_client.get_ams_unit_tray_counts(serial),
+    # No amsDetailMapping — fallback: use total weight on the single tracked tray.
+    # Use the snapshot captured at print end (active_slot_keys) rather than reading
+    # the live MQTT cache, which may have been reset by a new print in the 45 s window.
+    if weight is not None and len(active_slot_keys) == 1:
+        slot_key = next(iter(active_slot_keys))
+        snap = spool_snapshot.get(slot_key, {})
+        snap_spool_id = snap.get("spool_id")
+        if snap_spool_id is None:
+            full_slot = f"{printer_name}:{slot_key}" if printer_name else slot_key
+            fb_spool = (
+                db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
+                or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
             )
-            if slot_key:
-                snap = spool_snapshot.get(slot_key, {})
-                snap_spool_id = snap.get("spool_id")
-                if snap_spool_id is None:
-                    full_slot = f"{printer_name}:{slot_key}" if printer_name else slot_key
-                    fb_spool = (
-                        db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
-                        or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
-                    )
-                    snap_spool_id = fb_spool.id if fb_spool else None
-                return [{
-                    "ams_slot": slot_key, "grams": round(float(weight), 1),
-                    "filament_type": snap.get("material") or "",
-                    "color": snap.get("color"),
-                    "spool_id": snap_spool_id,
-                    "estimated": False, "swap_index": None,
-                }]
+            snap_spool_id = fb_spool.id if fb_spool else None
+        return [{
+            "ams_slot": slot_key, "grams": round(float(weight), 1),
+            "filament_type": snap.get("material") or "",
+            "color": snap.get("color"),
+            "spool_id": snap_spool_id,
+            "estimated": False, "swap_index": None,
+        }]
 
     return []
 
@@ -359,23 +355,26 @@ async def _background_fetch_suggestions(
                 printer_name=printer_name,
             )
 
+            # Always store suggestions (even empty list) to mark the job as processed.
+            # An empty list causes the "Log Usage" banner to appear so the user can
+            # manually log — null means "not yet processed" and hides the banner.
+            job.suggested_usages = suggestions
+            suggestions_count = len(suggestions)
             if suggestions:
-                job.suggested_usages = suggestions
                 log.info("background suggestions: stored %d entries for job #%d (attempt %d)",
-                         len(suggestions), job_id, attempt + 1)
+                         suggestions_count, job_id, attempt + 1)
             else:
-                log.info("background suggestions: no suggestions for job #%d after attempt %d",
+                log.info("background suggestions: no suggestions for job #%d after attempt %d — "
+                         "Log Usage banner will still appear for manual entry",
                          job_id, attempt + 1)
 
-            suggestions_count = len(job.suggested_usages) if job.suggested_usages else 0
-            if job.suggested_usages and auto_deduct:
+            if suggestions and auto_deduct:
                 _apply_suggested_usages(job, db)
                 log.info("background auto-deduct: applied %d usages for job #%d",
                          suggestions_count, job.id)
 
-            if job.print_weight_g is not None or suggestions_count > 0:
-                db.commit()
-                ha_publisher.trigger()
+            db.commit()
+            ha_publisher.trigger()
             return  # done — no need for the second attempt
 
         except Exception as exc:
