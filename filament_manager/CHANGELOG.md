@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.37.8
+
+- Fix: **Multi-spool prints only produced a suggestion for the last spool used** — two root causes fixed together:
+  1. The MQTT pushall delivers `tray_now` *before* `gcode_state=RUNNING`, so `reset_print_trays()` (called at print start) was clearing the initial slot; `on_cloud_print_start` now re-seeds `tray_now` from the cached printer status immediately after the reset so the first tray is always captured in `active_slot_keys`
+  2. When `amsDetailMapping` covered only a subset of the active slots (e.g. the slicer recorded usage for the second tray but the first tray was seeded from `tray_now` and not in the mapping), `_build_suggestions` returned early without generating a suggestion for the uncovered slot; it now checks `active_slot_keys − handled_slots` after the mapping loop and appends estimated suggestions for any uncovered slots using the remaining weight
+
 ## 0.37.7
 
 - Fix: **Suggestions silently dropped when Bambu amsMapping2 marks all slots as external** — when `amsDetailMapping` had entries but every corresponding `amsMapping2` entry carried `amsId=254` (Bambu's external-spool marker), the loop skipped all entries and returned `[]` without ever reaching the `active_slot_keys` fallback; the code now falls through to the fallback when the amsDetailMapping loop produces nothing, so a single-tray print correctly generates a suggestion from the captured active slot and print weight

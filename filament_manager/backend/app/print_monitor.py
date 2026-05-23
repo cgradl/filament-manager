@@ -269,6 +269,36 @@ def _build_suggestions(
             handled_slots.add(primary_slot)
 
         if suggestions:
+            # Add estimated suggestions for any active slots not covered by amsDetailMapping.
+            # This handles multi-spool prints where the first slot was active at print start
+            # but amsDetailMapping only lists the slot(s) used after the first tray change.
+            uncovered = sorted(active_slot_keys - handled_slots)
+            if uncovered and weight is not None:
+                covered_grams = sum(s["grams"] for s in suggestions)
+                remaining = round(float(weight) - covered_grams, 1)
+                if remaining > 0:
+                    per_uncovered = round(remaining / len(uncovered), 1)
+                    for slot_key in uncovered:
+                        snap = spool_snapshot.get(slot_key, {})
+                        snap_spool_id = snap.get("spool_id")
+                        if snap_spool_id is None:
+                            full_slot = f"{printer_name}:{slot_key}" if printer_name else slot_key
+                            fb_spool = (
+                                db.query(Spool).filter(Spool.ams_slot == full_slot, Spool.current_weight_g > 0).first()
+                                or db.query(Spool).filter(Spool.ams_slot == slot_key, Spool.current_weight_g > 0).first()
+                            )
+                            snap_spool_id = fb_spool.id if fb_spool else None
+                        suggestions.append({
+                            "ams_slot": slot_key, "grams": per_uncovered,
+                            "filament_type": snap.get("material") or "",
+                            "color": snap.get("color"),
+                            "spool_id": snap_spool_id,
+                            "estimated": True, "swap_index": None,
+                        })
+                    log.info(
+                        "_build_suggestions: added %d uncovered active slot(s) %s for job #%d (%.1fg remaining of %.1fg total)",
+                        len(uncovered), uncovered, job.id, remaining, float(weight),
+                    )
             return suggestions
         # All amsDetailMapping entries were external spools — fall through to active_slot_keys fallback
         log.info("_build_suggestions: all amsDetailMapping entries were external spools for job #%d — trying active_slot_keys fallback", job.id)
@@ -551,6 +581,22 @@ async def on_cloud_print_start(printer_id: int, subtask_name: str, serial: str, 
         ams_snapshot = bambu_cloud_client.get_ams_snapshot_for_serial(serial)  # remain_pct only (legacy field)
         ams_detail_now = bambu_cloud_client.get_ams_detail_for_serial(serial)  # full detail for rich snapshot
         status = bambu_cloud_client.get_printer_cloud_status(serial)
+
+        # The MQTT pushall delivers tray_now BEFORE gcode_state=RUNNING, so
+        # reset_print_trays() above already cleared it.  Re-seed the slot now
+        # from the cached status so the initial tray is always captured.
+        tray_now_at_start = status.get("tray_now")
+        if tray_now_at_start is not None:
+            try:
+                seeded_idx = int(tray_now_at_start)
+                bambu_cloud_client.seed_active_slot(serial, seeded_idx)
+                log.info(
+                    "PRINT START [%s]: seeded initial tray_now=%s into active slots",
+                    printer.name, tray_now_at_start,
+                )
+            except (TypeError, ValueError):
+                pass
+
         log.info(
             "PRINT START [%s] subtask=%r task_id=%s ams_slots=%s",
             printer.name, subtask_name, status.get("task_id"),

@@ -1146,6 +1146,24 @@ def reset_print_trays(serial: str) -> None:
     _print_active_slot_keys[serial] = set()
 
 
+def seed_active_slot(serial: str, tray_idx: int) -> None:
+    """Seed a known tray index as active at print start.
+
+    Needed because MQTT pushall delivers tray_now BEFORE gcode_state=RUNNING,
+    so reset_print_trays() clears it. Call this immediately after reset_print_trays
+    with the tray_now value from the in-memory status cache.
+    """
+    slot_key = _ams_index_to_slot_key(tray_idx, get_ams_unit_tray_counts(serial))
+    if slot_key is None:
+        return
+    if serial not in _print_active_trays:
+        _print_active_trays[serial] = set()
+    _print_active_trays[serial].add(tray_idx)
+    if serial not in _print_active_slot_keys:
+        _print_active_slot_keys[serial] = set()
+    _print_active_slot_keys[serial].add(slot_key)
+
+
 def get_print_trays(serial: str) -> set[int]:
     """Return the set of 0-based tray indices seen during the current/last print."""
     return set(_print_active_trays.get(serial, set()))

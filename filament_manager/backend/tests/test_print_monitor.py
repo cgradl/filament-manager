@@ -583,3 +583,184 @@ class TestBackgroundFetchSuggestions:
         session.expire(job)
         assert job.print_weight_g == 50.0   # from _AMS_EMPTY["weight"]
         assert job.suggested_usages == []   # empty but not null
+
+
+# ===========================================================================
+# Class D — seed_active_slot (bambu_cloud_client)
+# ===========================================================================
+
+class TestSeedActiveSlot:
+    """
+    Unit tests for the initial-tray seeding fix.
+
+    Root cause: MQTT pushall delivers tray_now BEFORE gcode_state=RUNNING, so
+    reset_print_trays() (called at RUNNING) clears it.  seed_active_slot() re-adds
+    the cached tray_now immediately after the reset so the initial slot is always
+    captured in active_slot_keys.
+    """
+
+    SERIAL = "SEEDSERIAL"
+
+    def test_seed_restores_slot_after_reset(self):
+        """seed_active_slot adds the correct slot_key after reset clears it."""
+        from app.bambu_cloud_client import (
+            get_print_active_slot_keys,
+            reset_print_trays,
+            seed_active_slot,
+        )
+
+        reset_print_trays(self.SERIAL)
+        assert get_print_active_slot_keys(self.SERIAL) == set()
+
+        # Index 0 → ams1_tray1 in the standard 4-trays-per-unit layout
+        seed_active_slot(self.SERIAL, 0)
+
+        assert get_print_active_slot_keys(self.SERIAL) == {"ams1_tray1"}
+
+    def test_seed_external_index_is_noop(self):
+        """External spool index 254 → _ams_index_to_slot_key returns None → no-op."""
+        from app.bambu_cloud_client import (
+            get_print_active_slot_keys,
+            reset_print_trays,
+            seed_active_slot,
+        )
+
+        reset_print_trays(self.SERIAL)
+        seed_active_slot(self.SERIAL, 254)
+
+        assert get_print_active_slot_keys(self.SERIAL) == set()
+
+    def test_seed_second_unit_tray(self):
+        """Index 4 → ams2_tray1 (second AMS unit, first slot)."""
+        from app.bambu_cloud_client import (
+            get_print_active_slot_keys,
+            reset_print_trays,
+            seed_active_slot,
+        )
+
+        reset_print_trays(self.SERIAL)
+        seed_active_slot(self.SERIAL, 4)
+
+        assert get_print_active_slot_keys(self.SERIAL) == {"ams2_tray1"}
+
+
+# ===========================================================================
+# Class E — _build_suggestions: uncovered active slots (multi-spool fix)
+# ===========================================================================
+
+class TestBuildSuggestionsUncoveredSlots:
+    """
+    Regression tests for the multi-spool partial-coverage fix.
+
+    Scenario: a 2-spool print where slot A was active at print start (seeded from
+    tray_now) but amsDetailMapping only lists slot B (used after the tray switch).
+    Before the fix, only slot B got a suggestion.  After the fix, slot A receives
+    an estimated suggestion for the remaining weight.
+    """
+
+    SERIAL = "UNCOVEREDSERIAL"
+    PRINTER = "Printer"
+
+    def _call(self, session, job, **kwargs) -> list[dict]:
+        return _build_suggestions(
+            job=job,
+            db=session,
+            ams_detail=kwargs.get("ams_detail", []),
+            ams_mapping2=kwargs.get("ams_mapping2", []),
+            weight=kwargs.get("weight"),
+            spool_snapshot=kwargs.get("spool_snapshot", {}),
+            active_slot_keys=kwargs.get("active_slot_keys", set()),
+            serial=self.SERIAL,
+            printer_name=self.PRINTER,
+        )
+
+    def test_uncovered_initial_slot_gets_remaining_weight(self, session):
+        """
+        amsDetailMapping lists tray2 (60g); tray1 was active at start (not in mapping).
+        Total weight = 100g → tray1 must receive 40g as an estimated suggestion.
+
+        Regression: before fix, only tray2 was returned; tray1 was silently dropped.
+        """
+        spool1 = _make_spool(session, f"{self.PRINTER}:ams1_tray1", material="PLA")
+        spool2 = _make_spool(session, f"{self.PRINTER}:ams1_tray2", material="PETG")
+        job = _make_job(session)
+        snap = {
+            "ams1_tray1": {"spool_id": spool1.id, "weight_g": 500.0, "material": "PLA", "color": "#FF0000"},
+            "ams1_tray2": {"spool_id": spool2.id, "weight_g": 300.0, "material": "PETG", "color": "#00FF00"},
+        }
+
+        # slicer index 1 → ams1_tray2 via flat-index fallback
+        result = self._call(
+            session, job,
+            ams_detail=[{"ams": 1, "weight": 60.0, "filamentType": "PETG", "sourceColor": "00FF00"}],
+            weight=100.0,
+            spool_snapshot=snap,
+            active_slot_keys={"ams1_tray1", "ams1_tray2"},
+        )
+
+        assert len(result) == 2
+        by_slot = {r["ams_slot"]: r for r in result}
+
+        # tray2: from amsDetailMapping — exact weight, not estimated
+        assert by_slot["ams1_tray2"]["grams"] == 60.0
+        assert by_slot["ams1_tray2"]["estimated"] is False
+        assert by_slot["ams1_tray2"]["spool_id"] == spool2.id
+
+        # tray1: uncovered initial slot — remaining weight, marked estimated
+        assert by_slot["ams1_tray1"]["grams"] == 40.0
+        assert by_slot["ams1_tray1"]["estimated"] is True
+        assert by_slot["ams1_tray1"]["spool_id"] == spool1.id
+
+    def test_no_uncovered_slots_when_all_covered_by_mapping(self, session):
+        """When amsDetailMapping covers all active slots, no extra rows are added."""
+        # Use different materials so auto-switch logic is not triggered between the two slots.
+        spool1 = _make_spool(session, f"{self.PRINTER}:ams1_tray1", material="PLA",  color_hex="#FF0000")
+        spool2 = _make_spool(session, f"{self.PRINTER}:ams1_tray2", material="PETG", color_hex="#00FF00")
+        job = _make_job(session)
+        snap = {
+            "ams1_tray1": {"spool_id": spool1.id, "weight_g": 500.0, "material": "PLA",  "color": "#FF0000"},
+            "ams1_tray2": {"spool_id": spool2.id, "weight_g": 300.0, "material": "PETG", "color": "#00FF00"},
+        }
+
+        result = self._call(
+            session, job,
+            ams_detail=[
+                {"ams": 0, "weight": 40.0, "filamentType": "PLA",  "sourceColor": "FF0000"},
+                {"ams": 1, "weight": 60.0, "filamentType": "PETG", "sourceColor": "00FF00"},
+            ],
+            weight=100.0,
+            spool_snapshot=snap,
+            active_slot_keys={"ams1_tray1", "ams1_tray2"},
+        )
+
+        assert len(result) == 2
+        by_slot = {r["ams_slot"]: r for r in result}
+        assert by_slot["ams1_tray1"]["grams"] == 40.0
+        assert by_slot["ams1_tray2"]["grams"] == 60.0
+
+    def test_uncovered_slots_not_added_when_no_remaining_weight(self, session):
+        """
+        amsDetailMapping accounts for all the weight → remaining = 0 →
+        no estimated entry added for the uncovered active slot.
+        """
+        spool1 = _make_spool(session, f"{self.PRINTER}:ams1_tray1")
+        spool2 = _make_spool(session, f"{self.PRINTER}:ams1_tray2")
+        job = _make_job(session)
+        snap = {
+            "ams1_tray1": {"spool_id": spool1.id, "weight_g": 500.0, "material": "PLA", "color": "#FF0000"},
+            "ams1_tray2": {"spool_id": spool2.id, "weight_g": 300.0, "material": "PETG", "color": "#00FF00"},
+        }
+
+        # amsDetailMapping reports the full 100g on tray2; tray1 was technically active
+        # but consumed nothing (e.g. print switched to tray2 immediately after start)
+        result = self._call(
+            session, job,
+            ams_detail=[{"ams": 1, "weight": 100.0, "filamentType": "PETG", "sourceColor": "00FF00"}],
+            weight=100.0,
+            spool_snapshot=snap,
+            active_slot_keys={"ams1_tray1", "ams1_tray2"},
+        )
+
+        assert len(result) == 1
+        assert result[0]["ams_slot"] == "ams1_tray2"
+        assert result[0]["grams"] == 100.0
