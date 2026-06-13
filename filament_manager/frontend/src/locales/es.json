@@ -252,6 +252,7 @@
     "noCloudData": "No hay datos de nube disponibles para esta impresión. Usa el botón de editar para registrar el uso de filamento manualmente.",
     "logManually": "Registrar manualmente",
     "spoolNotMatched": "Bobina no encontrada — registrar manualmente",
+    "reloadSlot": "Recargar",
     "spoolSwapDetected": "Cambio de bobina detectado",
     "swapOriginal": "agotada",
     "swapReplacement": "repuesto",

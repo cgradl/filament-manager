@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { PrintJob, Spool, AMSTray, PrinterConfig, SuggestedUsage, PrinterStatus, Project } from '../types'
-import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search, CalendarDays, FolderOpen, ExternalLink } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search, CalendarDays, FolderOpen, ExternalLink, RefreshCw } from 'lucide-react'
 import Modal from '../components/Modal'
 import { useHATZ } from '../hooks/useHATZ'
 import { formatDateTimeTZ, nowInTZ, utcToLocalInput, localInputToUTC } from '../utils/time'
@@ -501,11 +501,10 @@ function LogUsageModal({
     queryFn: api.getPrinters,
   })
   const printer = printers.find(p => p.name === job.printer_name) ?? null
-  const needsFallback = (job.suggested_usages ?? []).some(s => s.spool_id == null)
-  const { data: trays = [], isLoading: traysLoading } = useQuery<AMSTray[]>({
+  const { data: trays = [], isLoading: traysLoading, refetch: refetchTrays } = useQuery<AMSTray[]>({
     queryKey: ['printer-ams', printer?.id],
     queryFn: () => api.getPrinterAMS(printer!.id),
-    enabled: !!printer && needsFallback,
+    enabled: !!printer && (job.suggested_usages ?? []).length > 0,
   })
   const traysBySlot = Object.fromEntries(trays.map(t => [t.slot_key, t]))
 
@@ -617,7 +616,18 @@ function LogUsageModal({
                                 <span className="ml-1.5 text-xs text-amber-400">({swapLabel})</span>
                               )}
                             </p>
-                            <p className="text-xs text-yellow-600">{t('prints.spoolNotMatched')}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-xs text-yellow-600">{t('prints.spoolNotMatched')}</p>
+                              <button
+                                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-0.5"
+                                onClick={() => refetchTrays()}
+                                disabled={traysLoading}
+                                title={t('prints.reloadSlot')}
+                              >
+                                <RefreshCw size={10} className={traysLoading ? 'animate-spin' : ''} />
+                                {t('prints.reloadSlot')}
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>

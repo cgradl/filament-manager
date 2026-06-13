@@ -2,7 +2,7 @@
 
 A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.37.9-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.38.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -20,7 +20,7 @@ Spools, print history, and all other data are unaffected.
 
 - **Automatic print detection** — monitors your Bambu Lab printer via Bambu Cloud MQTT; creates print records automatically when a print starts
 - **AMS filament tracking** — snapshots filament levels at print start/end; calculates grams used per spool per tray
-- **Suggested filament usage** — on print completion the app pre-fills grams used per tray for review; spool identity is snapshotted at print start so suggestions always reference the correct spool even if the AMS is changed afterwards; an optional per-printer *auto-deduct* flag applies the deduction immediately without confirmation
+- **Suggested filament usage** — on print completion the app pre-fills grams used per tray for review; spool identity is snapshotted at print start so suggestions always reference the correct spool even if the AMS is changed afterwards; an optional per-printer *auto-deduct* flag applies the deduction immediately without confirmation; a **Reload** button in the Log Usage modal re-fetches the current AMS slot assignments if a spool is assigned after the modal is opened
 - **Multi-spool print support** — manual spool swaps (runout pause + replace) and AMS auto-switches (backup tray same material) are both detected; the Log Usage modal shows two rows for the affected slot with the split pre-calculated from print-start stock; all estimates are editable
 - **Live print status** — active print jobs show real-time stage, progress, remaining time, and active tray from Bambu Cloud MQTT
 - **Spool inventory** — full CRUD for filament spools with brand, material, subtype, color, article number, weight, cost, purchase location, storage location, and last drying date

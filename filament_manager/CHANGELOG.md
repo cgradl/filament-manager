@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.38.0
+
+- Enhancement: **"Reload" button in Log Filament Usage modal** — when a tray shows "Spool not matched" (e.g. the spool was assigned in Settings after opening the modal), a small Reload button now appears next to the warning; clicking it re-fetches the current AMS tray assignments so the modal picks up the newly assigned spool without needing to close and reopen; AMS tray data is also now always pre-fetched when the modal has suggestions, so a spool that was assigned before opening the modal is immediately shown without any user action
+
 ## 0.37.9
 
 - Enhancement: **AMS tray assignment shows spool reference number** — the spool dropdown in Settings → Printers now prefixes each spool with its reference number (e.g. `#15 Prusament PLA · Galaxy Black (92%)`) when one is set, making it easy to pick the correct physical roll; the auto-match sparkle tooltip also shows the reference number; spools without a reference number display unchanged

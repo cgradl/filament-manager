@@ -252,6 +252,7 @@
     "noCloudData": "No cloud data was available for this print. Use the edit button to log filament usage manually.",
     "logManually": "Log manually",
     "spoolNotMatched": "Spool not matched — log manually to assign",
+    "reloadSlot": "Reload",
     "spoolSwapDetected": "Spool swap detected",
     "swapOriginal": "ran out",
     "swapReplacement": "replacement",

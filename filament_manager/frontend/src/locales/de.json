@@ -252,6 +252,7 @@
     "noCloudData": "Keine Cloud-Daten für diesen Druck verfügbar. Nutze die Bearbeiten-Schaltfläche, um den Filamentverbrauch manuell zu erfassen.",
     "logManually": "Manuell erfassen",
     "spoolNotMatched": "Spule nicht zugeordnet — manuell erfassen",
+    "reloadSlot": "Neu laden",
     "spoolSwapDetected": "Spulenwechsel erkannt",
     "swapOriginal": "leer",
     "swapReplacement": "Ersatz",
