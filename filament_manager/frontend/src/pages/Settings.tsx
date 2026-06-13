@@ -552,7 +552,7 @@ function AMSTrayRow({
           })
           .map(s => (
             <option key={s.id} value={s.id}>
-              {s.brand} {s.material}{s.subtype ? ` ${s.subtype}` : ''} · {s.color_name} ({Math.round(s.remaining_pct)}%)
+              {s.custom_id != null ? `#${s.custom_id} ` : ''}{s.brand} {s.material}{s.subtype ? ` ${s.subtype}` : ''} · {s.color_name} ({Math.round(s.remaining_pct)}%)
             </option>
           ))}
       </select>
@@ -566,7 +566,7 @@ function AMSTrayRow({
             onClick={() => match && onAssign(match.id)}
             disabled={!match || saving}
             title={match
-              ? `${t('settings.printers.autoMatchTray')}: ${match.brand} ${match.material} · ${match.color_name} (${Math.round(match.remaining_pct)}%)`
+              ? `${t('settings.printers.autoMatchTray')}: ${match.custom_id != null ? `#${match.custom_id} ` : ''}${match.brand} ${match.material} · ${match.color_name} (${Math.round(match.remaining_pct)}%)`
               : t('settings.printers.autoMatchNone')}
             className={`btn-ghost p-1 shrink-0 ${
               alreadyOptimal ? 'text-green-400 cursor-default' :

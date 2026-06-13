@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.37.9
+
+- Enhancement: **AMS tray assignment shows spool reference number** — the spool dropdown in Settings → Printers now prefixes each spool with its reference number (e.g. `#15 Prusament PLA · Galaxy Black (92%)`) when one is set, making it easy to pick the correct physical roll; the auto-match sparkle tooltip also shows the reference number; spools without a reference number display unchanged
+
 ## 0.37.8
 
 - Fix: **Multi-spool prints only produced a suggestion for the last spool used** — two root causes fixed together:
