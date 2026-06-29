@@ -51,6 +51,21 @@ CRED_FILE = "/data/.bambu_cloud.json"
 _2FA_TIMEOUT_SECONDS = 600  # 10 minutes
 
 _AUTH_BASE = "https://api.bambulab.com/v1/user-service/user"
+# Authenticator-app (TOTP) 2FA completes at the web sign-in endpoint, not the
+# user-service login path. It enforces the bambu_network_agent header set
+# (without them the request 403s) and returns the token as a `token` cookie
+# (with a JSON accessToken/token fallback). Contract per the bambu-lab-cloud-api
+# library's BambuAuthenticator._handle_mfa.
+_TFA_URL = "https://api.bambulab.com/api/sign-in/tfa"
+_TFA_HEADERS = {
+    "User-Agent": "bambu_network_agent/01.09.05.01",
+    "X-BBL-Client-Name": "OrcaSlicer",
+    "X-BBL-Client-Type": "slicer",
+    "X-BBL-Client-Version": "01.09.05.51",
+    "X-BBL-Language": "en-US",
+    "accept": "application/json",
+    "Content-Type": "application/json",
+}
 _IOT_BASE  = "https://api.bambulab.com/v1/iot-service/api"
 _FILAMENT_BASE: dict[str, str] = {
     "us": "https://api.bambulab.com/v1/user-service",
@@ -225,6 +240,27 @@ def _http_send_2fa_email(email: str) -> None:
         )
     except Exception as exc:
         log.warning("Failed to request 2FA email: %s", exc)
+
+
+def _http_complete_tfa(tfa_key: str, code: str) -> str:
+    """Complete authenticator-app (TOTP) 2FA. Returns the access token.
+
+    The token comes back as a ``token`` cookie on this web sign-in endpoint;
+    fall back to a JSON ``accessToken``/``token`` field. Returns "" if neither
+    is present (caller treats empty as a failed verification).
+    """
+    resp = requests.post(
+        _TFA_URL,
+        json={"tfaKey": tfa_key, "tfaCode": code},
+        headers=_TFA_HEADERS,
+        timeout=20,
+    )
+    resp.raise_for_status()
+    token = resp.cookies.get("token")
+    if not token and resp.text.strip():
+        data = resp.json()
+        token = data.get("accessToken") or data.get("token")
+    return token or ""
 
 
 def _http_get_devices(token: str) -> list[dict]:
@@ -1006,7 +1042,12 @@ async def begin_login(email: str, password: str, region: str = "us") -> dict:
     login_type = resp.get("loginType", "")
 
     if login_type == "verifyCode":
-        _pending = {"email": email, "password": password, "region": region}
+        _pending = {
+            "email": email,
+            "password": password,
+            "region": region,
+            "mode": "verifyCode",
+        }
         _status["status"] = "pending_2fa"
         _status["email"] = email
         _status["error"] = None
@@ -1014,6 +1055,21 @@ async def begin_login(email: str, password: str, region: str = "us") -> dict:
         await asyncio.get_event_loop().run_in_executor(
             None, lambda: _http_send_2fa_email(email)
         )
+        return {"requires_2fa": True}
+
+    if login_type == "tfa":
+        # Authenticator-app (TOTP) 2FA: no email — the code is in the user's
+        # authenticator. Carry the tfaKey so verify_2fa can complete it.
+        _pending = {
+            "email": email,
+            "password": password,
+            "region": region,
+            "mode": "tfa",
+            "tfa_key": resp.get("tfaKey", ""),
+        }
+        _status["status"] = "pending_2fa"
+        _status["email"] = email
+        _status["error"] = None
         return {"requires_2fa": True}
 
     # No 2FA required — token is in the first response
@@ -1038,19 +1094,26 @@ async def verify_2fa(code: str) -> None:
 
     email = _pending["email"]
     password = _pending["password"]
+    mode = _pending.get("mode", "verifyCode")
+    tfa_key = _pending.get("tfa_key", "")
 
     try:
-        resp = await asyncio.get_event_loop().run_in_executor(
-            None, lambda: _http_login(email, password, code=code)
-        )
+        if mode == "tfa":
+            token = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: _http_complete_tfa(tfa_key, code)
+            )
+        else:
+            resp = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: _http_login(email, password, code=code)
+            )
+            token = resp.get("accessToken", "")
     except Exception as exc:
         _status["status"] = "error"
         _status["error"] = str(exc)
         raise HTTPException(400, f"Verification failed: {exc}")
 
-    token = resp.get("accessToken", "")
     if not token:
-        err = resp.get("message", "No access token returned")
+        err = "No access token returned"
         _status["status"] = "error"
         _status["error"] = err
         raise HTTPException(400, f"Login failed: {err}")
