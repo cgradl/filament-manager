@@ -70,10 +70,17 @@ _TFA_HEADERS = {
     "Content-Type": "application/json",
 }
 _IOT_BASE  = "https://api.bambulab.com/v1/iot-service/api"
+# Cloud filament library (my/filament/v2 + filament/config). Bambu moved these
+# off the user-service micro-service onto design-user-service (the MakerWorld
+# profile/preference service); the old /v1/user-service/my/filament/v2 now 404s.
+# Host + /v1/... + the /my/filament/v2 path tail + bearer auth are unchanged —
+# only the service segment changed (user-service -> design-user-service). Verified
+# against the reverse-engineered ClusterM/open-bamboo-networking cloud_filament.cpp
+# base_v2() and Doridian/OpenBambuAPI cloud-http.md.
 _FILAMENT_BASE: dict[str, str] = {
-    "us": "https://api.bambulab.com/v1/user-service",
-    "eu": "https://api.bambulab.com/v1/user-service",
-    "cn": "https://api.bambulab.cn/v1/user-service",
+    "us": "https://api.bambulab.com/v1/design-user-service",
+    "eu": "https://api.bambulab.com/v1/design-user-service",
+    "cn": "https://api.bambulab.cn/v1/design-user-service",
 }
 MQTT_HOSTS: dict[str, str] = {
     "us": "us.mqtt.bambulab.com",
