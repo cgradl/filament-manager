@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.39.10
+
+- Fix: **Filament sync push — wrong field mapping for material type** — the color name was being sent as `filamentName` (which Bambu displays as "Material Type" in their app), causing the material type to show as e.g. "Jade White" instead of "Bambu PLA"; now sends `Brand Material` (e.g. "Bambu PLA") as `filamentName` and moves the color name into the `note` field
+
 ## 0.39.9
 
 - Fix: **Filament sync push to cloud** — bidirectional/push sync was returning HTTP 400 when creating new cloud spools because the payload was missing fields required by Bambu's `CreateFilamentV2Req` schema (`createType`, `colorType`, `filamentId`, `isSupport`); push sync now succeeds for manually-added local spools

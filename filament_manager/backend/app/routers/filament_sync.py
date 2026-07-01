@@ -95,11 +95,18 @@ def _local_summary(spool: Spool) -> str:
 def _local_to_cloud_body(spool: Spool) -> dict:
     """Build a cloud create/update payload from a local spool."""
     color_hex = (spool.color_hex or "#888888").lstrip("#").upper()[:6]
-    # filamentName must never be empty — cloud returns 400 otherwise (STUDIO-18117)
-    filament_name = (spool.color_name or "").strip()
-    if not filament_name:
-        parts = [spool.brand or "", spool.material or ""]
-        filament_name = " ".join(p for p in parts if p).strip() or "Unknown"
+    # filamentName is shown as "Material Type" in the Bambu app (it's the product
+    # series name, e.g. "Bambu PLA Matte"); filamentType is the raw material code
+    # (PLA/PETG/…) hidden in their UI. filamentVendor already carries the brand,
+    # so filamentName = material + subtypes (e.g. "PETG High Speed Matte") avoids
+    # doubling the brand in Bambu's "Parameter 1" display (vendor + filamentName).
+    # Mapping color_name here is wrong — it shows the color as the material type.
+    name_parts = [spool.material or "", spool.subtype or "", spool.subtype2 or ""]
+    filament_name = " ".join(p for p in name_parts if p).strip() or "Unknown"
+    # Preserve color name in note since Bambu has no dedicated color-name field
+    note = spool.notes or ""
+    if spool.color_name and spool.color_name not in note:
+        note = spool.color_name + (f" — {note}" if note else "")
     return {
         # createType / colorType / filamentId / isSupport are required by the
         # Bambu Swagger schema (CreateFilamentV2Req). Manually-added spools have
@@ -115,7 +122,7 @@ def _local_to_cloud_body(spool: Spool) -> dict:
         "colorType":      2,
         "totalNetWeight": int(spool.initial_weight_g or 0),
         "netWeight":      int(spool.current_weight_g or 0),
-        "note":           spool.notes or "",
+        "note":           note,
     }
 
 
