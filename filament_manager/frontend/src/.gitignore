@@ -1,0 +1,10 @@
+# Compiled TypeScript output must never be committed.
+# The Docker image builds the frontend with `npm run build` (vite) from the
+# .tsx/.ts sources into dist/ — any .js/.d.ts sitting next to a source file is
+# stray `tsc` output (the build script runs `tsc && vite build`). tsconfig now
+# sets compilerOptions.noEmit, and this is a belt-and-suspenders guard so the
+# output can never be committed again.
+*.js
+*.jsx
+*.js.map
+*.d.ts
