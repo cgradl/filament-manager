@@ -51,23 +51,16 @@ CRED_FILE = "/data/.bambu_cloud.json"
 _2FA_TIMEOUT_SECONDS = 600  # 10 minutes
 
 _AUTH_BASE = "https://api.bambulab.com/v1/user-service/user"
-# Authenticator-app (TOTP) 2FA completes at the web sign-in endpoint, not the
-# user-service login path. NOTE the host is bambulab.com — NOT api.bambulab.com:
-# the TFA endpoint only exists on the bare domain; api.bambulab.com/api/sign-in/tfa
-# 404s. (Verified against greghesp/pybambu BAMBU_URL[TFA_LOGIN], and live-tested.)
-# It enforces the bambu_network_agent header set (without them the request 403s)
-# and returns the token as a `token` cookie (with a JSON accessToken/token
-# fallback). Contract per the bambu-lab-cloud-api library's
-# BambuAuthenticator._handle_mfa.
-_TFA_URL = "https://bambulab.com/api/sign-in/tfa"
-_TFA_HEADERS = {
-    "User-Agent": "bambu_network_agent/01.09.05.01",
-    "X-BBL-Client-Name": "OrcaSlicer",
-    "X-BBL-Client-Type": "slicer",
-    "X-BBL-Client-Version": "01.09.05.51",
-    "X-BBL-Language": "en-US",
-    "accept": "application/json",
-    "Content-Type": "application/json",
+# Authenticator-app (TOTP) 2FA completes on the API subdomain, NOT the bare
+# bambulab.com web portal. The web-portal endpoint (bambulab.com/api/sign-in/tfa)
+# is behind a Cloudflare "managed challenge" (403 "Just a moment…") that a
+# non-browser HTTP client cannot pass. The API-subdomain endpoint below is NOT
+# CF-gated and returns the token in the JSON body (accessToken), same style as
+# the login endpoint. Ref: Doridian/OpenBambuAPI (/v1/user-service/user/tfa/login).
+_TFA_LOGIN_BASE: dict[str, str] = {
+    "us": "https://api.bambulab.com/v1/user-service/user/tfa/login",
+    "eu": "https://api.bambulab.com/v1/user-service/user/tfa/login",
+    "cn": "https://api.bambulab.cn/v1/user-service/user/tfa/login",
 }
 _IOT_BASE  = "https://api.bambulab.com/v1/iot-service/api"
 # Cloud filament library (my/filament/v2 + filament/config). Bambu moved these
@@ -273,17 +266,18 @@ def _http_send_2fa_email(email: str) -> None:
         log.warning("Failed to request 2FA email: %s", exc)
 
 
-def _http_complete_tfa(tfa_key: str, code: str) -> str:
+def _http_complete_tfa(tfa_key: str, code: str, region: str = "us") -> str:
     """Complete authenticator-app (TOTP) 2FA. Returns the access token.
 
-    The token comes back as a ``token`` cookie on this web sign-in endpoint;
-    fall back to a JSON ``accessToken``/``token`` field. Returns "" if neither
-    is present (caller treats empty as a failed verification).
+    Posts to the API-subdomain TFA endpoint (not the Cloudflare-challenged web
+    portal). The token comes back in the JSON body (``accessToken``/``token``),
+    with a cookie fallback. Returns "" if none present (caller treats empty as a
+    failed verification).
     """
+    url = _TFA_LOGIN_BASE.get(region, _TFA_LOGIN_BASE["us"])
     resp = requests.post(
-        _TFA_URL,
+        url,
         json={"tfaKey": tfa_key, "tfaCode": code},
-        headers=_TFA_HEADERS,
         timeout=20,
     )
     resp.raise_for_status()
@@ -1140,11 +1134,12 @@ async def verify_2fa(code: str) -> None:
     password = _pending["password"]
     mode = _pending.get("mode", "verifyCode")
     tfa_key = _pending.get("tfa_key", "")
+    region = _pending.get("region", "us")
 
     try:
         if mode == "tfa":
             token = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: _http_complete_tfa(tfa_key, code)
+                None, lambda: _http_complete_tfa(tfa_key, code, region)
             )
         else:
             resp = await asyncio.get_event_loop().run_in_executor(
