@@ -299,3 +299,144 @@ class TestRoundTrip:
         assert len(prints[0]["usages"]) == 1
         assert prints[0]["usages"][0]["grams_used"] == 42.0
         assert prints[0]["usages"][0]["spool"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Import dedup (re-importing the same bundle must not duplicate records)
+# ---------------------------------------------------------------------------
+
+class TestImportDedup:
+    def _full_bundle(self):
+        return _minimal_bundle(
+            spools=[{
+                "id": 1, "brand": "Jayo", "material": "PLA", "color_name": "Green",
+                "initial_weight_g": 1000.0, "current_weight_g": 800.0,
+                "created_at": "2024-05-01T12:00:00",
+            }],
+            projects=[{"id": 1, "name": "Proj", "created_at": "2024-05-01T12:00:00"}],
+            print_jobs=[{
+                "id": 1, "name": "Benchy", "started_at": "2024-01-01T10:00:00",
+                "success": True, "fm_project_id": 1,
+                "usages": [{"spool_id": 1, "grams_used": 150.0}],
+            }],
+        )
+
+    def test_reimport_same_bundle_skips_duplicates(self, client):
+        r1 = _import(client, self._full_bundle()).json()["imported"]
+        assert r1["spools"] == 1
+        assert r1["print_jobs"] == 1
+        assert r1["projects"] == 1
+
+        r2 = _import(client, self._full_bundle()).json()["imported"]
+        assert r2["spools"] == 0
+        assert r2["spools_skipped"] == 1
+        assert r2["print_jobs"] == 0
+        assert r2["print_jobs_skipped"] == 1
+        assert r2["projects"] == 0
+        assert r2["projects_skipped"] == 1
+
+        assert len(client.get("/api/spools").json()) == 1
+        assert len(client.get("/api/prints").json()) == 1
+
+    def test_reimport_dedupes_jobs_by_task_id(self, client):
+        job = {"id": 1, "name": "Cloud print", "started_at": "2024-01-01T10:00:00",
+               "task_id": "T123", "success": True, "usages": []}
+        _import(client, _minimal_bundle(print_jobs=[job]))
+        # Same task_id but different name/start — still the same cloud job
+        job2 = dict(job, name="Renamed", started_at="2024-02-02T10:00:00")
+        r = _import(client, _minimal_bundle(print_jobs=[job2])).json()["imported"]
+        assert r["print_jobs"] == 0
+        assert r["print_jobs_skipped"] == 1
+
+    def test_spool_without_created_at_is_not_deduped(self, client):
+        # No created_at → no fingerprint → old additive behaviour preserved
+        spool = {"id": 1, "brand": "X", "material": "PLA", "color_name": "A",
+                 "initial_weight_g": 1000.0, "current_weight_g": 1000.0}
+        _import(client, _minimal_bundle(spools=[spool]))
+        r = _import(client, _minimal_bundle(spools=[spool])).json()["imported"]
+        assert r["spools"] == 1
+        assert len(client.get("/api/spools").json()) == 2
+
+
+# ---------------------------------------------------------------------------
+# Spool CSV import
+# ---------------------------------------------------------------------------
+
+def _csv_import(client, text: str):
+    return client.post(
+        "/api/data/import-spools-csv",
+        files={"file": ("spools.csv", text.encode("utf-8"), "text/csv")},
+    )
+
+
+class TestSpoolCsvImport:
+    def test_create_from_minimal_csv(self, client):
+        csv_text = (
+            "brand,material,color_name,color_hex,initial_weight_g,current_weight_g\n"
+            "Jayo,PETG,Black,#161616,1000,750\n"
+        )
+        r = _csv_import(client, csv_text)
+        assert r.status_code == 200
+        assert r.json() == {"created": 1, "updated": 0, "skipped": 0}
+        spool = client.get("/api/spools").json()[0]
+        assert spool["current_weight_g"] == 750
+
+    def test_semicolon_delimiter(self, client):
+        csv_text = (
+            "brand;material;color_name;color_hex;initial_weight_g;current_weight_g\n"
+            "Jayo;PETG;Black;#161616;1000;750\n"
+        )
+        r = _csv_import(client, csv_text)
+        assert r.json()["created"] == 1
+
+    def test_partial_csv_does_not_wipe_missing_columns(self, client):
+        spool = _create_spool(client, notes="keep me", purchase_price=19.99)
+        csv_text = (
+            "id,brand,material,color_name,color_hex\n"
+            f"{spool['id']},Bambu Lab,PLA,Red,#FF0000\n"
+        )
+        r = _csv_import(client, csv_text)
+        assert r.json()["updated"] == 1
+        after = client.get(f"/api/spools/{spool['id']}").json()
+        assert after["notes"] == "keep me"
+        assert after["purchase_price"] == 19.99
+        assert after["current_weight_g"] == spool["current_weight_g"]
+
+    def test_new_row_without_weight_is_skipped_not_500(self, client):
+        csv_text = (
+            "brand,material,color_name,color_hex,initial_weight_g,current_weight_g\n"
+            "Jayo,PETG,Black,#161616,,\n"
+            "Jayo,PLA,White,#FFFFFF,1000,1000\n"
+        )
+        r = _csv_import(client, csv_text)
+        assert r.status_code == 200
+        assert r.json() == {"created": 1, "updated": 0, "skipped": 1}
+
+    def test_new_row_missing_current_defaults_to_initial(self, client):
+        csv_text = (
+            "brand,material,color_name,color_hex,initial_weight_g\n"
+            "Jayo,PLA,White,#FFFFFF,1000\n"
+        )
+        r = _csv_import(client, csv_text)
+        assert r.json()["created"] == 1
+        spool = client.get("/api/spools").json()[0]
+        assert spool["current_weight_g"] == 1000.0
+
+    def test_empty_weight_on_existing_spool_keeps_value(self, client):
+        spool = _create_spool(client, current_weight_g=432.0)
+        csv_text = (
+            "id,brand,material,color_name,color_hex,current_weight_g\n"
+            f"{spool['id']},Bambu Lab,PLA,Red,#FF0000,\n"
+        )
+        r = _csv_import(client, csv_text)
+        assert r.json()["updated"] == 1
+        after = client.get(f"/api/spools/{spool['id']}").json()
+        assert after["current_weight_g"] == 432.0
+
+
+class TestSpoolCsvExport:
+    def test_export_starts_with_utf8_bom(self, client):
+        _create_spool(client)
+        r = client.get("/api/data/export-spools-csv")
+        assert r.status_code == 200
+        assert r.content.startswith(b"\xef\xbb\xbf")

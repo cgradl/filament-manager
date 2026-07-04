@@ -2,8 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from .database import engine, Base
@@ -513,14 +512,10 @@ async def lifespan(app: FastAPI):
     await bambu_cloud_client.shutdown()
 
 
+# No CORS middleware on purpose: the frontend is served same-origin (behind HA
+# ingress), so cross-origin access is never needed. A wildcard policy here would
+# let any website script the API if the port were ever mapped to the host.
 app = FastAPI(title="Filament Manager", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 app.include_router(spools.router)
 app.include_router(prints.router)
@@ -560,7 +555,10 @@ if STATIC_DIR.exists():
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_frontend(full_path: str):
-        # Let API routes 404 naturally; everything else → SPA
+        # Unregistered /api/* paths must 404 as JSON — falling through to the
+        # SPA would return index.html with HTTP 200 to API consumers.
+        if full_path.startswith("api/"):
+            raise HTTPException(404, "Not found")
         return _index_response()
 else:
     log.warning("Static dir not found — frontend will not be served")

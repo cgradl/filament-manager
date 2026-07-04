@@ -1,5 +1,10 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+# Validation pattern for hex colors as the frontend submits them ("#RRGGBB").
+# Applied to INPUT schemas only — output schemas must keep serializing legacy
+# rows whose stored values predate validation.
+HEX_COLOR = r"^#[0-9A-Fa-f]{6}$"
 
 
 # ── Spool ────────────────────────────────────────────────────────────────────
@@ -31,25 +36,34 @@ class SpoolBase(BaseModel):
 
 
 class SpoolCreate(SpoolBase):
-    pass
+    custom_id: int | None = Field(default=None, ge=1, le=9999)
+    color_hex: str = Field(default="#888888", pattern=HEX_COLOR)
+    color2_hex: str | None = Field(default=None, pattern=HEX_COLOR)
+    color3_hex: str | None = Field(default=None, pattern=HEX_COLOR)
+    color4_hex: str | None = Field(default=None, pattern=HEX_COLOR)
+    diameter_mm: float = Field(default=1.75, gt=0)
+    initial_weight_g: float = Field(gt=0)
+    current_weight_g: float = Field(ge=0)
+    spool_weight_g: float = Field(default=0, ge=0)
+    purchase_price: float | None = Field(default=None, ge=0)
 
 
 class SpoolUpdate(BaseModel):
-    custom_id: int | None = None
+    custom_id: int | None = Field(default=None, ge=1, le=9999)
     brand: str | None = None
     material: str | None = None
     subtype: str | None = None
     subtype2: str | None = None
     color_name: str | None = None
-    color_hex: str | None = None
-    color2_hex: str | None = None
-    color3_hex: str | None = None
-    color4_hex: str | None = None
-    diameter_mm: float | None = None
-    initial_weight_g: float | None = None
-    current_weight_g: float | None = None
-    spool_weight_g: float | None = None
-    purchase_price: float | None = None
+    color_hex: str | None = Field(default=None, pattern=HEX_COLOR)
+    color2_hex: str | None = Field(default=None, pattern=HEX_COLOR)
+    color3_hex: str | None = Field(default=None, pattern=HEX_COLOR)
+    color4_hex: str | None = Field(default=None, pattern=HEX_COLOR)
+    diameter_mm: float | None = Field(default=None, gt=0)
+    initial_weight_g: float | None = Field(default=None, gt=0)
+    current_weight_g: float | None = Field(default=None, ge=0)
+    spool_weight_g: float | None = Field(default=None, ge=0)
+    purchase_price: float | None = Field(default=None, ge=0)
     purchased_at: datetime | None = None
     purchase_location: str | None = None
     storage_location: str | None = None
@@ -85,7 +99,8 @@ class PrintUsageBase(BaseModel):
 
 
 class PrintUsageCreate(PrintUsageBase):
-    pass
+    grams_used: float = Field(ge=0)
+    meters_used: float | None = Field(default=None, ge=0)
 
 
 class PrintUsageOut(PrintUsageBase):
@@ -164,6 +179,7 @@ class PrintJobBase(BaseModel):
 
 
 class PrintJobCreate(PrintJobBase):
+    duration_seconds: int | None = Field(default=None, ge=0)
     usages: list[PrintUsageCreate] = []
     deduct_weight: bool = True
     fm_project_id: int | None = None
@@ -176,7 +192,7 @@ class PrintJobUpdate(BaseModel):
     url: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
-    duration_seconds: int | None = None
+    duration_seconds: int | None = Field(default=None, ge=0)
     success: bool | None = None
     notes: str | None = None
     printer_name: str | None = None

@@ -188,7 +188,14 @@ def _mqtt_username(email: str, token: str) -> str:
 
 # ── Credential helpers ────────────────────────────────────────────────────────
 
+# mtime-keyed cache: _load_credentials is called from status polls, every
+# filament API request, and MQTT username lookups — re-reading/parsing the
+# file each time is pure waste. (mtime_ns, parsed dict)
+_creds_cache: tuple[int, dict] | None = None
+
+
 def _save_credentials(email: str, password: str, token: str, uid: str = "", region: str = "us") -> None:
+    global _creds_cache
     key = Fernet.generate_key()
     f = Fernet(key)
     data = {
@@ -203,15 +210,27 @@ def _save_credentials(email: str, password: str, token: str, uid: str = "", regi
     with open(CRED_FILE, "w") as fp:
         json.dump(data, fp)
     os.chmod(CRED_FILE, stat.S_IRUSR | stat.S_IWUSR)
+    _creds_cache = None
     log.info("Bambu Cloud credentials saved to %s", CRED_FILE)
 
 
 def _load_credentials() -> dict | None:
+    global _creds_cache
+    try:
+        mtime = os.stat(CRED_FILE).st_mtime_ns
+    except OSError:
+        _creds_cache = None
+        return None
+    if _creds_cache is not None and _creds_cache[0] == mtime:
+        return dict(_creds_cache[1])
     try:
         with open(CRED_FILE) as fp:
-            return json.load(fp)
+            data = json.load(fp)
     except (FileNotFoundError, json.JSONDecodeError):
+        _creds_cache = None
         return None
+    _creds_cache = (mtime, data)
+    return dict(data)
 
 
 def _decrypt_password(data: dict) -> str:
@@ -220,6 +239,8 @@ def _decrypt_password(data: dict) -> str:
 
 
 def _delete_credentials() -> None:
+    global _creds_cache
+    _creds_cache = None
     try:
         os.remove(CRED_FILE)
         log.info("Bambu Cloud credentials removed")
@@ -1131,13 +1152,14 @@ async def verify_2fa(code: str) -> None:
             )
             token = resp.get("accessToken", "")
     except Exception as exc:
-        _status["status"] = "error"
+        # Keep status "pending_2fa" — flipping to "error" here made the
+        # top-of-function guard reject every retry, forcing a full re-login
+        # after a single mistyped code. _pending is still intact.
         _status["error"] = str(exc)
         raise HTTPException(400, f"Verification failed: {exc}")
 
     if not token:
         err = resp.get("message", "No access token returned") if mode != "tfa" else "No access token returned"
-        _status["status"] = "error"
         _status["error"] = err
         raise HTTPException(400, f"Login failed: {err}")
 

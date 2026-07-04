@@ -35,14 +35,27 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/filament-sync", tags=["filament-sync"])
 
 
+def _cloud_filament_name(spool: Spool) -> str:
+    """Bambu's filamentName (shown as "Material Type" in their UI) — material + subtypes."""
+    name_parts = [spool.material or "", spool.subtype or "", spool.subtype2 or ""]
+    return " ".join(p for p in name_parts if p).strip() or "Unknown"
+
+
 async def _sync_spool_weight_to_cloud(spool_id: int) -> None:
     """Push a weight change for a linked spool to Bambu Cloud, or delete if empty.
 
-    Fire-and-forget: opens its own session (reads committed weight), swallows all
-    exceptions so a cloud outage never breaks the local response.
+    Only runs when the sync mode allows local→cloud writes ('push' or
+    'bidirectional') — never touches the user's cloud library when sync is
+    off or pull-only. Fire-and-forget: opens its own session (reads committed
+    weight), swallows all exceptions so a cloud outage never breaks the
+    local response.
     """
     db = SessionLocal()
     try:
+        prefs = db.query(UserPreferences).filter(UserPreferences.id == 1).first()
+        mode = (prefs.bambu_filament_sync_direction if prefs else None) or "off"
+        if mode not in ("push", "bidirectional"):
+            return
         spool = db.query(Spool).filter(Spool.id == spool_id).first()
         if not spool or not spool.bambu_spool_id:
             return
@@ -54,8 +67,15 @@ async def _sync_spool_weight_to_cloud(spool_id: int) -> None:
             db.commit()
             log.info("cloud sync: deleted cloud spool %s (local spool %d empty)", cloud_id, spool_id)
         else:
+            # UpdateFilamentV2Req rejects create-only fields (createType etc. → 400)
+            # but requires filamentName even on weight-only edits (STUDIO-18117);
+            # omitting it fails or wipes the cloud name.
             await bambu_cloud_client.update_filament(
-                cloud_id, {"netWeight": int(spool.current_weight_g)}
+                cloud_id,
+                {
+                    "netWeight": int(spool.current_weight_g),
+                    "filamentName": _cloud_filament_name(spool),
+                },
             )
             spool.bambu_synced_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
@@ -133,8 +153,7 @@ def _local_to_cloud_body(spool: Spool) -> dict:
     # so filamentName = material + subtypes (e.g. "PETG High Speed Matte") avoids
     # doubling the brand in Bambu's "Parameter 1" display (vendor + filamentName).
     # Mapping color_name here is wrong — it shows the color as the material type.
-    name_parts = [spool.material or "", spool.subtype or "", spool.subtype2 or ""]
-    filament_name = " ".join(p for p in name_parts if p).strip() or "Unknown"
+    filament_name = _cloud_filament_name(spool)
     # Preserve color name in note since Bambu has no dedicated color-name field
     note = spool.notes or ""
     if spool.color_name and spool.color_name not in note:

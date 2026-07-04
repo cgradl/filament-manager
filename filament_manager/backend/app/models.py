@@ -1,7 +1,7 @@
-from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .database import Base
+from .util import utcnow
 
 
 MATERIAL_DENSITY: dict[str, float] = {
@@ -53,8 +53,8 @@ class Spool(Base):
     bambu_synced_at = Column(DateTime, nullable=True)  # last successful Bambu sync timestamp
     notes = Column(Text)
     archived = Column(Boolean, default=False, nullable=False, server_default='0')
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     usages = relationship("PrintUsage", back_populates="spool")
 
@@ -85,8 +85,8 @@ class Project(Base):
     name        = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     url         = Column(String, nullable=True)
-    created_at  = Column(DateTime, default=datetime.utcnow)
-    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at  = Column(DateTime, default=utcnow)
+    updated_at  = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     print_jobs     = relationship("PrintJob", back_populates="project")
     project_prints = relationship("ProjectPrint", back_populates="project", cascade="all, delete-orphan")
@@ -121,7 +121,7 @@ class PrintJob(Base):
     printer_name = Column(String)
     source = Column(String, default="manual")
     ams_snapshot_start = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     # Bambu Cloud / MQTT enrichment fields
     task_id = Column(String, nullable=True)        # Bambu task ID (cloud job reference)
@@ -182,7 +182,7 @@ class PrintUsage(Base):
     grams_used = Column(Float, nullable=False)
     meters_used = Column(Float)
     ams_slot = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     print_job = relationship("PrintJob", back_populates="usages")
     spool = relationship("Spool", back_populates="usages")
@@ -201,8 +201,8 @@ class BrandSpoolWeight(Base):
     id = Column(Integer, primary_key=True, index=True)
     brand = Column(String, unique=True, nullable=False)
     spool_weight_g = Column(Float, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class FilamentSubtype(Base):
@@ -211,7 +211,7 @@ class FilamentSubtype(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class FilamentMaterial(Base):
@@ -220,7 +220,7 @@ class FilamentMaterial(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class FilamentBrand(Base):
@@ -229,7 +229,7 @@ class FilamentBrand(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class PurchaseLocation(Base):
@@ -238,7 +238,7 @@ class PurchaseLocation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class StorageLocation(Base):
@@ -247,7 +247,7 @@ class StorageLocation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class FilamentCatalog(Base):
@@ -265,8 +265,8 @@ class FilamentCatalog(Base):
     color3_hex = Column(String, nullable=True)
     color4_hex = Column(String, nullable=True)
     article_number = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class SpoolAudit(Base):
@@ -275,8 +275,8 @@ class SpoolAudit(Base):
 
     id           = Column(Integer, primary_key=True, index=True)
     spool_id     = Column(Integer, ForeignKey("spools.id", ondelete="CASCADE"), nullable=False, index=True)
-    changed_at   = Column(DateTime, nullable=False, default=datetime.utcnow)
-    # 'print_auto' | 'print_manual' | 'print_delete' | 'spool_edit'
+    changed_at   = Column(DateTime, nullable=False, default=utcnow)
+    # 'print_auto' | 'print_manual' | 'print_delete' | 'spool_edit' | 'correction'
     action       = Column(String, nullable=False)
     delta_g      = Column(Float, nullable=False)   # negative = used, positive = restored/corrected
     weight_before = Column(Float)
@@ -323,5 +323,5 @@ class PrinterConfig(Base):
     standby_kwh       = Column(Float, nullable=True)   # total accumulated standby consumption
     standby_start_kwh = Column(Float, nullable=True)   # energy sensor snapshot at last print end (cleared on next print start or disconnect)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)

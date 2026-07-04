@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..util import utcnow
 from ..models import (
     Spool, PrintJob, PrintUsage, Project, ProjectPrint,
     BrandSpoolWeight, FilamentMaterial, FilamentSubtype, FilamentBrand,
@@ -132,7 +133,7 @@ def export_data(db: Session = Depends(get_db)):
 
     bundle = {
         "version": EXPORT_VERSION,
-        "exported_at": datetime.utcnow().isoformat(),
+        "exported_at": utcnow().isoformat(),
         "spools": [_spool_dict(s) for s in spools],
         "projects": [{"id": p.id, "name": p.name, "description": p.description, "url": p.url, "created_at": _dt(p.created_at)} for p in projects],
         "project_prints": [
@@ -237,9 +238,10 @@ def export_spools_csv(db: Session = Depends(get_db)):
             "notes":            s.notes or "",
             "archived":         int(s.archived),
         })
-    filename = f"spools_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    filename = f"spools_{utcnow().strftime('%Y%m%d')}.csv"
+    # UTF-8 BOM so Excel detects the encoding (import strips it via utf-8-sig)
     return StreamingResponse(
-        iter([buf.getvalue()]),
+        iter(["\ufeff" + buf.getvalue()]),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
@@ -256,7 +258,7 @@ def export_spoolman(db: Session = Depends(get_db)):
     a fully-embedded vendor object), mirroring what GET /api/v1/spool returns
     so that standard Spoolman import tools can parse brand, material and color.
     """
-    now_iso = datetime.utcnow().isoformat()
+    now_iso = utcnow().isoformat()
     spools = db.query(Spool).order_by(Spool.id).all()
 
     # ── pass 1: build deduplicated vendor + filament objects ──────────────────
@@ -449,7 +451,7 @@ async def import_spoolman(file: UploadFile = File(...), db: Session = Depends(ge
         ]))
         notes = " | ".join(notes_parts) or None
 
-        created_at = _parse_dt(item.get("registered")) or datetime.utcnow()
+        created_at = _parse_dt(item.get("registered")) or utcnow()
 
         db.add(Spool(
             brand=brand,
@@ -492,7 +494,14 @@ def _parse_date(v: str):
 async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
     content = await file.read()
     text = content.decode("utf-8-sig")  # strips BOM if present
-    reader = csv.DictReader(io.StringIO(text))
+
+    # Accept both comma and semicolon delimiters (Excel exports semicolons in
+    # many locales); fall back to comma when sniffing fails.
+    try:
+        dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;")
+        reader = csv.DictReader(io.StringIO(text), dialect=dialect)
+    except csv.Error:
+        reader = csv.DictReader(io.StringIO(text))
 
     # Columns we write back (skip computed remaining_pct, price_per_kg)
     WRITABLE = {
@@ -503,8 +512,12 @@ async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(
         "storage_location", "article_number", "last_dried_at", "ams_slot", "notes", "archived",
     }
     FLOAT_COLS = {"diameter_mm", "initial_weight_g", "current_weight_g", "spool_weight_g", "purchase_price"}
-    INT_COLS: set[str] = set()
     BOOL_COLS = {"archived"}
+
+    # Only touch columns that are actually present in the file — a partial CSV
+    # (columns removed by the user) must not blank out the missing fields on
+    # existing spools.
+    present_cols = set(reader.fieldnames or []) & WRITABLE
 
     created = updated = skipped = 0
 
@@ -517,9 +530,9 @@ async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(
             skipped += 1
             continue
 
-        # Build field dict
+        # Build field dict from the columns present in this file
         fields: dict = {}
-        for col in WRITABLE:
+        for col in present_cols:
             raw = (row.get(col) or "").strip()
             if col in FLOAT_COLS:
                 fields[col] = _parse_float(raw)
@@ -531,6 +544,13 @@ async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(
                 fields[col] = raw.lower() in ("1", "true", "yes") if raw else False
             else:
                 fields[col] = raw or None
+
+        # NOT NULL columns: never write None — an unparseable/empty weight on
+        # an existing spool keeps its current value instead of crashing the
+        # whole import with an IntegrityError.
+        for req in ("initial_weight_g", "current_weight_g"):
+            if req in fields and fields[req] is None:
+                fields.pop(req)
 
         # Upsert: update if id matches an existing spool, else create
         raw_id = (row.get("id") or "").strip()
@@ -546,6 +566,10 @@ async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(
                 setattr(existing, k, v)
             updated += 1
         else:
+            if "initial_weight_g" not in fields:
+                skipped += 1   # new spool needs a weight
+                continue
+            fields.setdefault("current_weight_g", fields["initial_weight_g"])
             db.add(Spool(**fields))
             created += 1
 
@@ -573,9 +597,12 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
 
     stats: dict[str, int] = {
         "spools": 0,
+        "spools_skipped": 0,
         "projects": 0,
+        "projects_skipped": 0,
         "project_prints": 0,
         "print_jobs": 0,
+        "print_jobs_skipped": 0,
         "print_usages": 0,
         "printer_configs": 0,
         "materials": 0,
@@ -700,9 +727,35 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
     db.flush()
 
     # ── spools: import all, build old_id → new_id map ─────────────────────────
+    # Re-importing the same bundle must not duplicate records. created_at is
+    # preserved through export/import with sub-second precision, so
+    # (brand, material, color_name, created_at) uniquely fingerprints a spool.
+    # Spools without a parseable created_at are never deduplicated.
+    existing_spool_fp: dict[tuple, int] = {
+        (s.brand, s.material, s.color_name, s.created_at): s.id
+        for s in db.query(Spool).all()
+        if s.created_at is not None
+    }
+    # One flush at the end of the section assigns all new ids in a single
+    # round-trip; (old_id, orm_obj) pairs are resolved into spool_id_map after.
     spool_id_map: dict[int, int] = {}
+    pending_spools: list[tuple[int, Spool]] = []
+    bundle_spool_fp: dict[tuple, Spool] = {}   # dedup within the bundle itself
     for sp in bundle.spools:
         old_id = sp.get("id")
+        fp_created = _parse_dt(sp.get("created_at"))
+        fp = (sp.get("brand", "Unknown"), sp.get("material", "PLA"),
+              sp.get("color_name", ""), fp_created)
+        if fp_created is not None and fp in existing_spool_fp:
+            if old_id is not None:
+                spool_id_map[old_id] = existing_spool_fp[fp]
+            stats["spools_skipped"] += 1
+            continue
+        if fp_created is not None and fp in bundle_spool_fp:
+            if old_id is not None:
+                pending_spools.append((old_id, bundle_spool_fp[fp]))
+            stats["spools_skipped"] += 1
+            continue
         new_spool = Spool(
             custom_id=sp.get("custom_id"),
             brand=sp.get("brand", "Unknown"),
@@ -728,39 +781,110 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             notes=sp.get("notes"),
             archived=sp.get("archived", False),
             bambu_spool_id=sp.get("bambu_spool_id"),
-            created_at=_parse_dt(sp.get("created_at")) or datetime.utcnow(),
+            created_at=_parse_dt(sp.get("created_at")) or utcnow(),
         )
         db.add(new_spool)
-        db.flush()
         if old_id is not None:
-            spool_id_map[old_id] = new_spool.id
+            pending_spools.append((old_id, new_spool))
+        if fp_created is not None:
+            bundle_spool_fp[fp] = new_spool
         stats["spools"] += 1
 
+    db.flush()   # single flush assigns ids to all new spools
+    for old_id, obj in pending_spools:
+        spool_id_map[old_id] = obj.id
+
     # ── projects: import and build old_id → new_id map ───────────────────────
+    existing_project_fp: dict[tuple, int] = {
+        (p.name, p.created_at): p.id
+        for p in db.query(Project).all()
+        if p.created_at is not None
+    }
     project_id_map: dict[int, int] = {}
+    pending_projects: list[tuple[int, Project]] = []
+    bundle_project_fp: dict[tuple, Project] = {}
     for proj_data in bundle.projects:
         old_id = proj_data.get("id")
+        fp_created = _parse_dt(proj_data.get("created_at"))
+        fp = (proj_data.get("name", "Imported project"), fp_created)
+        if fp_created is not None and fp in existing_project_fp:
+            if old_id is not None:
+                project_id_map[old_id] = existing_project_fp[fp]
+            stats["projects_skipped"] += 1
+            continue
+        if fp_created is not None and fp in bundle_project_fp:
+            if old_id is not None:
+                pending_projects.append((old_id, bundle_project_fp[fp]))
+            stats["projects_skipped"] += 1
+            continue
         new_proj = Project(
             name=proj_data.get("name", "Imported project"),
             description=proj_data.get("description"),
             url=proj_data.get("url"),
-            created_at=_parse_dt(proj_data.get("created_at")) or datetime.utcnow(),
+            created_at=fp_created or utcnow(),
         )
         db.add(new_proj)
-        db.flush()
         if old_id is not None:
-            project_id_map[old_id] = new_proj.id
+            pending_projects.append((old_id, new_proj))
+        if fp_created is not None:
+            bundle_project_fp[fp] = new_proj
         stats["projects"] += 1
 
+    db.flush()   # single flush assigns ids to all new projects
+    for old_id, obj in pending_projects:
+        project_id_map[old_id] = obj.id
+
     # ── print jobs + usages: remap spool IDs ──────────────────────────────────
+    # Dedup: cloud-tracked jobs by task_id (same key the live tracker uses);
+    # manual jobs by (name, started_at, printer_name) — started_at is preserved
+    # through export/import, so an identical triple means the same print.
+    existing_jobs_by_task: dict[str, int] = {
+        j.task_id: j.id
+        for j in db.query(PrintJob).filter(PrintJob.task_id.isnot(None)).all()
+    }
+    existing_jobs_by_fp: dict[tuple, int] = {
+        (j.name, j.started_at, j.printer_name): j.id
+        for j in db.query(PrintJob).all()
+    }
     job_id_map: dict[int, int] = {}
+    pending_jobs: list[tuple[int, PrintJob]] = []
+    bundle_jobs_by_task: dict[str, PrintJob] = {}
+    bundle_jobs_by_fp: dict[tuple, PrintJob] = {}
     for job_data in bundle.print_jobs:
         old_job_id = job_data.get("id")
+        task_id = job_data.get("task_id")
+        started_at = _parse_dt(job_data.get("started_at"))
+        fp = (job_data.get("name", "Imported print"), started_at, job_data.get("printer_name"))
+
+        # Duplicate of a job already in the DB?
+        dup_id: int | None = None
+        if task_id and task_id in existing_jobs_by_task:
+            dup_id = existing_jobs_by_task[task_id]
+        elif started_at is not None and fp in existing_jobs_by_fp:
+            dup_id = existing_jobs_by_fp[fp]
+        if dup_id is not None:
+            if old_job_id is not None:
+                job_id_map[old_job_id] = dup_id
+            stats["print_jobs_skipped"] += 1
+            continue
+
+        # Duplicate of a job earlier in this same bundle?
+        dup_obj: PrintJob | None = None
+        if task_id and task_id in bundle_jobs_by_task:
+            dup_obj = bundle_jobs_by_task[task_id]
+        elif started_at is not None and fp in bundle_jobs_by_fp:
+            dup_obj = bundle_jobs_by_fp[fp]
+        if dup_obj is not None:
+            if old_job_id is not None:
+                pending_jobs.append((old_job_id, dup_obj))
+            stats["print_jobs_skipped"] += 1
+            continue
+
         job = PrintJob(
             name=job_data.get("name", "Imported print"),
             model_name=job_data.get("model_name"),
             description=job_data.get("description"),
-            started_at=_parse_dt(job_data.get("started_at")) or datetime.utcnow(),
+            started_at=started_at or utcnow(),
             finished_at=_parse_dt(job_data.get("finished_at")),
             duration_seconds=job_data.get("duration_seconds"),
             success=job_data.get("success", True),
@@ -786,12 +910,15 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             ams_spool_snapshot=job_data.get("ams_spool_snapshot"),
             ams_active_trays=job_data.get("ams_active_trays"),
             fm_project_id=project_id_map.get(job_data["fm_project_id"]) if job_data.get("fm_project_id") else None,
-            created_at=_parse_dt(job_data.get("created_at")) or datetime.utcnow(),
+            created_at=_parse_dt(job_data.get("created_at")) or utcnow(),
         )
         db.add(job)
-        db.flush()
         if old_job_id is not None:
-            job_id_map[old_job_id] = job.id
+            pending_jobs.append((old_job_id, job))
+        if task_id:
+            bundle_jobs_by_task[task_id] = job
+        if started_at is not None:
+            bundle_jobs_by_fp[fp] = job
         stats["print_jobs"] += 1
 
         for u in job_data.get("usages", []):
@@ -804,8 +931,9 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             else:
                 # null spool_id = cloud-imported print with unassigned usage; preserve as-is
                 new_spool_id = None
-            db.add(PrintUsage(
-                print_job_id=job.id,
+            # Appending via the relationship lets SQLAlchemy fill print_job_id
+            # at flush time — no per-job flush needed.
+            job.usages.append(PrintUsage(
                 spool_id=new_spool_id,
                 grams_used=u.get("grams_used", 0),
                 meters_used=u.get("meters_used"),
@@ -813,7 +941,17 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             ))
             stats["print_usages"] += 1
 
+    db.flush()   # single flush assigns ids to all new jobs + usages
+    for old_id, obj in pending_jobs:
+        job_id_map[old_id] = obj.id
+
     # ── project_prints: restore from bundle or derive from fm_project_id ──────
+    # With dedup above, a re-import maps onto existing rows — skip pairs that
+    # already exist instead of violating the (project_id, print_job_id) unique
+    # constraint and aborting the whole import.
+    existing_pp: set[tuple[int, int]] = {
+        (pp.project_id, pp.print_job_id) for pp in db.query(ProjectPrint).all()
+    }
     if bundle.project_prints:
         # New bundle format: explicit project_print rows with is_test_print
         for pp_data in bundle.project_prints:
@@ -823,6 +961,9 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             new_job_id = job_id_map.get(old_job_id) if old_job_id is not None else None
             if new_proj_id is None or new_job_id is None:
                 continue
+            if (new_proj_id, new_job_id) in existing_pp:
+                continue
+            existing_pp.add((new_proj_id, new_job_id))
             db.add(ProjectPrint(
                 project_id=new_proj_id,
                 print_job_id=new_job_id,
@@ -840,6 +981,9 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             new_proj_id = project_id_map.get(old_proj_id)
             if new_job_id is None or new_proj_id is None:
                 continue
+            if (new_proj_id, new_job_id) in existing_pp:
+                continue
+            existing_pp.add((new_proj_id, new_job_id))
             db.add(ProjectPrint(
                 project_id=new_proj_id,
                 print_job_id=new_job_id,

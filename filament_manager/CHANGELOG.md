@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.39.12
+
+- Fix: **Automatic weight sync now works and respects the sync mode** — the background weight update for linked spools sent a request body that Bambu's update API rejects (missing required `filamentName`); it now sends the correct fields. The auto-sync (weight push + removal of emptied spools) also now only runs when the sync mode is *Push* or *Bidirectional* — with *Off* or *Pull* nothing is ever written to the Bambu library automatically
+- Fix: **2FA code retry** — entering a wrong two-factor code no longer aborts the login flow; you can simply enter a new code instead of restarting the login from scratch
+- Fix: **Cloud print import maps AMS HT trays correctly** — importing print history now uses the proper tray-index conversion for AMS HT (N3S) units and skips external-spool entries instead of creating nonsense slot assignments
+- Fix: **Cloud print import handles millisecond timestamps** — imported prints whose Bambu timestamps are in milliseconds no longer get far-future dates
+- Security: **Removed wildcard CORS policy** — the API no longer answers cross-origin browser requests; the frontend is served same-origin so nothing changes for normal use
+- Maintenance: **Dependencies pinned and slimmed** — all Python dependencies are now pinned to exact versions; removed unused `apscheduler` and `aiofiles` packages
+- Fix: **Database integrity enforcement** — SQLite foreign keys are now enabled, so deleting a spool properly removes its weight-history entries instead of leaving orphaned rows; WAL journal mode and a busy timeout prevent sporadic "database is locked" errors under concurrent activity
+- Fix: **JSON backup re-import no longer duplicates data** — importing the same backup file twice now recognises existing spools, projects, and print jobs and skips them instead of creating duplicates
+- Fix: **Spool CSV import robustness** — a CSV with columns removed no longer blanks those fields on existing spools (only the columns present in the file are updated); rows with an empty weight no longer abort the whole import; semicolon-delimited files (Excel in many locales) are now accepted
+- Fix: **Input validation** — creating or editing spools now rejects impossible values (negative or zero weights, negative prices, malformed hex colors, reference numbers outside 1–9999) with a clear error instead of storing them; print usages reject negative gram values
+- Fix: **Unknown API paths return 404** — requests to non-existent `/api/...` endpoints now return a proper 404 error instead of the web app's HTML page with status 200
+- Performance: **Dashboard scales with large print histories** — statistics (total grams, costs, printer hours, energy, prints per day) are now computed in the database instead of loading every print job with all its usages on each dashboard view
+- Performance: **Cloud credentials cached** — the credentials file is no longer re-read from disk on every status poll and API call
+- Performance: **Faster backup restore** — the JSON import writes records in batches instead of one database round-trip per row
+- Fix: **Renamed printers no longer leave stale HA sensors** — when a printer is renamed, deactivated, or deleted, its old `sensor.filament_manager_printer_..._status` entity is removed from Home Assistant automatically; two printers whose names sanitize to the same entity id now get distinct sensors instead of overwriting each other
+- Fix: **Spool CSV export is Excel-compatible** — the exported file now includes the UTF-8 BOM so Excel detects the encoding correctly
+- Maintenance: **Removed all deprecated `datetime.utcnow()` usage** — future-proofs the backend for Python 3.13+, where the API is removed
+
 ## 0.39.11
 
 - Feature: **Automatic Bambu Cloud FM sync on weight change** — when a spool is linked to Bambu Cloud FM (`bambu_spool_id` set), any local weight change (manual edit, print usage logging, auto-deduct, audit correction) is automatically pushed to Bambu Cloud in the background; if the spool reaches 0 g it is deleted from Bambu Cloud (no archive concept there) and the local link is cleared; all paths covered: spool edit, audit correction, create/update/delete print with usage, and auto-deduct on print finish

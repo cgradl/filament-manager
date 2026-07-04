@@ -234,3 +234,52 @@ class TestListEndpoints:
         session.commit()
         r = client.get("/api/spools/subtypes/list")
         assert sorted(r.json()) == ["Matte", "Silk"]
+
+
+class TestSpoolValidation:
+    """Input validation added on SpoolCreate/SpoolUpdate (422 on garbage)."""
+
+    def test_create_negative_initial_weight_rejected(self, client):
+        r = client.post("/api/spools", json=make_spool_payload(initial_weight_g=-100))
+        assert r.status_code == 422
+
+    def test_create_zero_initial_weight_rejected(self, client):
+        r = client.post("/api/spools", json=make_spool_payload(initial_weight_g=0))
+        assert r.status_code == 422
+
+    def test_create_negative_current_weight_rejected(self, client):
+        r = client.post("/api/spools", json=make_spool_payload(current_weight_g=-1))
+        assert r.status_code == 422
+
+    def test_create_custom_id_out_of_range_rejected(self, client):
+        assert client.post("/api/spools", json=make_spool_payload(custom_id=0)).status_code == 422
+        assert client.post("/api/spools", json=make_spool_payload(custom_id=10000)).status_code == 422
+
+    def test_create_malformed_hex_rejected(self, client):
+        assert client.post("/api/spools", json=make_spool_payload(color_hex="16161")).status_code == 422
+        assert client.post("/api/spools", json=make_spool_payload(color_hex="FF0000")).status_code == 422  # missing '#'
+
+    def test_update_negative_weight_rejected(self, client):
+        spool = client.post("/api/spools", json=make_spool_payload()).json()
+        r = client.patch(f"/api/spools/{spool['id']}", json={"current_weight_g": -5})
+        assert r.status_code == 422
+
+    def test_create_valid_payload_still_works(self, client):
+        r = client.post("/api/spools", json=make_spool_payload(custom_id=42, color_hex="#A1B2C3"))
+        assert r.status_code == 201
+
+
+class TestSpoolDeleteCascade:
+    """foreign_keys=ON: deleting a spool must cascade its audit rows."""
+
+    def test_delete_spool_removes_audit_rows(self, client, session):
+        from app.models import SpoolAudit
+        spool = client.post("/api/spools", json=make_spool_payload()).json()
+        # Weight edit creates an audit row
+        client.patch(f"/api/spools/{spool['id']}", json={"current_weight_g": 900})
+        assert session.query(SpoolAudit).filter_by(spool_id=spool["id"]).count() == 1
+
+        r = client.delete(f"/api/spools/{spool['id']}")
+        assert r.status_code == 204
+        session.expire_all()
+        assert session.query(SpoolAudit).filter_by(spool_id=spool["id"]).count() == 0

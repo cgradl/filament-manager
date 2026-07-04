@@ -1,9 +1,9 @@
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Body
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..util import utcnow
 from ..models import PrinterConfig, Spool
 from ..schemas import SpoolOut
 
@@ -24,6 +24,8 @@ class PrinterIn(BaseModel):
 
 
 class PrinterOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     ams_unit_count: int
@@ -34,9 +36,6 @@ class PrinterOut(BaseModel):
     energy_sensor_entity_id: str | None
     price_sensor_entity_id: str | None
     standby_kwh: float | None = None
-
-    class Config:
-        from_attributes = True
 
 
 # ── AMS tray assignment ───────────────────────────────────────────────────────
@@ -239,7 +238,7 @@ def update_printer(printer_id: int, body: PrinterIn, db: Session = Depends(get_d
     data["bambu_source"] = "cloud"
     for k, v in data.items():
         setattr(p, k, v)
-    p.updated_at = datetime.utcnow()
+    p.updated_at = utcnow()
     db.commit()
     db.refresh(p)
     if p.bambu_serial:

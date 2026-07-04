@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 import app.models  # noqa: F401 — registers all ORM models with Base before create_all
-from app.routers import spools, prints, printers, dashboard, app_settings, data_transfer
+from app.routers import spools, prints, printers, dashboard, app_settings, data_transfer, bambu_cloud
 
 
 # ---------------------------------------------------------------------------
@@ -24,12 +24,23 @@ from app.routers import spools, prints, printers, dashboard, app_settings, data_
 
 @pytest.fixture(scope="function")
 def engine():
-    """Fresh in-memory SQLite engine with all tables created."""
+    """Fresh in-memory SQLite engine with all tables created.
+
+    foreign_keys=ON matches the production engine (see app.database) so tests
+    exercise the same ON DELETE CASCADE / SET NULL behavior.
+    """
+    from sqlalchemy import event
+
     eng = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+
+    @event.listens_for(eng, "connect")
+    def _fk_on(dbapi_conn, _record):
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
+
     Base.metadata.create_all(eng)
     yield eng
     Base.metadata.drop_all(eng)
@@ -68,6 +79,7 @@ def client(session):
     test_app.include_router(dashboard.router)
     test_app.include_router(app_settings.router)
     test_app.include_router(data_transfer.router)
+    test_app.include_router(bambu_cloud.router)
     test_app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(test_app) as c:

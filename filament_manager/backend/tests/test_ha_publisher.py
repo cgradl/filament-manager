@@ -167,3 +167,47 @@ class TestPrinterStatusSensor:
             result = _compute(session)
 
         assert not any("no_serial" in k for k in result)
+
+    def test_colliding_printer_names_get_distinct_entities(self, session):
+        _make_printer(session, name="P1 S", serial="SN1")
+        p2 = _make_printer(session, name="p1-s", serial="SN2")
+
+        with patch(self._PATCH_AMS, return_value={}), patch(self._PATCH_STAT, return_value={}):
+            result = _compute(session)
+
+        printer_keys = [k for k in result if k.startswith("sensor.filament_manager_printer_")]
+        assert len(printer_keys) == 2
+        assert "sensor.filament_manager_printer_p1_s_status" in printer_keys
+        assert f"sensor.filament_manager_printer_p1_s_{p2.id}_status" in printer_keys
+
+
+class TestStalePrinterEntityCleanup:
+    """push_now must retire printer sensors that vanished since the last push."""
+
+    @pytest.mark.asyncio
+    async def test_vanished_printer_entity_deleted(self):
+        from unittest.mock import AsyncMock, MagicMock
+        import app.ha_publisher as hp
+
+        saved = set(hp._last_printer_entities)
+        hp._last_printer_entities = set()
+        entity = "sensor.filament_manager_printer_old_name_status"
+        try:
+            with patch.object(hp, "_compute", return_value={entity: ("idle", {})}), \
+                 patch.object(hp, "SessionLocal", MagicMock()), \
+                 patch("app.ha_client.push_ha_state", new_callable=AsyncMock, return_value=True), \
+                 patch("app.ha_client.delete_ha_state", new_callable=AsyncMock) as mock_del:
+                await hp.push_now()
+                mock_del.assert_not_awaited()
+            assert hp._last_printer_entities == {entity}
+
+            # Printer renamed/removed → entity no longer computed → deleted once
+            with patch.object(hp, "_compute", return_value={}), \
+                 patch.object(hp, "SessionLocal", MagicMock()), \
+                 patch("app.ha_client.push_ha_state", new_callable=AsyncMock, return_value=True), \
+                 patch("app.ha_client.delete_ha_state", new_callable=AsyncMock, return_value=True) as mock_del:
+                await hp.push_now()
+                mock_del.assert_awaited_once_with(entity)
+            assert hp._last_printer_entities == set()
+        finally:
+            hp._last_printer_entities = saved

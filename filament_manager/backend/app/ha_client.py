@@ -49,6 +49,19 @@ async def get_ha_state(entity_id: str) -> float | None:
         return None
 
 
+async def delete_ha_state(entity_id: str) -> bool:
+    """DELETE a sensor entity from the HA states API. Returns True on success."""
+    if not _TOKEN:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.delete(f"{HA_API}/states/{entity_id}", headers=_headers())
+            return r.status_code in (200, 204)
+    except Exception as exc:
+        log.warning("delete_ha_state %s failed: %s", entity_id, exc)
+        return False
+
+
 async def push_ha_state(entity_id: str, state: int | str, attributes: dict) -> bool:
     """POST a sensor state to the HA states API. Returns True on success."""
     if not _TOKEN:

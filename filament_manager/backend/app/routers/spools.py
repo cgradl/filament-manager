@@ -1,8 +1,8 @@
-from datetime import datetime
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..util import utcnow
 from ..models import Spool, BrandSpoolWeight, FilamentSubtype, FilamentMaterial, SpoolAudit
 from ..schemas import SpoolCreate, SpoolOut, SpoolUpdate, SpoolAuditEntry
 from .filament_sync import _sync_spool_weight_to_cloud
@@ -65,7 +65,7 @@ def update_spool(spool_id: int, body: SpoolUpdate, background_tasks: BackgroundT
     weight_before = spool.current_weight_g
     for field, value in updates.items():
         setattr(spool, field, value)
-    spool.updated_at = datetime.utcnow()
+    spool.updated_at = utcnow()
     if "current_weight_g" in updates:
         weight_after = spool.current_weight_g
         db.add(SpoolAudit(
@@ -114,7 +114,7 @@ def correct_spool_audit(spool_id: int, entry_id: int, background_tasks: Backgrou
     weight_before = spool.current_weight_g
     correction_delta = -entry.delta_g
     spool.current_weight_g = max(0.0, min(spool.initial_weight_g, weight_before + correction_delta))
-    spool.updated_at = datetime.utcnow()
+    spool.updated_at = utcnow()
     weight_after = spool.current_weight_g
     actual_delta = weight_after - weight_before
 
@@ -151,7 +151,7 @@ def archive_spool(spool_id: int, db: Session = Depends(get_db)):
     if not spool:
         raise HTTPException(404, "Spool not found")
     spool.archived = True
-    spool.updated_at = datetime.utcnow()
+    spool.updated_at = utcnow()
     db.commit()
     db.refresh(spool)
     from .. import ha_publisher
@@ -165,7 +165,7 @@ def unarchive_spool(spool_id: int, db: Session = Depends(get_db)):
     if not spool:
         raise HTTPException(404, "Spool not found")
     spool.archived = False
-    spool.updated_at = datetime.utcnow()
+    spool.updated_at = utcnow()
     db.commit()
     db.refresh(spool)
     from .. import ha_publisher

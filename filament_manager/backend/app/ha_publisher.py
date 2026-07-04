@@ -117,7 +117,13 @@ def _compute(db) -> dict[str, tuple[int, dict]]:
         return False
 
     unmatched_trays: list[str] = []
-    printers = db.query(PrinterConfig).filter(PrinterConfig.is_active == True).all()  # noqa: E712
+    # order_by(id) keeps slug-collision suffixes deterministic across pushes
+    printers = (
+        db.query(PrinterConfig)
+        .filter(PrinterConfig.is_active == True)  # noqa: E712
+        .order_by(PrinterConfig.id)
+        .all()
+    )
     for printer in printers:
         if not printer.bambu_serial:
             continue
@@ -152,13 +158,20 @@ def _compute(db) -> dict[str, tuple[int, dict]]:
     }
 
     printer_sensors: dict[str, tuple] = {}
+    used_slugs: set[str] = set()
     for printer in printers:
         if not printer.bambu_serial:
             continue
         cache = bambu_cloud_client.get_printer_cloud_status(printer.bambu_serial)
         raw_state = (cache.get("gcode_state") or "").upper()
         state = _STATE_MAP.get(raw_state, "offline")
-        entity_id = f"sensor.filament_manager_printer_{_entity_name(printer.name)}_status"
+        # Two printer names can sanitize to the same slug ("P1 S" and "p1-s")
+        # — suffix with the printer id so they don't overwrite each other.
+        slug = _entity_name(printer.name)
+        if slug in used_slugs:
+            slug = f"{slug}_{printer.id}"
+        used_slugs.add(slug)
+        entity_id = f"sensor.filament_manager_printer_{slug}_status"
         printer_sensors[entity_id] = (
             state,
             {
@@ -258,9 +271,18 @@ def _compute(db) -> dict[str, tuple[int, dict]]:
     }
 
 
+# Printer entity ids from the previous push — used to retire sensors whose
+# printer was renamed, deactivated, or deleted (they would otherwise linger in
+# HA showing their last state until the next HA restart).
+_last_printer_entities: set[str] = set()
+
+_PRINTER_ENTITY_PREFIX = "sensor.filament_manager_printer_"
+
+
 async def push_now() -> None:
-    """Compute and push all three sensor values to HA."""
-    from .ha_client import push_ha_state
+    """Compute and push all sensor values to HA; retire vanished printer sensors."""
+    global _last_printer_entities
+    from .ha_client import push_ha_state, delete_ha_state
 
     try:
         with SessionLocal() as db:
@@ -275,6 +297,12 @@ async def push_now() -> None:
             log.info("ha_publisher: pushed %s = %s", entity_id, state)
         else:
             log.warning("ha_publisher: push FAILED for %s (state=%s)", entity_id, state)
+
+    current_printer_entities = {k for k in values if k.startswith(_PRINTER_ENTITY_PREFIX)}
+    for stale in _last_printer_entities - current_printer_entities:
+        if await delete_ha_state(stale):
+            log.info("ha_publisher: removed stale printer sensor %s", stale)
+    _last_printer_entities = current_printer_entities
 
 
 async def run_periodic() -> None:

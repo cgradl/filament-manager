@@ -1,10 +1,10 @@
-from datetime import datetime
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..util import utcnow
 from ..models import BrandSpoolWeight, FilamentSubtype, FilamentMaterial, FilamentBrand, PurchaseLocation, StorageLocation, FilamentCatalog, UserPreferences
 from ..schemas import BrandSpoolWeightOut, FilamentCatalogCreate, FilamentCatalogUpdate, FilamentCatalogOut
 
@@ -167,7 +167,7 @@ def update_brand_weight(entry_id: int, body: BrandWeightIn, db: Session = Depend
         raise HTTPException(404, "Not found")
     entry.brand = body.brand
     entry.spool_weight_g = body.spool_weight_g
-    entry.updated_at = datetime.utcnow()
+    entry.updated_at = utcnow()
     db.commit()
     db.refresh(entry)
     return entry
@@ -475,7 +475,7 @@ def import_filament_catalog(body: CatalogImportBody, db: Session = Depends(get_d
             entry.subtype2 = row.subtype2 or None
             entry.color_name = row.color_name
             entry.color_hex = row.color_hex
-            entry.updated_at = datetime.utcnow()
+            entry.updated_at = utcnow()
             updated += 1
         else:
             new_entry = FilamentCatalog(

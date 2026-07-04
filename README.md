@@ -2,7 +2,7 @@
 
 A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.39.11-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.39.12-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -36,13 +36,13 @@ Spools, print history, and all other data are unaffected.
 - **EN / DE / ES interface** — full translations; inherits language from your HA instance by default
 - **HA day/night theme** — follows Home Assistant light/dark mode and accent color
 - **Data export / import** — organised into four tabs: full JSON backup/restore (Filament Manager), spool CSV export/import (Spools), Bambu Cloud print history import, and experimental Spoolman export and import
-- **Spool CSV export / import** — export all spool data as a semicolon-delimited CSV; re-import to update or restore spools; upserts by ID
+- **Spool CSV export / import** — export all spool data as a CSV (Excel-compatible, UTF-8 BOM); re-import comma- or semicolon-delimited files to update or restore spools; upserts by ID
 - **Spool weight history** — every weight change is logged with action type, before/after values, and linked print name; viewable per spool via the history icon
 - **Spool archive** — retire empty or inactive spools with the archive action; archived spools are hidden from inventory, excluded from AMS auto-match, and do not trigger low-stock alerts; toggle "Show archived" in the toolbar to view or restore them
 - **Configurable spool table columns** — show or hide individual columns in the spool table via the column picker; selection is saved locally and persists across sessions
 - **Extra color fields** — spools and filament catalog entries support up to 3 optional extra hex color fields (Color 2–4) for multicolor filaments (silk duo, marble, gradient); extra colors appear as additional dots in the spool table and tile view; purely for inventory — not used in AMS auto-matching
 - **Regional overrides** — timezone, currency, and country can be set manually in Settings → Appearance; overrides take precedence over Home Assistant; app works fully without HA when all three are set
-- **Bambu Lab Filament Sync** (Experimental) — synchronise your spool inventory with the Bambu Lab filament library; choose pull (cloud → local), push (local → cloud), or bidirectional mode; synced spools show a cloud badge; configure in Settings → Cloud Config
+- **Bambu Lab Filament Sync** (Experimental) — synchronise your spool inventory with the Bambu Lab filament library; choose pull (cloud → local), push (local → cloud), or bidirectional mode; synced spools show a cloud badge; in push/bidirectional mode, weight changes to linked spools are pushed to the Bambu library automatically, and emptied spools (0 g) are removed from it; configure in Settings → Cloud Config
 
 ---
 

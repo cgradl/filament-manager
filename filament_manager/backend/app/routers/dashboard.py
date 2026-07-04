@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
@@ -31,15 +32,22 @@ async def get_dashboard(db: Session = Depends(get_db)):
         for s in active_spools
     )
 
-    # Print jobs
-    jobs = (
-        db.query(PrintJob)
-        .options(joinedload(PrintJob.usages).joinedload(PrintUsage.spool))
-        .order_by(PrintJob.started_at.desc())
-        .all()
-    )
-    total_print_grams = sum(j.total_grams for j in jobs)
-    total_print_cost  = sum(j.total_cost  for j in jobs)
+    # Print job statistics — SQL aggregates instead of hydrating the entire
+    # history (jobs × usages × spools) on every dashboard call.
+    total_prints = db.query(func.count(PrintJob.id)).scalar() or 0
+
+    # grams + material cost in one pass over usages; cost_per_gram is
+    # purchase_price / initial_weight_g (NULL price or zero weight → NULL in
+    # SQLite → excluded from SUM, matching the Python property semantics)
+    total_print_grams, material_cost_sum = db.query(
+        func.coalesce(func.sum(PrintUsage.grams_used), 0.0),
+        func.coalesce(func.sum(
+            PrintUsage.grams_used * Spool.purchase_price / Spool.initial_weight_g
+        ), 0.0),
+    ).outerjoin(Spool, PrintUsage.spool_id == Spool.id).one()
+
+    energy_cost_sum = db.query(func.coalesce(func.sum(PrintJob.energy_cost), 0.0)).scalar() or 0.0
+    total_print_cost = material_cost_sum + energy_cost_sum
 
     # Material breakdown (by current remaining weight)
     mat: dict[str, dict] = defaultdict(lambda: {"count": 0, "current_kg": 0.0})
@@ -73,9 +81,13 @@ async def get_dashboard(db: Session = Depends(get_db)):
     # Fall back to aggregated duration_seconds from stored print jobs.
     ph: dict[str, float] = {}
     job_hours: dict[str, float] = defaultdict(float)
-    for j in jobs:
-        if j.printer_name and j.duration_seconds:
-            job_hours[j.printer_name] += j.duration_seconds / 3600
+    for printer_name, seconds in (
+        db.query(PrintJob.printer_name, func.sum(PrintJob.duration_seconds))
+        .filter(PrintJob.printer_name.isnot(None), PrintJob.duration_seconds.isnot(None))
+        .group_by(PrintJob.printer_name)
+        .all()
+    ):
+        job_hours[printer_name] = (seconds or 0) / 3600
 
     printers = db.query(PrinterConfig).filter(PrinterConfig.is_active == True).all()  # noqa: E712
     for p in printers:
@@ -102,36 +114,56 @@ async def get_dashboard(db: Session = Depends(get_db)):
     )
 
     # Energy per printer (from completed jobs with energy_kwh set)
-    pe_kwh: dict[str, float] = defaultdict(float)
-    pe_cost: dict[str, float] = defaultdict(float)
-    pe_has_cost: dict[str, bool] = defaultdict(bool)
-    for j in jobs:
-        if j.printer_name and j.energy_kwh is not None:
-            pe_kwh[j.printer_name] += j.energy_kwh
-            if j.energy_cost is not None:
-                pe_cost[j.printer_name] += j.energy_cost
-                pe_has_cost[j.printer_name] = True
+    # count(energy_cost) skips NULLs → 0 means no job had a cost recorded
     printer_energy = sorted(
         [
             PrinterEnergy(
                 printer=name,
-                energy_kwh=round(kwh, 3),
-                energy_cost=round(pe_cost[name], 4) if pe_has_cost[name] else None,
+                energy_kwh=round(kwh or 0.0, 3),
+                energy_cost=round(cost or 0.0, 4) if cost_count else None,
             )
-            for name, kwh in pe_kwh.items()
+            for name, kwh, cost, cost_count in (
+                db.query(
+                    PrintJob.printer_name,
+                    func.sum(PrintJob.energy_kwh),
+                    func.sum(PrintJob.energy_cost),
+                    func.count(PrintJob.energy_cost),
+                )
+                .filter(PrintJob.printer_name.isnot(None), PrintJob.energy_kwh.isnot(None))
+                .group_by(PrintJob.printer_name)
+                .all()
+            )
         ],
         key=lambda x: x.printer,
     )
 
     # Running job: most recent open print (no finished_at)
-    running_job = next((j for j in jobs if j.finished_at is None), None)
+    running_job = (
+        db.query(PrintJob)
+        .filter(PrintJob.finished_at.is_(None))
+        .options(joinedload(PrintJob.usages).joinedload(PrintUsage.spool))
+        .order_by(PrintJob.started_at.desc())
+        .first()
+    )
+
+    # Recent prints: 5 most recent jobs only
+    recent_prints = (
+        db.query(PrintJob)
+        .options(joinedload(PrintJob.usages).joinedload(PrintUsage.spool))
+        .order_by(PrintJob.started_at.desc())
+        .limit(5)
+        .all()
+    )
 
     # Prints per day: from first job date to today, filling gaps with 0
     prints_per_day: list[PrintsPerDay] = []
-    if jobs:
-        day_counts: dict[date, int] = defaultdict(int)
-        for j in jobs:
-            day_counts[j.started_at.date()] += 1
+    day_rows = (
+        db.query(func.date(PrintJob.started_at), func.count(PrintJob.id))
+        .group_by(func.date(PrintJob.started_at))
+        .all()
+    )
+    if day_rows:
+        day_counts = {date.fromisoformat(d): c for d, c in day_rows if d}
         first_date = min(day_counts.keys())
         today = date.today()
         current = first_date
@@ -150,12 +182,12 @@ async def get_dashboard(db: Session = Depends(get_db)):
         total_filament_spent_eur=round(total_filament_spent, 2),
         total_print_cost_eur=round(total_print_cost, 2),
         total_available_eur=round(total_available_eur, 2),
-        total_prints=len(jobs),
+        total_prints=total_prints,
         material_breakdown=material_breakdown,
         price_by_location=price_by_location,
         printer_hours=printer_hours,
         printer_energy=printer_energy,
-        recent_prints=jobs[:5],
+        recent_prints=recent_prints,
         low_stock=sorted(low_stock, key=lambda s: s.remaining_pct),
         running_job=running_job,
         prints_per_day=prints_per_day,

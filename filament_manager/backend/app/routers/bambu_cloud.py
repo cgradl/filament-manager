@@ -159,15 +159,26 @@ async def force_reconnect() -> dict:
 
 
 def _parse_task_time(value) -> datetime | None:
-    """Parse a Bambu Cloud task timestamp (Unix seconds int/float or ISO string)."""
+    """Parse a Bambu Cloud task timestamp (Unix seconds/milliseconds or ISO string).
+
+    Bambu mixes seconds and milliseconds across endpoints (see
+    _http_get_task_metadata) — values above 1e10 are milliseconds.
+    """
     if value is None:
         return None
+
+    def _from_unix(ts: float) -> datetime:
+        from datetime import timezone
+        if ts > 1e10:   # milliseconds → seconds
+            ts /= 1000
+        return datetime.fromtimestamp(ts, tz=timezone.utc).replace(tzinfo=None)
+
     try:
         if isinstance(value, (int, float)):
-            return datetime.utcfromtimestamp(float(value))
+            return _from_unix(float(value))
         s = str(value).strip()
         if s.isdigit():
-            return datetime.utcfromtimestamp(float(s))
+            return _from_unix(float(s))
         return datetime.fromisoformat(s.replace("Z", "+00:00")).replace(tzinfo=None)
     except Exception:
         return None
@@ -245,9 +256,17 @@ async def import_cloud_prints(db: Session = Depends(get_db)) -> dict:
             tray_weight = entry.get("weight")
             if idx is None or tray_weight is None:
                 continue
-            unit = int(idx) // 4 + 1
-            tray = int(idx) % 4 + 1
-            slot_key = f"ams{unit}_tray{tray}"
+            # Shared converter handles N3S/AMS-HT flat indices (128-152) and
+            # external-spool sentinels (254/255) — the naive idx//4 formula
+            # produced slot keys like "ams33_tray1" for AMS HT units.
+            try:
+                slot_key = bambu_cloud_client._ams_index_to_slot_key(
+                    int(idx), bambu_cloud_client.get_ams_unit_tray_counts(serial)
+                )
+            except (TypeError, ValueError):
+                continue
+            if slot_key is None:
+                continue  # external spool or index beyond known AMS capacity
             color_raw = entry.get("sourceColor") or entry.get("targetColor") or ""
             color_hex = f"#{color_raw[:6]}" if len(color_raw) >= 6 else None
             grams = round(float(tray_weight), 1)
