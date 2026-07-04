@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.39.13
+
+- Fix: **Authenticator-app (TOTP) 2FA login works again** — Bambu put the previous sign-in endpoint behind a Cloudflare browser challenge that server-side clients cannot pass; TOTP verification now completes on the API subdomain (region-aware, including China) — thanks to **[@terafin](https://github.com/terafin)**! (PR #62)
+- Fix: **Filament Sync "Sync Now" modal is visible again** — the review modal rendered as an unpositioned element below the page and never appeared; it now uses the same overlay as every other modal — thanks to **[@terafin](https://github.com/terafin)**! (PR #63)
+- Fix: **Sync and weight-history timestamps shown in the HA timezone** — the "Last sync" line and the spool weight-history modal displayed times shifted by the viewer's UTC offset — thanks to **[@terafin](https://github.com/terafin)**! (PR #64)
+- Build: **TypeScript no longer emits stray .js files into the frontend source tree** (type-check only; Vite owns the build) — thanks to **[@terafin](https://github.com/terafin)**! (PR #61)
+
 ## 0.39.12
 
 - Fix: **Automatic weight sync now works and respects the sync mode** — the background weight update for linked spools sent a request body that Bambu's update API rejects (missing required `filamentName`); it now sends the correct fields. The auto-sync (weight push + removal of emptied spools) also now only runs when the sync mode is *Push* or *Bidirectional* — with *Off* or *Pull* nothing is ever written to the Bambu library automatically
