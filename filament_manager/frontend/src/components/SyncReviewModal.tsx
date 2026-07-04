@@ -176,7 +176,11 @@ export default function SyncReviewModal({ syncMode, onClose }: Props) {
 
   return (
     <Modal>
-      <div className="flex flex-col" style={{ maxHeight: '85vh', width: 'min(680px, 96vw)' }}>
+      {/* Full-screen overlay + backdrop, matching the app's other modals. Without it the
+          portaled panel renders as an unpositioned in-flow block at the end of <body> —
+          i.e. below the fold / invisible (the modal mounts and works, it just never shows). */}
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="flex flex-col bg-surface-2 border border-surface-3 rounded-2xl" style={{ maxHeight: '85vh', width: 'min(680px, 96vw)' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700 shrink-0">
           <div className="flex items-center gap-2">
@@ -438,6 +442,7 @@ export default function SyncReviewModal({ syncMode, onClose }: Props) {
             </>
           )}
         </div>
+      </div>
       </div>
     </Modal>
   )
