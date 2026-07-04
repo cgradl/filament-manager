@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { RefreshCw, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Ban } from 'lucide-react'
 import { api } from '../api'
 import type { SyncMode } from '../types'
+import { formatDateTimeTZ } from '../utils/time'
+import { useHATZ } from '../hooks/useHATZ'
 import SyncReviewModal from './SyncReviewModal'
 
 const MODES: { value: SyncMode; icon: React.ReactNode }[] = [
@@ -15,6 +17,7 @@ const MODES: { value: SyncMode; icon: React.ReactNode }[] = [
 
 export default function FilamentSyncSection({ isCloudConnected }: { isCloudConnected: boolean }) {
   const { t } = useTranslation()
+  const tz = useHATZ()
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
 
@@ -78,7 +81,7 @@ export default function FilamentSyncSection({ isCloudConnected }: { isCloudConne
           {syncStatus.last_sync_at && (
             <span>
               {t('settings.filamentSync.lastSync', {
-                date: new Date(syncStatus.last_sync_at).toLocaleString(),
+                date: formatDateTimeTZ(syncStatus.last_sync_at, tz),
               })}
             </span>
           )}

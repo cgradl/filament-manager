@@ -5,7 +5,8 @@ import { api } from '../api'
 import type { Spool, BrandSpoolWeight, FilamentCatalog, SpoolAuditEntry } from '../types'
 import { Plus, Pencil, Trash2, X, LayoutGrid, Table2, ChevronUp, ChevronDown, ChevronsUpDown, Copy, History, RotateCcw, Archive, ArchiveRestore, Columns3, Cloud } from 'lucide-react'
 import Modal from '../components/Modal'
-import { formatDateOnly } from '../utils/time'
+import { formatDateOnly, formatDateTimeTZ } from '../utils/time'
+import { useHATZ } from '../hooks/useHATZ'
 
 // ── Spool Form ────────────────────────────────────────────────────────────────
 
@@ -429,6 +430,8 @@ function SpoolAuditModal({ spool, onClose }: { spool: Spool; onClose: () => void
     },
   })
 
+  const tz = useHATZ()
+
   const actionLabel = (action: string) => t(`spools.audit.action_${action}`, action)
 
   const handleCorrect = (e: SpoolAuditEntry) => {
@@ -473,7 +476,7 @@ function SpoolAuditModal({ spool, onClose }: { spool: Spool; onClose: () => void
                   return (
                     <tr key={e.id} className="border-b border-surface-3/40 hover:bg-surface-3/30">
                       <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
-                        {new Date(e.changed_at).toLocaleString()}
+                        {formatDateTimeTZ(e.changed_at, tz)}
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">
                         <span className={`px-1.5 py-0.5 rounded text-xs ${
