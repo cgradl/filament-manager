@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.40.1
+
+- Security: **Dependency updates** — `cryptography` 48.0.0 → 48.0.1 (vulnerable bundled OpenSSL, high severity) and `requests` 2.32.5 → 2.33.0 (insecure temp file reuse in `extract_zipped_paths`, moderate severity); resolves both open Dependabot alerts
+
 ## 0.40.0
 
 - Feature: **Full multi-currency display** — every money value in the app (dashboard totals and charts, spool prices, print costs, project summaries, energy price preview) is now shown in your Home Assistant-configured currency with locale-aware symbol placement (`19,99 €` in German, `$19.99` in English) instead of a hardcoded `€`
