@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.40.0
+
+- Feature: **Full multi-currency display** — every money value in the app (dashboard totals and charts, spool prices, print costs, project summaries, energy price preview) is now shown in your Home Assistant-configured currency with locale-aware symbol placement (`19,99 €` in German, `$19.99` in English) instead of a hardcoded `€`
+- Fix: **Purchase price accepts a comma as decimal separator** — entering `11,59` no longer silently discards the value; the field accepts both `11,59` and `11.59`, shows your currency symbol next to it, and marks invalid input with a red border (issue #18)
+- Fix: **Spool CSV import accepts comma decimals** — numeric columns exported by German-locale Excel (e.g. `750,5` or `11,59`) now import correctly instead of being dropped
+
 ## 0.39.14
 
 - Performance: **Projects page loads dramatically faster** — the project list query multiplied database rows quadratically with the number of prints per project (a project with 80 prints produced ~12,800 result rows); the eager-loading strategy now fetches each relation with a separate query. Measured: 8 projects × 80 prints dropped from ~2.0 s to ~35 ms per page load

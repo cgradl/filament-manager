@@ -7,7 +7,7 @@ import { AlertTriangle, Printer, Zap, CheckCircle2 } from 'lucide-react'
 import { findBestSpoolMatch } from '../utils/amsMatch'
 import { formatDistanceToNow } from 'date-fns'
 import { enUS, de, es, type Locale } from 'date-fns/locale'
-import { useHATZ, useCurrencyFormatter } from '../hooks/useHATZ'
+import { useHATZ, useCurrencyFormatter, useCurrencySymbol } from '../hooks/useHATZ'
 import { parseUTC } from '../utils/time'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -192,6 +192,7 @@ function RunningJobCard({ job, printers }: { job: PrintJob; printers: PrinterCon
 
 function PrintRow({ job }: { job: PrintJob }) {
   const { i18n } = useTranslation()
+  const fmtCurrency = useCurrencyFormatter()
   const locale = LOCALE_MAP[i18n.resolvedLanguage ?? 'en'] ?? enUS
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-surface-3 last:border-0">
@@ -205,7 +206,7 @@ function PrintRow({ job }: { job: PrintJob }) {
       <div className="text-right shrink-0 ml-4">
         <p className="text-sm text-white">{(job.total_grams / 1000).toFixed(3)} kg</p>
         {job.total_cost > 0 && (
-          <p className="text-xs text-gray-400">€{job.total_cost.toFixed(2)}</p>
+          <p className="text-xs text-gray-400">{fmtCurrency(job.total_cost)}</p>
         )}
       </div>
     </div>
@@ -218,6 +219,8 @@ type ChartTab = 'materials' | 'cost' | 'weight' | 'location' | 'timeline' | 'ene
 
 function ChartSection({ stats }: { stats: DashboardStats }) {
   const { t } = useTranslation()
+  const fmtCurrency = useCurrencyFormatter()
+  const currencySymbol = useCurrencySymbol()
   const [tab, setTab] = useState<ChartTab>('materials')
 
   const hasEnergy = stats.printer_energy.length > 0
@@ -314,7 +317,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
               <BarChart data={costData} barSize={48}>
                 <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TT_STYLE} labelStyle={TT_LABEL} itemStyle={TT_ITEM} separator="" formatter={(v: number) => [`€${v.toFixed(2)}`, '']} />
+                <Tooltip contentStyle={TT_STYLE} labelStyle={TT_LABEL} itemStyle={TT_ITEM} separator="" formatter={(v: number) => [fmtCurrency(v), '']} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   <Cell fill="#3b82f6" />
                   <Cell fill="#ef4444" />
@@ -347,13 +350,13 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
           : <ResponsiveContainer width="100%" height={240}>
               <BarChart data={locationData} barSize={40}>
                 <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} unit="€" />
+                <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} unit={currencySymbol} />
                 <Tooltip
                   contentStyle={TT_STYLE}
                   labelStyle={TT_LABEL}
                   itemStyle={TT_ITEM}
                   formatter={(v: number, _: string, props) => [
-                    `€${v.toFixed(2)} avg (${props.payload.count} ${props.payload.count !== 1 ? t('dashboard.chart.spools') : t('dashboard.chart.spool')})`,
+                    `${fmtCurrency(v)} avg (${props.payload.count} ${props.payload.count !== 1 ? t('dashboard.chart.spools') : t('dashboard.chart.spool')})`,
                     t('dashboard.chart.avgPrice'),
                   ]}
                 />
@@ -439,7 +442,7 @@ function ChartSection({ stats }: { stats: DashboardStats }) {
                   labelStyle={TT_LABEL}
                   itemStyle={TT_ITEM}
                   formatter={(v: number, name: string) =>
-                    name === 'energy_kwh' ? [`${v.toFixed(3)} kWh`, t('dashboard.chart.energyKwh')] : [`€${v.toFixed(4)}`, t('dashboard.chart.energyCost')]
+                    name === 'energy_kwh' ? [`${v.toFixed(3)} kWh`, t('dashboard.chart.energyKwh')] : [fmtCurrency(v), t('dashboard.chart.energyCost')]
                   }
                 />
                 <Bar dataKey="energy_kwh" radius={[4, 4, 0, 0]} name="energy_kwh">

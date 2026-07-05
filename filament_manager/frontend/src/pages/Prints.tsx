@@ -5,7 +5,7 @@ import { api } from '../api'
 import type { PrintJob, Spool, AMSTray, PrinterConfig, SuggestedUsage, PrinterStatus, Project } from '../types'
 import { Plus, Pencil, Trash2, X, CheckCircle, XCircle, Zap, Scale, FileText, Download, Search, CalendarDays, FolderOpen, ExternalLink, RefreshCw } from 'lucide-react'
 import Modal from '../components/Modal'
-import { useHATZ } from '../hooks/useHATZ'
+import { useHATZ, useCurrencyFormatter } from '../hooks/useHATZ'
 import { formatDateTimeTZ, nowInTZ, utcToLocalInput, localInputToUTC } from '../utils/time'
 
 const PAGE_SIZE = 50
@@ -721,6 +721,7 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
   onLogUsage: () => void
 }) {
   const tz = useHATZ()
+  const fmtCurrency = useCurrencyFormatter()
   const [expanded, setExpanded] = useState(false)
   const needsUsage = job.source === 'auto' && job.finished_at && job.total_grams === 0 && job.suggested_usages !== null
   const showModel = job.model_name && job.model_name !== job.name
@@ -782,11 +783,11 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
         </div>
         <div className="text-right shrink-0">
           <p className="text-sm text-white">{job.total_grams.toFixed(1)}g</p>
-          {job.total_cost > 0 && <p className="text-xs text-gray-400">€{job.total_cost.toFixed(2)}</p>}
+          {job.total_cost > 0 && <p className="text-xs text-gray-400">{fmtCurrency(job.total_cost)}</p>}
           {job.energy_kwh != null && (
             <p className="text-xs text-gray-500">
               {job.energy_kwh.toFixed(2)} kWh
-              {job.energy_cost != null && <> · €{job.energy_cost.toFixed(2)}</>}
+              {job.energy_cost != null && <> · {fmtCurrency(job.energy_cost)}</>}
             </p>
           )}
         </div>
@@ -826,7 +827,7 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
                   : `Spool #${u.spool_id}`}
               </span>
               <span>{u.grams_used.toFixed(1)}g</span>
-              {u.cost && <span className="text-gray-500">€{u.cost.toFixed(2)}</span>}
+              {u.cost && <span className="text-gray-500">{fmtCurrency(u.cost)}</span>}
               {u.ams_slot && <span className="text-blue-400">{u.ams_slot}</span>}
             </div>
           ))}
@@ -840,6 +841,7 @@ function PrintRow({ job, printer, onEdit, onDelete, onLogUsage }: {
 
 export default function Prints() {
   const { t } = useTranslation()
+  const fmtCurrency = useCurrencyFormatter()
   const qc = useQueryClient()
   const tz = useHATZ()
   const today = nowInTZ(tz).slice(0, 10)
@@ -951,7 +953,7 @@ export default function Prints() {
           </h2>
           {filtered.length > 0 && (
             <p className="text-xs text-gray-500">
-              {totalGrams.toFixed(0)}g · €{totalCost.toFixed(2)}
+              {totalGrams.toFixed(0)}g · {fmtCurrency(totalCost)}
             </p>
           )}
         </div>

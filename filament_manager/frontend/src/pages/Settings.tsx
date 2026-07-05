@@ -8,6 +8,7 @@ import Modal from '../components/Modal'
 import BambuCloudSection from '../components/BambuCloudSection'
 import FilamentSyncSection from '../components/FilamentSyncSection'
 import { findBestSpoolMatch } from '../utils/amsMatch'
+import { useCurrencySymbol } from '../hooks/useHATZ'
 
 // ── Cloud Printer Form ────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ function CloudPrinterFormContent({
   existingPrinters: PrinterConfig[]
 }) {
   const { t } = useTranslation()
+  const currencySymbol = useCurrencySymbol()
   const [selectedSerial, setSelectedSerial] = useState(initial?.bambu_serial ?? '')
   const [name, setName] = useState(initial?.name ?? '')
   const [isActive, setIsActive] = useState(initial?.is_active ?? true)
@@ -198,7 +200,7 @@ function CloudPrinterFormContent({
                 />
                 {priceSensorEntityId && priceSensorPreview !== undefined && (
                   <p className={`text-[11px] mt-1 font-mono ${priceSensorPreview === null ? 'text-red-400' : 'text-green-400'}`}>
-                    {priceSensorPreview === null ? '✗ entity not found or not numeric' : `✓ ${priceSensorPreview} €/kWh`}
+                    {priceSensorPreview === null ? '✗ entity not found or not numeric' : `✓ ${priceSensorPreview} ${currencySymbol}/kWh`}
                   </p>
                 )}
                 <p className="text-[11px] text-gray-500 mt-1">{t('settings.printers.priceSensorHint')}</p>

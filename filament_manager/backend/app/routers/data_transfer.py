@@ -478,8 +478,10 @@ async def import_spoolman(file: UploadFile = File(...), db: Session = Depends(ge
 # ── Spool CSV import ──────────────────────────────────────────────────────────
 
 def _parse_float(v: str) -> float | None:
+    """Parse a CSV number; accepts comma as decimal separator (German Excel)."""
+    s = v.strip().replace(",", ".")
     try:
-        return float(v) if v.strip() else None
+        return float(s) if s else None
     except ValueError:
         return None
 

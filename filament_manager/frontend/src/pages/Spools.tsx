@@ -6,7 +6,8 @@ import type { Spool, BrandSpoolWeight, FilamentCatalog, SpoolAuditEntry } from '
 import { Plus, Pencil, Trash2, X, LayoutGrid, Table2, ChevronUp, ChevronDown, ChevronsUpDown, Copy, History, RotateCcw, Archive, ArchiveRestore, Columns3, Cloud } from 'lucide-react'
 import Modal from '../components/Modal'
 import { formatDateOnly, formatDateTimeTZ } from '../utils/time'
-import { useHATZ } from '../hooks/useHATZ'
+import { useHATZ, useCurrencyFormatter, useCurrencySymbol } from '../hooks/useHATZ'
+import { parseDecimal } from '../utils/number'
 
 // ── Spool Form ────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ function SpoolForm({
   onCancel: () => void
 }) {
   const { t } = useTranslation()
+  const currencySymbol = useCurrencySymbol()
   const [form, setForm] = useState({
     ...EMPTY_FORM,
     ...initial,
@@ -340,7 +342,18 @@ function SpoolForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">{t('spools.form.purchasePrice')}</label>
-              <input className="input" type="number" step="0.01" value={form.purchase_price} onChange={set('purchase_price')} placeholder={t('spools.form.purchasePricePlaceholder')} />
+              {/* type="text" + inputMode="decimal": a native number input rejects the
+                  comma decimal separator German/etc. keyboards produce (issue #18) */}
+              <div className="flex items-center gap-2">
+                <input
+                  className={`input ${form.purchase_price.trim() !== '' && parseDecimal(form.purchase_price) === null ? 'border-red-500 focus:border-red-500' : ''}`}
+                  type="text" inputMode="decimal"
+                  value={form.purchase_price}
+                  onChange={set('purchase_price')}
+                  placeholder={t('spools.form.purchasePricePlaceholder')}
+                />
+                <span className="text-xs text-gray-500 shrink-0">{currencySymbol}</span>
+              </div>
             </div>
             <div>
               <label className="label">{t('spools.form.purchaseDate')}</label>
@@ -400,7 +413,7 @@ function SpoolForm({
             <button
               className="btn-primary"
               onClick={() => onSave(form as typeof EMPTY_FORM, quantity)}
-              disabled={!form.brand || !form.material || !form.color_name || !/^#[0-9a-fA-F]{6}$/.test(form.color_hex)}
+              disabled={!form.brand || !form.material || !form.color_name || !/^#[0-9a-fA-F]{6}$/.test(form.color_hex) || (form.purchase_price.trim() !== '' && parseDecimal(form.purchase_price) === null)}
             >
               {isNew && quantity > 1 ? t('spools.form.addN', { n: quantity }) : t('common.save')}
             </button>
@@ -530,6 +543,7 @@ function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete, onArchive,
   onArchive: () => void; onUnarchive: () => void
 }) {
   const { t } = useTranslation()
+  const fmtCurrency = useCurrencyFormatter()
   const pct = spool.remaining_pct
   const barColor = pct > 40 ? '#3b82f6' : pct > 15 ? '#f59e0b' : '#ef4444'
 
@@ -583,8 +597,8 @@ function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete, onArchive,
         <p className="text-xs text-gray-500 mt-1">{t('spools.of')} {(spool.initial_weight_g / 1000).toFixed(2)} kg</p>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 mt-3">
-        {spool.price_per_kg != null && <span>€{spool.price_per_kg.toFixed(2)}/kg</span>}
-        {spool.purchase_price != null && <span>€{spool.purchase_price.toFixed(2)}</span>}
+        {spool.price_per_kg != null && <span>{fmtCurrency(spool.price_per_kg)}/kg</span>}
+        {spool.purchase_price != null && <span>{fmtCurrency(spool.purchase_price)}</span>}
         {spool.purchased_at && <span>{formatDateOnly(spool.purchased_at)}</span>}
         {spool.storage_location && <span className="text-green-400">{spool.storage_location}</span>}
         {spool.ams_slot && <span className="text-blue-400">{spool.ams_slot}</span>}
@@ -615,6 +629,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
   onArchive: (s: Spool) => void; onUnarchive: (s: Spool) => void
 }) {
   const { t } = useTranslation()
+  const fmtCurrency = useCurrencyFormatter()
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'ams_slot', dir: 'asc' })
   const actionsLast = localStorage.getItem('fm_actions_last') === 'true'
   const [filters, setFilters] = useState<Partial<Record<SortKey, string>>>({})
@@ -797,8 +812,8 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
       case 'remaining_pct':    return <td key={c.key} className="px-3 py-2 whitespace-nowrap"><div className="flex items-center gap-2"><div className="w-16 h-1.5 rounded-full bg-surface-3 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} /></div><span style={{ color: barColor }}>{pct}%</span></div></td>
       case 'current_weight_g': return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-300">{(s.current_weight_g / 1000).toFixed(3)} kg</td>
       case 'initial_weight_g': return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{(s.initial_weight_g / 1000).toFixed(2)} kg</td>
-      case 'purchase_price':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.purchase_price != null ? `€${s.purchase_price.toFixed(2)}` : '—'}</td>
-      case 'price_per_kg':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.price_per_kg != null ? `€${s.price_per_kg.toFixed(2)}` : '—'}</td>
+      case 'purchase_price':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.purchase_price != null ? fmtCurrency(s.purchase_price) : '—'}</td>
+      case 'price_per_kg':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.price_per_kg != null ? fmtCurrency(s.price_per_kg) : '—'}</td>
       case 'purchased_at':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.purchased_at ? formatDateOnly(s.purchased_at) : '—'}</td>
       case 'last_dried_at':    return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.last_dried_at ? formatDateOnly(s.last_dried_at) : '—'}</td>
       case 'purchase_location':return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.purchase_location ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-gray-400">{s.purchase_location}</span> : <span className="text-gray-600">—</span>}</td>
@@ -821,8 +836,8 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
       case 'remaining_pct':    return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs"><span className="text-gray-300">{avgPct.toFixed(1)}%</span></td>
       case 'current_weight_g': return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">{totalRemKg.toFixed(3)} kg</td>
       case 'initial_weight_g': return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">{(processed.reduce((s, r) => s + r.initial_weight_g, 0) / 1000).toFixed(2)} kg</td>
-      case 'purchase_price':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">{avgPrice != null ? `€${avgPrice.toFixed(2)}` : '—'}</td>
-      case 'price_per_kg':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">{avgPpkg != null ? `€${avgPpkg.toFixed(2)}` : '—'}</td>
+      case 'purchase_price':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">{avgPrice != null ? fmtCurrency(avgPrice) : '—'}</td>
+      case 'price_per_kg':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs text-gray-400">{avgPpkg != null ? fmtCurrency(avgPpkg) : '—'}</td>
       default:                 return <td key={c.key} />
     }
   }
@@ -957,7 +972,7 @@ export default function Spools() {
     ...form,
     custom_id: form.custom_id !== '' ? parseInt(form.custom_id as string, 10) || null : null,
     diameter_mm: form.diameter_mm !== '' ? parseFloat(form.diameter_mm as string) : 1.75,
-    purchase_price: form.purchase_price ? parseFloat(form.purchase_price as string) : null,
+    purchase_price: parseDecimal(form.purchase_price as string),
     purchased_at: form.purchased_at || null,
     purchase_location: form.purchase_location || null,
     storage_location: form.storage_location || null,

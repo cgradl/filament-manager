@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { Project, ProjectDetail, PrintJob } from '../types'
 import { Plus, Pencil, Trash2, X, FolderOpen, ChevronDown, ChevronRight, Layers, FlaskConical, ExternalLink } from 'lucide-react'
-import { useHATZ } from '../hooks/useHATZ'
+import { useHATZ, useCurrencyFormatter } from '../hooks/useHATZ'
 import { formatDateTimeTZ } from '../utils/time'
 
 // ── Inline modal shell (matches Prints.tsx pattern) ───────────────────────────
@@ -208,6 +208,7 @@ function ProjectCard({
   onManagePrints: () => void
 }) {
   const { t } = useTranslation()
+  const fmtCurrency = useCurrencyFormatter()
   const [expanded, setExpanded] = useState(false)
 
   const { data: detail } = useQuery<ProjectDetail>({
@@ -263,12 +264,12 @@ function ProjectCard({
             <span>{(project.total_grams / 1000).toFixed(2)} {t('common.kg')}</span>
           )}
           {project.total_cost > 0 && (
-            <span>€{project.total_cost.toFixed(2)}</span>
+            <span>{fmtCurrency(project.total_cost)}</span>
           )}
           {project.total_energy_kwh != null && (
             <span>
               {project.total_energy_kwh.toFixed(2)} kWh
-              {project.total_energy_cost != null && <> · €{project.total_energy_cost.toFixed(2)}</>}
+              {project.total_energy_cost != null && <> · {fmtCurrency(project.total_energy_cost)}</>}
             </span>
           )}
           {durationH && <span>{durationH}h</span>}
@@ -326,9 +327,9 @@ function ProjectCard({
                   <span className="text-gray-300">
                     {project.print_count - project.test_print_count} {t('projects.prints')}
                     {' · '}{((project.total_grams - project.test_total_grams) / 1000).toFixed(2)} {t('common.kg')}
-                    {' · '}€{(project.total_cost - project.test_total_cost).toFixed(2)}
+                    {' · '}{fmtCurrency(project.total_cost - project.test_total_cost)}
                     {prodEnergyKwh != null && <>{' · '}{prodEnergyKwh.toFixed(3)} kWh</>}
-                    {prodEnergyCost != null && <>{' · '}€{prodEnergyCost.toFixed(2)}</>}
+                    {prodEnergyCost != null && <>{' · '}{fmtCurrency(prodEnergyCost)}</>}
                   </span>
                 </div>
                 <div>
@@ -336,9 +337,9 @@ function ProjectCard({
                   <span className="text-gray-300">
                     {project.test_print_count} {t('projects.prints')}
                     {' · '}{(project.test_total_grams / 1000).toFixed(2)} {t('common.kg')}
-                    {' · '}€{project.test_total_cost.toFixed(2)}
+                    {' · '}{fmtCurrency(project.test_total_cost)}
                     {project.test_total_energy_kwh != null && <>{' · '}{project.test_total_energy_kwh.toFixed(3)} kWh</>}
-                    {project.test_total_energy_cost != null && <>{' · '}€{project.test_total_energy_cost.toFixed(2)}</>}
+                    {project.test_total_energy_cost != null && <>{' · '}{fmtCurrency(project.test_total_energy_cost)}</>}
                   </span>
                 </div>
               </div>
@@ -353,6 +354,7 @@ function ProjectCard({
 function PrintJobRow({ job, projectId }: { job: PrintJob; projectId: number }) {
   const { t } = useTranslation()
   const tz = useHATZ()
+  const fmtCurrency = useCurrencyFormatter()
   const qc = useQueryClient()
 
   const toggleTestMut = useMutation({
@@ -375,16 +377,16 @@ function PrintJobRow({ job, projectId }: { job: PrintJob; projectId: number }) {
         <span className="text-xs text-gray-400 shrink-0">{job.total_grams.toFixed(1)}g</span>
       )}
       {job.material_cost > 0 && (
-        <span className="text-xs text-gray-400 shrink-0">€{job.material_cost.toFixed(2)}</span>
+        <span className="text-xs text-gray-400 shrink-0">{fmtCurrency(job.material_cost)}</span>
       )}
       {job.energy_kwh != null && (
         <span className="text-xs text-yellow-500 shrink-0">
           {job.energy_kwh.toFixed(2)} kWh
-          {job.energy_cost != null && <> · €{job.energy_cost.toFixed(2)}</>}
+          {job.energy_cost != null && <> · {fmtCurrency(job.energy_cost)}</>}
         </span>
       )}
       {job.total_cost > 0 && (
-        <span className="text-xs text-white shrink-0 font-medium">= €{job.total_cost.toFixed(2)}</span>
+        <span className="text-xs text-white shrink-0 font-medium">= {fmtCurrency(job.total_cost)}</span>
       )}
       {job.nozzle_diameter && (
         <span className="text-xs text-blue-400 shrink-0">⌀{job.nozzle_diameter}</span>

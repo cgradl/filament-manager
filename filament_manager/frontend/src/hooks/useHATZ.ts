@@ -36,3 +36,11 @@ export function useCurrencyFormatter(): (amount: number) => string {
   })
   return (amount: number) => fmt.format(amount)
 }
+
+/** Returns just the currency symbol (e.g. "€", "$") for the HA-configured currency. */
+export function useCurrencySymbol(): string {
+  const currency = useHACurrency()
+  const locale = typeof document !== 'undefined' ? document.documentElement.lang || undefined : undefined
+  const parts = new Intl.NumberFormat(locale, { style: 'currency', currency }).formatToParts(0)
+  return parts.find(p => p.type === 'currency')?.value ?? currency
+}

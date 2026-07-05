@@ -440,3 +440,15 @@ class TestSpoolCsvExport:
         r = client.get("/api/data/export-spools-csv")
         assert r.status_code == 200
         assert r.content.startswith(b"\xef\xbb\xbf")
+
+    def test_comma_decimal_separator_accepted(self, client):
+        # German Excel exports decimals with a comma (issue #18)
+        csv_text = (
+            "brand,material,color_name,color_hex,initial_weight_g,current_weight_g,purchase_price\n"
+            'Jayo,PETG,Black,#161616,1000,"750,5","11,59"\n'
+        )
+        r = _csv_import(client, csv_text)
+        assert r.json()["created"] == 1
+        spool = client.get("/api/spools").json()[0]
+        assert spool["current_weight_g"] == 750.5
+        assert spool["purchase_price"] == 11.59
