@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ..database import get_db
 from ..models import PrintJob, PrintUsage, Project, ProjectPrint, Spool
@@ -78,15 +78,24 @@ def _project_out(project: Project) -> ProjectOut:
     )
 
 
+# Eager-loading strategy: collections use selectinload (one extra SELECT ... IN
+# per level), NOT joinedload — chaining joinedload over two collection levels
+# plus project_prints multiplies result rows (jobs × usages × project_prints
+# per project, i.e. quadratic in prints per project), each row carrying the
+# full PrintJob width including the JSON snapshot columns. joinedload stays
+# only on the many-to-one usage→spool hop, where it cannot multiply rows.
+_PROJECT_EAGER = (
+    selectinload(Project.print_jobs)
+    .selectinload(PrintJob.usages)
+    .joinedload(PrintUsage.spool),
+    selectinload(Project.project_prints),
+)
+
+
 def _load_project(db: Session, project_id: int) -> Project:
     p = (
         db.query(Project)
-        .options(
-            joinedload(Project.print_jobs)
-            .joinedload(PrintJob.usages)
-            .joinedload(PrintUsage.spool),
-            joinedload(Project.project_prints),
-        )
+        .options(*_PROJECT_EAGER)
         .filter(Project.id == project_id)
         .first()
     )
@@ -99,12 +108,7 @@ def _load_project(db: Session, project_id: int) -> Project:
 def list_projects(db: Session = Depends(get_db)):
     projects = (
         db.query(Project)
-        .options(
-            joinedload(Project.print_jobs)
-            .joinedload(PrintJob.usages)
-            .joinedload(PrintUsage.spool),
-            joinedload(Project.project_prints),
-        )
+        .options(*_PROJECT_EAGER)
         .order_by(Project.name)
         .all()
     )

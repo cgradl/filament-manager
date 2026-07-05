@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.39.14
+
+- Performance: **Projects page loads dramatically faster** — the project list query multiplied database rows quadratically with the number of prints per project (a project with 80 prints produced ~12,800 result rows); the eager-loading strategy now fetches each relation with a separate query. Measured: 8 projects × 80 prints dropped from ~2.0 s to ~35 ms per page load
+
 ## 0.39.13
 
 - Fix: **Authenticator-app (TOTP) 2FA login works again** — Bambu put the previous sign-in endpoint behind a Cloudflare browser challenge that server-side clients cannot pass; TOTP verification now completes on the API subdomain (region-aware, including China) — thanks to **[@terafin](https://github.com/terafin)**! (PR #62)
