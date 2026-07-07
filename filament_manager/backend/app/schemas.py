@@ -32,6 +32,10 @@ class SpoolBase(BaseModel):
     last_dried_at: datetime | None = None
     ams_slot: str | None = None
     notes: str | None = None
+    filament_id: str | None = None
+    is_support: bool = False
+    input_type: str | None = None
+    color_type: str | None = None
     archived: bool = False
 
 
@@ -71,6 +75,10 @@ class SpoolUpdate(BaseModel):
     last_dried_at: datetime | None = None
     ams_slot: str | None = None
     notes: str | None = None
+    filament_id: str | None = None
+    is_support: bool | None = None
+    input_type: str | None = None
+    color_type: str | None = None
     archived: bool | None = None
 
 

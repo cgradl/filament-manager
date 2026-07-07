@@ -14,10 +14,10 @@ import { parseDecimal } from '../utils/number'
 const EMPTY_FORM = {
   custom_id: '',
   brand: '', material: 'PLA', subtype: '', subtype2: '', color_name: '', color_hex: '#888888',
-  color2_hex: '', color3_hex: '', color4_hex: '',
   diameter_mm: '', initial_weight_g: 1000, current_weight_g: 1000,
   purchase_price: '', purchased_at: '', purchase_location: '', storage_location: '',
   article_number: '', last_dried_at: '', ams_slot: '', notes: '',
+  filament_id: '', is_support: false, input_type: '', color_type: '',
 }
 
 function SpoolForm({
@@ -46,9 +46,7 @@ function SpoolForm({
     last_dried_at: initial?.last_dried_at ? initial.last_dried_at.slice(0, 10) : '',
     initial_weight_g: initial?.initial_weight_g ?? 1000,
     current_weight_g: initial?.current_weight_g ?? 1000,
-    color2_hex: initial?.color2_hex ?? '',
-    color3_hex: initial?.color3_hex ?? '',
-    color4_hex: initial?.color4_hex ?? '',
+    color_type: initial?.color_type ?? '',
   })
 
   const [measuredTotal, setMeasuredTotal] = useState('')
@@ -112,9 +110,6 @@ function SpoolForm({
                     subtype2: entry.subtype2 ?? '',
                     color_name: entry.color_name,
                     color_hex: entry.color_hex,
-                    color2_hex: entry.color2_hex ?? '',
-                    color3_hex: entry.color3_hex ?? '',
-                    color4_hex: entry.color4_hex ?? '',
                   }))
                   setTimeout(() => weightInputRef.current?.focus(), 0)
                 } else {
@@ -224,41 +219,13 @@ function SpoolForm({
             </div>
           </div>
 
-          {/* Optional extra colors for multicolor filaments */}
-          {(['color2_hex', 'color3_hex', 'color4_hex'] as const).map((key, i) => (
-            <div key={key} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div />
-              <div>
-                <label className="label">{t(`spools.form.${key}`)}</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    className="h-9 w-16 rounded cursor-pointer bg-surface-3 border border-surface-3"
-                    value={/^#[0-9a-fA-F]{6}$/.test(form[key]) ? form[key] : '#888888'}
-                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  />
-                  <div className="flex items-center flex-1">
-                    <span className="px-2 py-1.5 text-sm text-gray-400 bg-surface-3 border border-r-0 border-surface-3 rounded-l-lg select-none">#</span>
-                    <input
-                      className="input flex-1 rounded-l-none"
-                      value={form[key].replace(/^#/, '')}
-                      onChange={e => setForm(f => ({ ...f, [key]: e.target.value ? '#' + e.target.value.replace(/^#/, '') : '' }))}
-                      placeholder={t('common.optional')}
-                      maxLength={6}
-                    />
-                  </div>
-                  {form[key] && (
-                    <button type="button" className="text-gray-500 hover:text-red-400 p-1" onClick={() => setForm(f => ({ ...f, [key]: '' }))}>
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-                {form[key] && !/^#[0-9a-fA-F]{6}$/.test(form[key]) && (
-                  <p className="text-xs text-red-400 mt-1">{t('spools.form.colorHexInvalid')}</p>
-                )}
-              </div>
+          {/* Color Type (Bambu colorType, e.g. 2 = monochrome) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label">{t('spools.form.colorType')}</label>
+              <input className="input" value={form.color_type ?? ''} onChange={set('color_type')} placeholder="—" />
             </div>
-          ))}
+          </div>
 
           {/* Weight section */}
           <div className="rounded-xl border border-surface-3 p-3 space-y-3 bg-surface-3/20">
@@ -392,6 +359,23 @@ function SpoolForm({
           <div>
             <label className="label">{t('spools.form.notes')}</label>
             <textarea className="input h-16 resize-none" value={form.notes ?? ''} onChange={set('notes')} />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="label">{t('spools.form.filamentId')}</label>
+              <input className="input" value={form.filament_id ?? ''} onChange={set('filament_id')} placeholder="—" />
+            </div>
+            <div>
+              <label className="label">{t('spools.form.inputType')}</label>
+              <input className="input" value={form.input_type ?? ''} onChange={set('input_type')} placeholder="manual" />
+            </div>
+            <div className="flex items-end pb-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={!!form.is_support} onChange={e => setForm(f => ({ ...f, is_support: e.target.checked }))} />
+                {t('spools.form.isSupport')}
+              </label>
+            </div>
           </div>
 
         </div>
@@ -552,9 +536,6 @@ function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete, onArchive,
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="w-4 h-4 rounded-full shrink-0 ring-1 ring-white/10" style={{ background: spool.color_hex }} />
-          {[spool.color2_hex, spool.color3_hex, spool.color4_hex].filter(Boolean).map((h, i) => (
-            <span key={i} className="w-3.5 h-3.5 rounded-full shrink-0 ring-1 ring-white/10" style={{ background: h! }} />
-          ))}
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white truncate">
               {spool.brand} {spool.material}
@@ -609,10 +590,11 @@ function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete, onArchive,
 
 // ── Table View ────────────────────────────────────────────────────────────────
 
-type SortKey = 'custom_id' | 'brand' | 'material' | 'subtype' | 'color_name' | 'color2_hex' | 'color3_hex' | 'color4_hex' |
+type SortKey = 'custom_id' | 'brand' | 'material' | 'subtype' | 'color_name' |
                'article_number' | 'remaining_pct' |
                'current_weight_g' | 'initial_weight_g' | 'purchase_price' |
-               'price_per_kg' | 'purchased_at' | 'purchase_location' | 'storage_location' | 'last_dried_at' | 'ams_slot'
+               'price_per_kg' | 'purchased_at' | 'purchase_location' | 'storage_location' | 'last_dried_at' | 'ams_slot' |
+               'filament_id' | 'is_support' | 'input_type' | 'notes' | 'color_type'
 type SortDir = 'asc' | 'desc'
 
 type ColDef = { key: SortKey; label: string; width?: string; always?: boolean }
@@ -751,9 +733,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
     { key: 'material',          label: t('spools.table.material'),          width: 'w-20' },
     { key: 'subtype',           label: t('spools.table.subtype'),           width: 'w-24' },
     { key: 'color_name',        label: t('spools.table.color'),             width: 'w-32', always: true },
-    { key: 'color2_hex',        label: t('spools.table.color2'),            width: 'w-16' },
-    { key: 'color3_hex',        label: t('spools.table.color3'),            width: 'w-16' },
-    { key: 'color4_hex',        label: t('spools.table.color4'),            width: 'w-16' },
+    { key: 'color_type',        label: t('spools.table.colorType'),         width: 'w-24' },
     { key: 'article_number',    label: t('spools.table.articleNumber'),     width: 'w-28' },
     { key: 'remaining_pct',     label: t('spools.table.remaining'),         width: 'w-28', always: true },
     { key: 'current_weight_g',  label: t('spools.table.currentWeight'),     width: 'w-24' },
@@ -765,6 +745,10 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
     { key: 'purchase_location', label: t('spools.table.location'),          width: 'w-24' },
     { key: 'storage_location',  label: t('spools.table.storageLocation'),   width: 'w-24' },
     { key: 'ams_slot',          label: t('spools.table.amsSlot'),           width: 'w-24' },
+    { key: 'notes',             label: t('spools.table.notes'),             width: 'w-48' },
+    { key: 'filament_id',       label: t('spools.table.filamentId'),        width: 'w-28' },
+    { key: 'is_support',        label: t('spools.table.isSupport'),         width: 'w-20' },
+    { key: 'input_type',        label: t('spools.table.inputType'),         width: 'w-24' },
   ]
 
   const visibleCols = COLUMN_DEFS.filter(c => c.always || colVis[c.key] !== false)
@@ -805,9 +789,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
       case 'material':         return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.material}</td>
       case 'subtype':          return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-300">{[s.subtype, s.subtype2].filter(Boolean).join(' · ') || '—'}</td>
       case 'color_name':       return <td key={c.key} className="px-3 py-2 whitespace-nowrap"><span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/10" style={{ background: s.color_hex }} />{s.color_name}{s.bambu_spool_id && <span title={t('spools.bambuLinked')}><Cloud size={10} className="text-blue-400 shrink-0" /></span>}</span></td>
-      case 'color2_hex':       return <td key={c.key} className="px-3 py-2">{s.color2_hex ? <span className="w-4 h-4 rounded-full block ring-1 ring-white/10" style={{ background: s.color2_hex }} /> : <span className="text-gray-600">—</span>}</td>
-      case 'color3_hex':       return <td key={c.key} className="px-3 py-2">{s.color3_hex ? <span className="w-4 h-4 rounded-full block ring-1 ring-white/10" style={{ background: s.color3_hex }} /> : <span className="text-gray-600">—</span>}</td>
-      case 'color4_hex':       return <td key={c.key} className="px-3 py-2">{s.color4_hex ? <span className="w-4 h-4 rounded-full block ring-1 ring-white/10" style={{ background: s.color4_hex }} /> : <span className="text-gray-600">—</span>}</td>
+      case 'color_type':       return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.color_type || '—'}</td>
       case 'article_number':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono">{s.article_number ?? '—'}</td>
       case 'remaining_pct':    return <td key={c.key} className="px-3 py-2 whitespace-nowrap"><div className="flex items-center gap-2"><div className="w-16 h-1.5 rounded-full bg-surface-3 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} /></div><span style={{ color: barColor }}>{pct}%</span></div></td>
       case 'current_weight_g': return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-300">{(s.current_weight_g / 1000).toFixed(3)} kg</td>
@@ -819,6 +801,10 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
       case 'purchase_location':return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.purchase_location ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-gray-400">{s.purchase_location}</span> : <span className="text-gray-600">—</span>}</td>
       case 'storage_location': return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.storage_location ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-green-400">{s.storage_location}</span> : <span className="text-gray-600">—</span>}</td>
       case 'ams_slot':         return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-blue-400">{s.ams_slot ?? '—'}</td>
+      case 'notes':            return <td key={c.key} className="px-3 py-2 text-gray-400 max-w-xs truncate" title={s.notes ?? ''}>{s.notes || '—'}</td>
+      case 'filament_id':      return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono">{s.filament_id || '—'}</td>
+      case 'is_support':       return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.is_support ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-amber-400">Support</span> : <span className="text-gray-600">—</span>}</td>
+      case 'input_type':       return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.input_type || '—'}</td>
       default:                 return <td key={c.key} />
     }
   }
@@ -980,11 +966,12 @@ export default function Spools() {
     last_dried_at: form.last_dried_at || null,
     subtype: form.subtype || null,
     subtype2: form.subtype2 || null,
-    color2_hex: (form.color2_hex && /^#[0-9a-fA-F]{6}$/.test(form.color2_hex)) ? form.color2_hex : null,
-    color3_hex: (form.color3_hex && /^#[0-9a-fA-F]{6}$/.test(form.color3_hex)) ? form.color3_hex : null,
-    color4_hex: (form.color4_hex && /^#[0-9a-fA-F]{6}$/.test(form.color4_hex)) ? form.color4_hex : null,
+    color_type: form.color_type || null,
     ams_slot: form.ams_slot || null,
     notes: form.notes || null,
+    filament_id: form.filament_id || null,
+    is_support: !!form.is_support,
+    input_type: form.input_type || null,
   } as Partial<Spool>)
 
   const handleSave = async (form: typeof EMPTY_FORM, quantity: number) => {

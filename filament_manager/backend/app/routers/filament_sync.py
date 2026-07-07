@@ -505,6 +505,24 @@ async def apply_sync(body: ApplySyncRequest, db: Session = Depends(get_db)):
                 spool.initial_weight_g = cloud_init
             if cloud_curr >= 0:
                 spool.current_weight_g = cloud_curr
+            # Sync the extra Bambu fields onto the matched spool (same mapping as import;
+            # defensive — don't wipe existing values with empty cloud fields)
+            fil_name = (cloud.get("filamentName") or "").strip()
+            fil_type = cloud.get("filamentType") or ""
+            if fil_name:
+                spool.material = fil_name
+            if fil_type:
+                spool.subtype = fil_type
+            if cloud.get("colorType") is not None:
+                spool.color_type = str(cloud.get("colorType"))
+            if cloud.get("filamentId") not in (None, ""):
+                spool.filament_id = str(cloud.get("filamentId"))
+            spool.is_support = bool(cloud.get("isSupport") or False)
+            if cloud.get("createType"):
+                spool.input_type = cloud.get("createType")
+            cloud_note = cloud.get("note") or ""
+            if cloud_note:
+                spool.notes = cloud_note
             spool.updated_at = now
             matched += 1
         except Exception as exc:
@@ -523,13 +541,21 @@ async def apply_sync(body: ApplySyncRequest, db: Session = Depends(get_db)):
             new_spool = Spool(
                 bambu_spool_id=cloud_id,
                 brand=cloud.get("filamentVendor") or "",
-                material=cloud.get("filamentType") or "PLA",
+                # Per config: filamentName → Material (full product name, e.g. "PLA Matte"),
+                # filamentType → SubType (raw material code, e.g. "PLA").
+                material=(cloud.get("filamentName") or cloud.get("filamentType") or "").strip() or "Unknown",
+                subtype=cloud.get("filamentType") or None,
                 color_name="",
                 color_hex=_cloud_hex(cloud),
+                # colorType (int: 2=monochrome) → dedicated color_type field
+                color_type=(str(cloud.get("colorType")) if cloud.get("colorType") is not None else None),
                 initial_weight_g=max(float(cloud.get("totalNetWeight") or 0), 1.0),
                 current_weight_g=max(float(cloud.get("netWeight") or 0), 0.0),
-                # Store the Bambu product name in notes; it's not a color name
-                notes=cloud.get("filamentName") or "",
+                # Extra Bambu Cloud fields
+                filament_id=(str(cloud.get("filamentId")) if cloud.get("filamentId") not in (None, "") else None),
+                is_support=bool(cloud.get("isSupport") or False),
+                input_type=cloud.get("createType") or None,
+                notes=cloud.get("note") or "",
                 bambu_synced_at=now,
                 created_at=now,
                 updated_at=now,

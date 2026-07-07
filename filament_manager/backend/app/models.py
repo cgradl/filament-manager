@@ -51,6 +51,11 @@ class Spool(Base):
     ams_slot = Column(String)
     bambu_spool_id = Column(String, nullable=True)   # Bambu Cloud filament spool ID (int64 stored as str)
     bambu_synced_at = Column(DateTime, nullable=True)  # last successful Bambu sync timestamp
+    # Extra fields pulled from the Bambu Cloud "my filament" store on sync
+    filament_id = Column(String, nullable=True)      # Bambu filamentId — links to their built-in profile
+    is_support = Column(Boolean, default=False, nullable=False, server_default='0')  # Bambu isSupport flag
+    input_type = Column(String, nullable=True)       # Bambu createType (manual / rfid / …)
+    color_type = Column(String, nullable=True)       # Bambu colorType (2=monochrome, etc.)
     notes = Column(Text)
     archived = Column(Boolean, default=False, nullable=False, server_default='0')
     created_at = Column(DateTime, default=utcnow)

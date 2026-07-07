@@ -62,6 +62,24 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added spools.subtype2")
 
+        # spools: add Bambu-sync extra fields if missing
+        if "filament_id" not in spool_cols:
+            conn.execute(text("ALTER TABLE spools ADD COLUMN filament_id TEXT"))
+            conn.commit()
+            log.info("Migration: added spools.filament_id")
+        if "is_support" not in spool_cols:
+            conn.execute(text("ALTER TABLE spools ADD COLUMN is_support BOOLEAN NOT NULL DEFAULT 0"))
+            conn.commit()
+            log.info("Migration: added spools.is_support")
+        if "input_type" not in spool_cols:
+            conn.execute(text("ALTER TABLE spools ADD COLUMN input_type TEXT"))
+            conn.commit()
+            log.info("Migration: added spools.input_type")
+        if "color_type" not in spool_cols:
+            conn.execute(text("ALTER TABLE spools ADD COLUMN color_type TEXT"))
+            conn.commit()
+            log.info("Migration: added spools.color_type")
+
         # spools: add storage_location if missing
         if "storage_location" not in spool_cols:
             conn.execute(text("ALTER TABLE spools ADD COLUMN storage_location TEXT"))

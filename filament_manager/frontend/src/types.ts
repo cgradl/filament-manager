@@ -7,9 +7,6 @@ export interface Spool {
   subtype2: string | null
   color_name: string
   color_hex: string
-  color2_hex: string | null
-  color3_hex: string | null
-  color4_hex: string | null
   diameter_mm: number
   initial_weight_g: number
   current_weight_g: number
@@ -22,6 +19,10 @@ export interface Spool {
   last_dried_at: string | null
   ams_slot: string | null
   notes: string | null
+  filament_id: string | null
+  is_support: boolean
+  input_type: string | null
+  color_type: string | null
   archived: boolean
   remaining_pct: number
   price_per_kg: number | null
