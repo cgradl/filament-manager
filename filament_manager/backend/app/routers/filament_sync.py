@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db, SessionLocal
-from ..models import Spool, UserPreferences
+from ..models import PrinterConfig, Spool, UserPreferences
 from .. import bambu_cloud_client
 
 log = logging.getLogger(__name__)
@@ -201,6 +201,109 @@ def _local_to_cloud_body(spool: Spool) -> dict:
         "netWeight":      int(spool.current_weight_g or 0),
         "note":           note,
     }
+
+
+# ── Cloud AMS slot binding ───────────────────────────────────────────────────────
+
+def _cloud_ams_slot_key(rec: dict) -> str | None:
+    """Map a cloud filament record's AMS position to the addon slot_key form.
+
+    Bambu Cloud marks a spool physically loaded in an AMS tray with
+    ``inPrinter`` truthy plus 0-based ``amsId``/``slotId``. The addon's tray
+    cache keys slots as ``"ams{unit}_tray{tray}"`` with both 1-based and the
+    254/255 sentinels (external/virtual spool) filtered — see
+    ``bambu_cloud_client._parse_ams_into_cache``. We reproduce that exactly so a
+    cloud-derived slot_key matches the tray cache. Returns ``None`` when the
+    spool is not in a printer or the ids are sentinels/unparseable.
+    """
+    if not rec.get("inPrinter"):
+        return None
+    try:
+        ams_id = int(rec.get("amsId"))
+        slot_id = int(rec.get("slotId"))
+    except (TypeError, ValueError):
+        return None
+    if ams_id in (254, 255) or slot_id in (254, 255):
+        return None
+    return f"ams{ams_id + 1}_tray{slot_id + 1}"
+
+
+def _cloud_updated_at(rec: dict) -> float:
+    """Epoch seconds from a cloud record's ``updatedAt`` (0.0 if absent/bad)."""
+    try:
+        return float(rec.get("updatedAt") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _bind_ams_slots_from_cloud(db: Session, cloud_by_id: dict[str, dict]) -> None:
+    """Set ``ams_slot`` on linked spools directly from the cloud AMS position.
+
+    Deterministic and RFID-free: the cloud is authoritative for which tray each
+    spool sits in AND names the owning printer via ``devId`` (the printer
+    serial). Each in-printer spool is attributed to the tracked printer whose
+    ``bambu_serial`` matches ``devId`` — precise even across multiple printers; a
+    spool loaded on an untracked printer is skipped, never bound ambiguously.
+    """
+    printers_by_serial = {
+        p.bambu_serial: p
+        for p in db.query(PrinterConfig)
+        .filter(PrinterConfig.is_active == True)  # noqa: E712
+        .all()
+        if p.bambu_serial
+    }
+    if not printers_by_serial:
+        return
+
+    # Resolve stale-flag collisions: Bambu Cloud sometimes leaves inPrinter=true on
+    # an OLD record after a spool is swapped out, so two records can claim the same
+    # (devId, slot). Keep only the most-recently-updated record per slot (the actual
+    # current occupant) and skip the stale older one(s) — newer deterministically wins.
+    groups: dict[tuple, list[dict]] = {}
+    for cloud in cloud_by_id.values():
+        slot_key = _cloud_ams_slot_key(cloud)
+        if slot_key is None:
+            continue
+        dev = str(cloud.get("devId") or "")
+        if dev in printers_by_serial:
+            groups.setdefault((dev, slot_key), []).append(cloud)
+    winner_id_by_slot: dict[tuple, object] = {}
+    for key, recs in groups.items():
+        recs.sort(key=_cloud_updated_at, reverse=True)
+        winner_id_by_slot[key] = recs[0].get("id")
+        for stale in recs[1:]:
+            log.info(
+                "filament sync: slot %s has a stale duplicate cloud record id=%s "
+                "(updatedAt=%s); keeping newer id=%s",
+                key[1], stale.get("id"), stale.get("updatedAt"), recs[0].get("id"),
+            )
+
+    for spool in db.query(Spool).filter(Spool.bambu_spool_id.isnot(None)).all():
+        cloud = cloud_by_id.get(spool.bambu_spool_id)
+        if not cloud:
+            continue
+        slot_key = _cloud_ams_slot_key(cloud)
+        if slot_key is None:
+            continue
+        dev = str(cloud.get("devId") or "")
+        printer = printers_by_serial.get(dev)
+        if printer is None:
+            continue  # spool loaded on a printer we don't track → skip
+        if winner_id_by_slot.get((dev, slot_key)) != cloud.get("id"):
+            continue  # stale duplicate for this slot — the newer record owns it
+        full_key = f"{printer.name}:{slot_key}"
+        if spool.ams_slot == full_key:
+            continue
+        # One physical spool per slot — clear any other spool claiming it.
+        db.query(Spool).filter(
+            ((Spool.ams_slot == full_key) | (Spool.ams_slot == slot_key)),
+            Spool.id != spool.id,
+        ).update({"ams_slot": None}, synchronize_session=False)
+        log.info(
+            "filament sync: cloud-AMS bind spool #%d → %s (was %s)",
+            spool.id, full_key, spool.ams_slot,
+        )
+        spool.ams_slot = full_key
 
 
 # ── Match scoring ──────────────────────────────────────────────────────────────
@@ -571,6 +674,16 @@ async def apply_sync(body: ApplySyncRequest, db: Session = Depends(get_db)):
         except Exception as exc:
             log.warning("apply: import error for cloud=%s: %s", cloud_id, exc)
             errors += 1
+
+    # 2b. Bind ams_slot directly from the AUTHORITATIVE cloud AMS position.
+    #     Bambu Cloud reports which AMS slot each loaded spool occupies
+    #     (inPrinter + amsId + slotId); binding straight from that is fully
+    #     deterministic and needs no RFID/tag matching. We only know WHICH
+    #     printer's AMS it is when exactly one active printer exists (the cloud
+    #     filament record doesn't name the device) — with multiple printers we
+    #     SKIP rather than guess: never bind ambiguously.
+    db.flush()  # ensure just-imported spools are queryable below
+    _bind_ams_slots_from_cloud(db, cloud_by_id)
 
     # 3. Push local → cloud (create cloud records for local-only spools)
     for local_id in body.push_to_cloud:

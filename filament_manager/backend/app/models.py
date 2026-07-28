@@ -49,6 +49,11 @@ class Spool(Base):
     article_number = Column(String, nullable=True)
     last_dried_at = Column(DateTime, nullable=True)
     ams_slot = Column(String)
+    # Physical RFID tag_uid read from the AMS tray (16-hex, unique per genuine
+    # Bambu spool). Once bound, future loads of the same physical spool are
+    # auto-detected → deterministic auto-deduct. Third-party spools report empty
+    # / all-zeros and are never bound here.
+    tag_uid = Column(String, nullable=True, index=True)
     bambu_spool_id = Column(String, nullable=True)   # Bambu Cloud filament spool ID (int64 stored as str)
     bambu_synced_at = Column(DateTime, nullable=True)  # last successful Bambu sync timestamp
     notes = Column(Text)

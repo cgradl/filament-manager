@@ -30,6 +30,7 @@ export interface Spool {
   updated_at: string
   bambu_spool_id: string | null
   bambu_synced_at: string | null
+  tag_uid: string | null
 }
 
 export type SyncMode = 'off' | 'pull' | 'push' | 'bidirectional'
@@ -262,7 +263,9 @@ export interface AMSTray {
   ha_material: string | null
   ha_color_hex: string | null
   ha_remaining: string | null
+  tag_uid: string | null       // physical RFID tag (16-hex); null for third-party spools
   spool: Spool | null
+  spool_bound: boolean         // true when a tracked spool is assigned to this tray
 }
 
 

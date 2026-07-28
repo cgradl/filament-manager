@@ -435,6 +435,7 @@
       "autoMatchTray": "Mejor coincidencia",
       "autoMatchNone": "No hay bobina coincidente en el inventario",
       "autoMatchResult": "{{count}} bandeja(s) asignada(s) automáticamente",
+      "assignSpool": "Asignar",
       "energyTracking": "Seguimiento de energía",
       "energySensor": "Sensor de energía (ID de entidad HA)",
       "energySensorHint": "Sensor kWh acumulativo, p. ej. de un enchufe Shelly. Se lee al inicio y al final de la impresión para calcular el consumo.",

@@ -551,9 +551,12 @@ def _process_device_message(serial: str, data: dict) -> None:
     # Update AMS cache from top-level or nested ams object
     # tray_now (currently active tray slot) lives inside the ams dict, not in print
     current = _printer_status_cache.get(serial, {})
+    ams_trays_seen = False
     for ams_source in (data.get("ams", {}), print_data.get("ams", {})):
         if ams_source:
             _parse_ams_into_cache(serial, ams_source)
+            if ams_source.get("ams"):
+                ams_trays_seen = True
             if "tray_now" in ams_source:
                 tray_now_val = ams_source["tray_now"]
                 current["tray_now"] = tray_now_val
@@ -579,6 +582,18 @@ def _process_device_message(serial: str, data: dict) -> None:
                 except (TypeError, ValueError):
                     pass
     _printer_status_cache[serial] = current
+
+    # RFID auto-bind: whenever fresh AMS tray data arrives (a spool was loaded /
+    # the tray profile changed), reconcile spool↔tray binding by physical
+    # tag_uid so the existing auto-deduct fires against the right spool. Runs on
+    # this MQTT thread with its own DB session; cheap-exits when no tray carries
+    # a real tag_uid. Never raises.
+    if ams_trays_seen:
+        try:
+            from . import ams_autobind
+            ams_autobind.autobind_from_ams_cache(serial)
+        except Exception as exc:
+            log.debug("AMS auto-bind hook failed for %s: %s", serial, exc)
 
     # Merge ALL scalar fields from the print object — Bambu sends incremental
     # updates so we only overwrite keys that are present in this message.
@@ -679,6 +694,13 @@ def _parse_ams_into_cache(serial: str, ams_raw: dict) -> None:
             base_type = tray.get("tray_type") or tray.get("type") or ""
             if sub_brand or base_type:
                 slot["material"] = sub_brand or base_type
+
+            # tag_uid — physical RFID tag of the loaded spool (16-hex, unique per
+            # genuine Bambu spool). Update only when present. Genuine spools send a
+            # real value; third-party/generic spools send "" or all-zeros. Preserve
+            # the last-seen value across incremental updates that omit the field.
+            if "tag_uid" in tray:
+                slot["tag_uid"] = tray["tag_uid"]
 
             existing[slot_key] = slot
             changed = True

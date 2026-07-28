@@ -75,6 +75,11 @@ async def get_ams_trays(printer_id: int, db: Session = Depends(get_db)):
         remain_val = td.get("remain")
         # Negative remain (typically -1) means "not tracked by AMS" — show nothing
         ha_remaining = str(round(remain_val, 1)) if remain_val is not None and remain_val >= 0 else None
+        # Physical RFID tag of the loaded spool. Real (16-hex, non-zero) for
+        # genuine Bambu spools; "" / all-zeros for third-party (no usable RFID).
+        tag_uid_raw = td.get("tag_uid")
+        tag_uid = str(tag_uid_raw).strip() if tag_uid_raw else None
+        has_real_tag = bool(tag_uid) and set(tag_uid) != {"0"}
         result.append({
             "slot_key":     slot_key,
             "ams_id":       u,
@@ -82,7 +87,9 @@ async def get_ams_trays(printer_id: int, db: Session = Depends(get_db)):
             "ha_material":  td.get("material") or None,
             "ha_color_hex": td.get("color"),
             "ha_remaining": ha_remaining,
+            "tag_uid":      tag_uid if has_real_tag else None,
             "spool":        SpoolOut.model_validate(spool).model_dump() if spool else None,
+            "spool_bound":  spool is not None,
         })
     return result
 
@@ -190,6 +197,22 @@ def assign_ams_tray(
         if spool.ams_slot and spool.ams_slot != full_key:
             previous_slot = spool.ams_slot
         spool.ams_slot = full_key
+
+        # If the tray currently reports a real RFID tag_uid, persist it onto the
+        # spool. This turns a one-time manual confirm into permanent auto-bind:
+        # future loads of this physical spool are re-bound deterministically by
+        # tag_uid (see ams_autobind). tag_uid is unique per physical spool, so
+        # clear it from any OTHER spool that may have claimed the same tag.
+        if p.bambu_serial:
+            from .. import bambu_cloud_client
+            detail = bambu_cloud_client.get_ams_detail_for_serial(p.bambu_serial)
+            tag_raw = (detail.get(slot_key) or {}).get("tag_uid")
+            tag_uid = str(tag_raw).strip() if tag_raw else ""
+            if tag_uid and set(tag_uid) != {"0"}:
+                db.query(Spool).filter(
+                    Spool.tag_uid == tag_uid, Spool.id != spool.id
+                ).update({"tag_uid": None})
+                spool.tag_uid = tag_uid
 
     db.commit()
     from .. import ha_publisher

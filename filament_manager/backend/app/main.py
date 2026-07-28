@@ -96,6 +96,15 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added spools.archived")
 
+        # spools: add tag_uid (physical RFID tag_uid for AMS auto-bind) if missing
+        if "tag_uid" not in spool_cols:
+            conn.execute(text("ALTER TABLE spools ADD COLUMN tag_uid TEXT"))
+            conn.commit()
+            log.info("Migration: added spools.tag_uid")
+        # spools: index on tag_uid (matches models.Spool.tag_uid index=True) — guarded
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_spools_tag_uid ON spools (tag_uid)"))
+        conn.commit()
+
         # printer_configs: rebuild to cloud-only schema (removes all greghesp HA columns)
         printer_cols = [c["name"] for c in insp.get_columns("printer_configs")]
         _ha_cols = {"device_slug", "ams_device_slug", "sensor_print_stage",

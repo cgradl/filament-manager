@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { PrinterConfig, AMSTray, Spool, BrandSpoolWeight, FilamentSubtype, BambuCloudStatus, BambuCloudDevice, FilamentCatalog } from '../types'
-import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Pencil, ChevronDown, ChevronUp, ChevronsUpDown, Download, Upload, Wifi, WifiOff, Sparkles } from 'lucide-react'
+import { Plus, Trash2, X, RefreshCw, CheckCircle, AlertCircle, Pencil, ChevronDown, ChevronUp, ChevronsUpDown, Download, Upload, Wifi, WifiOff, Sparkles, Tag } from 'lucide-react'
 import Modal from '../components/Modal'
 import BambuCloudSection from '../components/BambuCloudSection'
 import FilamentSyncSection from '../components/FilamentSyncSection'
@@ -513,6 +513,15 @@ function AMSTrayRow({
 }) {
   const { t } = useTranslation()
   const selectedId = tray.spool?.id ?? null
+  // Short-form of the physical RFID tag (last 4 hex) for a compact display.
+  const tagShort = tray.tag_uid ? tray.tag_uid.slice(-4).toUpperCase() : null
+  // A genuine spool is physically loaded (real RFID) but nothing is tracked to
+  // this tray yet — surface a one-tap assign so a single confirm makes future
+  // loads auto-bind (the assign endpoint persists the tag_uid).
+  const bestMatch = tray.ha_material && tray.ha_color_hex
+    ? findBestSpoolMatch(tray, spools, excludeIds)
+    : null
+  const needsAssign = !!tray.tag_uid && !tray.spool_bound
 
   return (
     <div className="flex items-center gap-2 bg-surface-3/40 rounded-lg px-3 py-2">
@@ -530,6 +539,14 @@ function AMSTrayRow({
         <span className="text-xs text-gray-500 truncate">
           {tray.ha_material ?? '—'}
         </span>
+        {tagShort && (
+          <span
+            className="inline-flex items-center gap-0.5 text-[9px] font-mono text-emerald-400/80 shrink-0"
+            title={`RFID tag_uid: ${tray.tag_uid}`}
+          >
+            <Tag size={8} />{tagShort}
+          </span>
+        )}
       </div>
 
       <span className="text-xs text-gray-500 w-10 shrink-0 text-right">
@@ -559,9 +576,29 @@ function AMSTrayRow({
           ))}
       </select>
 
+      {/* One-tap assign for a genuine (RFID-tagged) spool with nothing tracked
+          to this tray yet. Assigning persists the tag_uid so future loads
+          auto-bind. Uses the existing best-match; falls back to disabled. */}
+      {needsAssign && (
+        <button
+          onClick={() => bestMatch && onAssign(bestMatch.id)}
+          disabled={!bestMatch || saving}
+          title={bestMatch
+            ? `${t('settings.printers.autoMatchTray')}: ${bestMatch.custom_id != null ? `#${bestMatch.custom_id} ` : ''}${bestMatch.brand} ${bestMatch.material} · ${bestMatch.color_name}`
+            : t('settings.printers.autoMatchNone')}
+          className={`shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+            bestMatch
+              ? 'bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30'
+              : 'bg-surface-3 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          <Tag size={9} />{t('settings.printers.assignSpool')}
+        </button>
+      )}
+
       {/* Auto-match button — only when printer reports material+color for this tray */}
       {tray.ha_material && tray.ha_color_hex && (() => {
-        const match = findBestSpoolMatch(tray, spools, excludeIds)
+        const match = bestMatch
         const alreadyOptimal = match != null && tray.spool?.id === match.id
         return (
           <button

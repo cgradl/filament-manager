@@ -147,6 +147,17 @@ async def get_tasks_raw(serial: str) -> dict:
     return {"serial": serial, "total": len(tasks), "tasks": tasks}
 
 
+@router.get("/filaments-raw")
+async def get_filaments_raw(limit: int = 5) -> dict:
+    """Debug: inspect raw Bambu Cloud filament records to confirm which key (if
+    any) carries the physical RFID tag_uid, and whether the cloud provides it at
+    all. Returns the total record count, the union of all keys seen across
+    records, and up to ``limit`` sample records verbatim."""
+    cloud_spools = await bambu_cloud_client.list_all_filaments()
+    keys = sorted({k for c in cloud_spools for k in c.keys()})
+    return {"total": len(cloud_spools), "keys": keys, "sample": cloud_spools[: max(0, limit)]}
+
+
 @router.post("/reconnect")
 async def force_reconnect() -> dict:
     """Force restart of all MQTT connections using saved credentials."""
