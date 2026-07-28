@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.40.2
+
+- Fix: **Filament type variant preserved by cloud sync** — pulling a Bambu Cloud filament whose display name carries variant info beyond the base material (e.g. a custom "Serial" field in BambuStudio, such as `PLA Recycled`) previously dumped that variant into the spool's Notes field and dropped it entirely on the next automatic sync back to the cloud. It's now stored in Subtype, which the sync correctly recomposes on every future push — the variant round-trips instead of disappearing (issue #67). Bambu's own free-text note field is now also pulled into Notes, which it never was before
+
 ## 0.40.1
 
 - Security: **Dependency updates** — `cryptography` 48.0.0 → 48.0.1 (vulnerable bundled OpenSSL, high severity) and `requests` 2.32.5 → 2.33.0 (insecure temp file reuse in `extract_zipped_paths`, moderate severity); resolves both open Dependabot alerts

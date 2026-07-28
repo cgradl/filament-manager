@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 import app.models  # noqa: F401 — registers all ORM models with Base before create_all
-from app.routers import spools, prints, printers, dashboard, app_settings, data_transfer, bambu_cloud
+from app.routers import spools, prints, printers, dashboard, app_settings, data_transfer, bambu_cloud, filament_sync
 
 
 # ---------------------------------------------------------------------------
@@ -80,6 +80,7 @@ def client(session):
     test_app.include_router(app_settings.router)
     test_app.include_router(data_transfer.router)
     test_app.include_router(bambu_cloud.router)
+    test_app.include_router(filament_sync.router)
     test_app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(test_app) as c:

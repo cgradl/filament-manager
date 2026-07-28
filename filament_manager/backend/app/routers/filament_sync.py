@@ -41,6 +41,32 @@ def _cloud_filament_name(spool: Spool) -> str:
     return " ".join(p for p in name_parts if p).strip() or "Unknown"
 
 
+def _subtype_from_cloud_name(filament_name: str, material: str) -> str:
+    """Extract the variant portion of a cloud filamentName beyond the base
+    material — the inverse of _cloud_filament_name(), which composes
+    filamentName = material + subtype + subtype2.
+
+    Matches on a word boundary (material followed by a space), not a raw
+    character slice — a naive prefix cut would corrupt names where the
+    material is only a false prefix (material="PLA", filamentName="PLAX
+    Something" must NOT become subtype="X Something"). Also handles
+    multi-word material values correctly (e.g. "PLA Silk").
+
+    Falls back to the whole filamentName when no clean boundary match is
+    found, so a mismatched/unexpected cloud shape never silently loses data
+    (issue #67 — the previous code dropped this variant info entirely).
+    """
+    name = (filament_name or "").strip()
+    mat = (material or "").strip()
+    if not name:
+        return ""
+    if mat and name.upper() == mat.upper():
+        return ""
+    if mat and name.upper().startswith(mat.upper() + " "):
+        return name[len(mat):].strip()
+    return name
+
+
 async def _sync_spool_weight_to_cloud(spool_id: int) -> None:
     """Push a weight change for a linked spool to Bambu Cloud, or delete if empty.
 
@@ -520,16 +546,22 @@ async def apply_sync(body: ApplySyncRequest, db: Session = Depends(get_db)):
             if not cloud:
                 errors += 1
                 continue
+            material = cloud.get("filamentType") or "PLA"
             new_spool = Spool(
                 bambu_spool_id=cloud_id,
                 brand=cloud.get("filamentVendor") or "",
-                material=cloud.get("filamentType") or "PLA",
+                material=material,
+                # filamentName carries variant info beyond the base material
+                # (e.g. a custom "Serial" field in BambuStudio → "PLA Recycled")
+                # — store it in subtype so push (_cloud_filament_name) can
+                # recompose it later instead of losing it (issue #67).
+                subtype=_subtype_from_cloud_name(cloud.get("filamentName") or "", material) or None,
                 color_name="",
                 color_hex=_cloud_hex(cloud),
                 initial_weight_g=max(float(cloud.get("totalNetWeight") or 0), 1.0),
                 current_weight_g=max(float(cloud.get("netWeight") or 0), 0.0),
-                # Store the Bambu product name in notes; it's not a color name
-                notes=cloud.get("filamentName") or "",
+                # Bambu's actual free-text note field (distinct from filamentName)
+                notes=cloud.get("note") or "",
                 bambu_synced_at=now,
                 created_at=now,
                 updated_at=now,
