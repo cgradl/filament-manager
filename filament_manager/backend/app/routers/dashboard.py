@@ -32,6 +32,12 @@ async def get_dashboard(db: Session = Depends(get_db)):
         for s in active_spools
     )
 
+    # Refill-pack breakdown (bulk filament bought without a new physical spool)
+    refill_spools = [s for s in spools if s.is_refill_pack]
+    refill_pack_spools    = len(refill_spools)
+    refill_pack_spent_eur = sum((s.purchase_price or 0) for s in refill_spools)
+    refill_pack_kg        = sum(s.initial_weight_g for s in refill_spools) / 1000
+
     # Print job statistics — SQL aggregates instead of hydrating the entire
     # history (jobs × usages × spools) on every dashboard call.
     total_prints = db.query(func.count(PrintJob.id)).scalar() or 0
@@ -182,6 +188,9 @@ async def get_dashboard(db: Session = Depends(get_db)):
         total_filament_spent_eur=round(total_filament_spent, 2),
         total_print_cost_eur=round(total_print_cost, 2),
         total_available_eur=round(total_available_eur, 2),
+        refill_pack_spools=refill_pack_spools,
+        refill_pack_spent_eur=round(refill_pack_spent_eur, 2),
+        refill_pack_kg=round(refill_pack_kg, 3),
         total_prints=total_prints,
         material_breakdown=material_breakdown,
         price_by_location=price_by_location,

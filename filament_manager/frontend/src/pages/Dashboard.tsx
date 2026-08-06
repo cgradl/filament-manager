@@ -54,6 +54,13 @@ function InventoryCard({ stats }: { stats: DashboardStats }) {
       est:    true,
       dim:    false,
     },
+    ...(stats.refill_pack_spools > 0 ? [{
+      label:  t('dashboard.refillPacks'),
+      spools: stats.refill_pack_spools,
+      kg:     stats.refill_pack_kg,
+      eur:    stats.refill_pack_spent_eur,
+      dim:    true,
+    }] : []),
   ]
 
   return (

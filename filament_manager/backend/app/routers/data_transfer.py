@@ -64,6 +64,7 @@ def _spool_dict(s: Spool) -> dict:
         "ams_slot": s.ams_slot,
         "notes": s.notes,
         "archived": s.archived,
+        "is_refill_pack": s.is_refill_pack,
         "bambu_spool_id": s.bambu_spool_id,
         "created_at": _dt(s.created_at),
     }
@@ -200,7 +201,7 @@ CSV_COLUMNS = [
     "initial_weight_g", "current_weight_g", "spool_weight_g", "remaining_pct",
     "purchase_price", "price_per_kg",
     "purchased_at", "purchase_location", "storage_location",
-    "article_number", "last_dried_at", "ams_slot", "notes", "archived",
+    "article_number", "last_dried_at", "ams_slot", "notes", "archived", "is_refill_pack",
 ]
 
 @router.get("/export-spools-csv")
@@ -237,6 +238,7 @@ def export_spools_csv(db: Session = Depends(get_db)):
             "ams_slot":         s.ams_slot or "",
             "notes":            s.notes or "",
             "archived":         int(s.archived),
+            "is_refill_pack":   int(s.is_refill_pack),
         })
     filename = f"spools_{utcnow().strftime('%Y%m%d')}.csv"
     # UTF-8 BOM so Excel detects the encoding (import strips it via utf-8-sig)
@@ -348,7 +350,9 @@ def export_spoolman(db: Session = Depends(get_db)):
             "location": spool.storage_location,
             "lot_nr": None,
             "comment": " | ".join(comment_parts) or None,
-            "extra": {},
+            # Spoolman's native schema has no refill-pack concept — round-trip
+            # via "extra", its standard custom-metadata extension point.
+            "extra": {"is_refill_pack": bool(spool.is_refill_pack)},
         })
 
     bundle = {
@@ -444,6 +448,7 @@ async def import_spoolman(file: UploadFile = File(...), db: Session = Depends(ge
         location = item.get("location") or None
         article_number = filament.get("article_number") or None
         archived = bool(item.get("archived", False))
+        is_refill_pack = bool((item.get("extra") or {}).get("is_refill_pack", False))
 
         notes_parts = list(filter(None, [
             f"Lot: {item['lot_nr']}" if item.get("lot_nr") else None,
@@ -467,6 +472,7 @@ async def import_spoolman(file: UploadFile = File(...), db: Session = Depends(ge
             storage_location=location,
             notes=notes,
             archived=archived,
+            is_refill_pack=is_refill_pack,
             created_at=created_at,
         ))
         imported += 1
@@ -512,9 +518,10 @@ async def import_spools_csv(file: UploadFile = File(...), db: Session = Depends(
         "initial_weight_g", "current_weight_g", "spool_weight_g",
         "purchase_price", "purchased_at", "purchase_location",
         "storage_location", "article_number", "last_dried_at", "ams_slot", "notes", "archived",
+        "is_refill_pack",
     }
     FLOAT_COLS = {"diameter_mm", "initial_weight_g", "current_weight_g", "spool_weight_g", "purchase_price"}
-    BOOL_COLS = {"archived"}
+    BOOL_COLS = {"archived", "is_refill_pack"}
 
     # Only touch columns that are actually present in the file — a partial CSV
     # (columns removed by the user) must not blank out the missing fields on
@@ -782,6 +789,7 @@ def import_data(bundle: ImportBundle, db: Session = Depends(get_db)):
             ams_slot=sp.get("ams_slot"),
             notes=sp.get("notes"),
             archived=sp.get("archived", False),
+            is_refill_pack=sp.get("is_refill_pack", False),
             bambu_spool_id=sp.get("bambu_spool_id"),
             created_at=_parse_dt(sp.get("created_at")) or utcnow(),
         )

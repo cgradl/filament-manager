@@ -23,6 +23,7 @@ export interface Spool {
   ams_slot: string | null
   notes: string | null
   archived: boolean
+  is_refill_pack: boolean
   remaining_pct: number
   price_per_kg: number | null
   cost_per_gram: number | null
@@ -313,6 +314,9 @@ export interface DashboardStats {
   total_filament_spent_eur: number
   total_print_cost_eur: number
   total_available_eur: number
+  refill_pack_spools: number
+  refill_pack_spent_eur: number
+  refill_pack_kg: number
   total_prints: number
   material_breakdown: MaterialBreakdown[]
   price_by_location: PriceByLocation[]

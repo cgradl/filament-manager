@@ -53,6 +53,7 @@ class Spool(Base):
     bambu_synced_at = Column(DateTime, nullable=True)  # last successful Bambu sync timestamp
     notes = Column(Text)
     archived = Column(Boolean, default=False, nullable=False, server_default='0')
+    is_refill_pack = Column(Boolean, default=False, nullable=False, server_default='0')  # bulk filament, no new physical spool
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 

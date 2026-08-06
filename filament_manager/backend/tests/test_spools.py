@@ -81,6 +81,14 @@ class TestCreateSpool:
         )).json()
         assert data["remaining_pct"] == 50.0
 
+    def test_create_defaults_is_refill_pack_false(self, client):
+        data = client.post("/api/spools", json=make_spool_payload()).json()
+        assert data["is_refill_pack"] is False
+
+    def test_create_is_refill_pack_true(self, client):
+        data = client.post("/api/spools", json=make_spool_payload(is_refill_pack=True)).json()
+        assert data["is_refill_pack"] is True
+
     def test_create_resolves_spool_weight_from_brand(self, client, session):
         # Seed a brand weight
         session.add(BrandSpoolWeight(brand="Bambu Lab", spool_weight_g=250.0))
@@ -150,6 +158,12 @@ class TestUpdateSpool:
         r = client.patch(f"/api/spools/{spool_id}", json={"color_name": "Blue"})
         assert r.status_code == 200
         assert r.json()["color_name"] == "Blue"
+
+    def test_update_is_refill_pack(self, client):
+        spool_id = client.post("/api/spools", json=make_spool_payload()).json()["id"]
+        r = client.patch(f"/api/spools/{spool_id}", json={"is_refill_pack": True})
+        assert r.status_code == 200
+        assert r.json()["is_refill_pack"] is True
 
     def test_update_partial(self, client):
         spool_id = client.post("/api/spools", json=make_spool_payload()).json()["id"]

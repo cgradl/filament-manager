@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.41.0
+
+- Feature: **Refill pack flag for spools** — mark a spool as a refill pack (bulk filament bought without a new physical spool) with a new checkbox on the spool form; shown as a badge on the spool card and as a sortable column in the table; broken out separately on the Dashboard (count, weight, spend) whenever at least one refill-pack spool exists; included in all export/import paths (JSON backup, spool CSV, Spoolman) (issue #68)
+
 ## 0.40.2
 
 - Fix: **Filament type variant preserved by cloud sync** — pulling a Bambu Cloud filament whose display name carries variant info beyond the base material (e.g. a custom "Serial" field in BambuStudio, such as `PLA Recycled`) previously dumped that variant into the spool's Notes field and dropped it entirely on the next automatic sync back to the cloud. It's now stored in Subtype, which the sync correctly recomposes on every future push — the variant round-trips instead of disappearing (issue #67). Bambu's own free-text note field is now also pulled into Notes, which it never was before

@@ -149,6 +149,43 @@ class TestCostTotals:
 
 
 # ---------------------------------------------------------------------------
+# Refill-pack breakdown
+# ---------------------------------------------------------------------------
+
+class TestRefillPackBreakdown:
+    def test_zero_when_no_refills(self, client):
+        _create_spool(client, is_refill_pack=False, purchase_price=20.0, initial_weight_g=1000)
+        s = _stats(client)
+        assert s["refill_pack_spools"] == 0
+        assert s["refill_pack_spent_eur"] == 0.0
+        assert s["refill_pack_kg"] == 0.0
+
+    def test_counts_only_refill_packs(self, client):
+        _create_spool(client, color_name="Normal", is_refill_pack=False, purchase_price=20.0, initial_weight_g=1000)
+        _create_spool(client, color_name="Refill1", is_refill_pack=True, purchase_price=10.0, initial_weight_g=1000)
+        _create_spool(client, color_name="Refill2", is_refill_pack=True, purchase_price=12.0, initial_weight_g=1000)
+        s = _stats(client)
+        assert s["refill_pack_spools"] == 2
+        assert s["refill_pack_spent_eur"] == pytest.approx(22.0, abs=0.01)
+        assert s["refill_pack_kg"] == pytest.approx(2.0, abs=0.001)
+        # non-refill spool still counted in the overall totals
+        assert s["total_spools"] == 3
+        assert s["total_filament_spent_eur"] == pytest.approx(42.0, abs=0.01)
+
+    def test_all_refill_packs(self, client):
+        _create_spool(client, is_refill_pack=True, purchase_price=15.0, initial_weight_g=1000)
+        s = _stats(client)
+        assert s["refill_pack_spools"] == 1
+        assert s["total_spools"] == 1
+
+    def test_refill_pack_ignores_missing_price(self, client):
+        _create_spool(client, is_refill_pack=True, purchase_price=None, initial_weight_g=1000)
+        s = _stats(client)
+        assert s["refill_pack_spools"] == 1
+        assert s["refill_pack_spent_eur"] == 0.0
+
+
+# ---------------------------------------------------------------------------
 # Material breakdown
 # ---------------------------------------------------------------------------
 

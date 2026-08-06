@@ -33,6 +33,7 @@ class SpoolBase(BaseModel):
     ams_slot: str | None = None
     notes: str | None = None
     archived: bool = False
+    is_refill_pack: bool = False
 
 
 class SpoolCreate(SpoolBase):
@@ -72,6 +73,7 @@ class SpoolUpdate(BaseModel):
     ams_slot: str | None = None
     notes: str | None = None
     archived: bool | None = None
+    is_refill_pack: bool | None = None
 
 
 class SpoolOut(SpoolBase):
@@ -281,6 +283,11 @@ class DashboardStats(BaseModel):
     total_filament_spent_eur: float   # total purchase cost
     total_print_cost_eur: float       # cost of filament used in prints
     total_available_eur: float        # estimated value of remaining filament
+
+    # Refill packs (bulk filament bought without a new physical spool)
+    refill_pack_spools: int
+    refill_pack_spent_eur: float
+    refill_pack_kg: float
 
     total_prints: int
     material_breakdown: list[MaterialBreakdown] = []

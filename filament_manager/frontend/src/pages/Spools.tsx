@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { Spool, BrandSpoolWeight, FilamentCatalog, SpoolAuditEntry } from '../types'
-import { Plus, Pencil, Trash2, X, LayoutGrid, Table2, ChevronUp, ChevronDown, ChevronsUpDown, Copy, History, RotateCcw, Archive, ArchiveRestore, Columns3, Cloud } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, LayoutGrid, Table2, ChevronUp, ChevronDown, ChevronsUpDown, Copy, History, RotateCcw, Archive, ArchiveRestore, Columns3, Cloud, Recycle } from 'lucide-react'
 import Modal from '../components/Modal'
 import { formatDateOnly, formatDateTimeTZ } from '../utils/time'
 import { useHATZ, useCurrencyFormatter, useCurrencySymbol } from '../hooks/useHATZ'
@@ -18,6 +18,7 @@ const EMPTY_FORM = {
   diameter_mm: '', initial_weight_g: 1000, current_weight_g: 1000,
   purchase_price: '', purchased_at: '', purchase_location: '', storage_location: '',
   article_number: '', last_dried_at: '', ams_slot: '', notes: '',
+  is_refill_pack: false,
 }
 
 function SpoolForm({
@@ -361,6 +362,15 @@ function SpoolForm({
             </div>
           </div>
 
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox" className="accent-accent"
+              checked={form.is_refill_pack}
+              onChange={e => setForm(f => ({ ...f, is_refill_pack: e.target.checked }))}
+            />
+            {t('spools.form.refillPack')}
+          </label>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">{t('spools.form.purchaseLocation')}</label>
@@ -572,6 +582,12 @@ function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete, onArchive,
                   <Cloud size={9} />{t('spools.bambuLinked')}
                 </span>
               )}
+              {spool.is_refill_pack && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-purple-900/40 border border-purple-700/60 text-purple-400"
+                  title={t('spools.refillBadge')}>
+                  <Recycle size={9} />{t('spools.refillBadge')}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -612,7 +628,7 @@ function SpoolCard({ spool, onEdit, onDuplicate, onHistory, onDelete, onArchive,
 type SortKey = 'custom_id' | 'brand' | 'material' | 'subtype' | 'color_name' | 'color2_hex' | 'color3_hex' | 'color4_hex' |
                'article_number' | 'remaining_pct' |
                'current_weight_g' | 'initial_weight_g' | 'purchase_price' |
-               'price_per_kg' | 'purchased_at' | 'purchase_location' | 'storage_location' | 'last_dried_at' | 'ams_slot'
+               'price_per_kg' | 'purchased_at' | 'purchase_location' | 'storage_location' | 'last_dried_at' | 'ams_slot' | 'is_refill_pack'
 type SortDir = 'asc' | 'desc'
 
 type ColDef = { key: SortKey; label: string; width?: string; always?: boolean }
@@ -760,6 +776,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
     { key: 'initial_weight_g',  label: t('spools.table.initialWeight'),     width: 'w-20' },
     { key: 'purchase_price',    label: t('spools.table.price'),             width: 'w-20' },
     { key: 'price_per_kg',      label: t('spools.table.pricePerKg'),        width: 'w-20' },
+    { key: 'is_refill_pack',    label: t('spools.table.refill'),            width: 'w-16' },
     { key: 'purchased_at',      label: t('spools.table.purchaseDate'),      width: 'w-24' },
     { key: 'last_dried_at',     label: t('spools.table.lastDried'),         width: 'w-24' },
     { key: 'purchase_location', label: t('spools.table.location'),          width: 'w-24' },
@@ -814,6 +831,7 @@ function SpoolTable({ spools, onEdit, onDuplicate, onHistory, onDelete, onArchiv
       case 'initial_weight_g': return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{(s.initial_weight_g / 1000).toFixed(2)} kg</td>
       case 'purchase_price':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.purchase_price != null ? fmtCurrency(s.purchase_price) : '—'}</td>
       case 'price_per_kg':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.price_per_kg != null ? fmtCurrency(s.price_per_kg) : '—'}</td>
+      case 'is_refill_pack':   return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.is_refill_pack ? <span className="text-xs bg-purple-900/40 px-1.5 py-0.5 rounded text-purple-400">{t('spools.table.refill')}</span> : <span className="text-gray-600">—</span>}</td>
       case 'purchased_at':     return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.purchased_at ? formatDateOnly(s.purchased_at) : '—'}</td>
       case 'last_dried_at':    return <td key={c.key} className="px-3 py-2 whitespace-nowrap text-gray-400">{s.last_dried_at ? formatDateOnly(s.last_dried_at) : '—'}</td>
       case 'purchase_location':return <td key={c.key} className="px-3 py-2 whitespace-nowrap">{s.purchase_location ? <span className="text-xs bg-surface-3 px-1.5 py-0.5 rounded text-gray-400">{s.purchase_location}</span> : <span className="text-gray-600">—</span>}</td>

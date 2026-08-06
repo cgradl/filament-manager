@@ -96,6 +96,12 @@ async def lifespan(app: FastAPI):
             conn.commit()
             log.info("Migration: added spools.archived")
 
+        # spools: add is_refill_pack flag if missing
+        if "is_refill_pack" not in spool_cols:
+            conn.execute(text("ALTER TABLE spools ADD COLUMN is_refill_pack INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+            log.info("Migration: added spools.is_refill_pack")
+
         # printer_configs: rebuild to cloud-only schema (removes all greghesp HA columns)
         printer_cols = [c["name"] for c in insp.get_columns("printer_configs")]
         _ha_cols = {"device_slug", "ams_device_slug", "sensor_print_stage",

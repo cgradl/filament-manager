@@ -10,6 +10,7 @@ Key behaviours:
   - Version mismatch returns 400
   - Full round-trip: export then re-import produces consistent data
 """
+import json
 import pytest
 from tests.conftest import make_spool_payload, make_print_payload
 
@@ -300,6 +301,19 @@ class TestRoundTrip:
         assert prints[0]["usages"][0]["grams_used"] == 42.0
         assert prints[0]["usages"][0]["spool"] is not None
 
+    def test_export_and_reimport_preserves_is_refill_pack(self, client):
+        _create_spool(client, brand="Bambu Lab", color_name="Refill", is_refill_pack=True)
+        _create_spool(client, brand="Bambu Lab", color_name="Normal", is_refill_pack=False)
+
+        bundle = _export(client)
+        for sid in [s["id"] for s in client.get("/api/spools").json()]:
+            client.delete(f"/api/spools/{sid}")
+
+        _import(client, bundle)
+        spools = {s["color_name"]: s for s in client.get("/api/spools").json()}
+        assert spools["Refill"]["is_refill_pack"] is True
+        assert spools["Normal"]["is_refill_pack"] is False
+
 
 # ---------------------------------------------------------------------------
 # Import dedup (re-importing the same bundle must not duplicate records)
@@ -433,6 +447,26 @@ class TestSpoolCsvImport:
         after = client.get(f"/api/spools/{spool['id']}").json()
         assert after["current_weight_g"] == 432.0
 
+    def test_is_refill_pack_true(self, client):
+        csv_text = (
+            "brand,material,color_name,color_hex,initial_weight_g,current_weight_g,is_refill_pack\n"
+            "Jayo,PETG,Black,#161616,1000,750,1\n"
+        )
+        r = _csv_import(client, csv_text)
+        assert r.json()["created"] == 1
+        spool = client.get("/api/spools").json()[0]
+        assert spool["is_refill_pack"] is True
+
+    def test_is_refill_pack_defaults_false_when_column_absent(self, client):
+        csv_text = (
+            "brand,material,color_name,color_hex,initial_weight_g,current_weight_g\n"
+            "Jayo,PETG,Black,#161616,1000,750\n"
+        )
+        r = _csv_import(client, csv_text)
+        assert r.json()["created"] == 1
+        spool = client.get("/api/spools").json()[0]
+        assert spool["is_refill_pack"] is False
+
 
 class TestSpoolCsvExport:
     def test_export_starts_with_utf8_bom(self, client):
@@ -440,6 +474,14 @@ class TestSpoolCsvExport:
         r = client.get("/api/data/export-spools-csv")
         assert r.status_code == 200
         assert r.content.startswith(b"\xef\xbb\xbf")
+
+    def test_export_includes_is_refill_pack_column(self, client):
+        _create_spool(client, is_refill_pack=True)
+        r = client.get("/api/data/export-spools-csv")
+        text = r.content.decode("utf-8-sig")
+        header = text.splitlines()[0]
+        assert "is_refill_pack" in header.split(",")
+        assert "1" in text.splitlines()[1].split(",")
 
     def test_comma_decimal_separator_accepted(self, client):
         # German Excel exports decimals with a comma (issue #18)
@@ -452,3 +494,70 @@ class TestSpoolCsvExport:
         spool = client.get("/api/spools").json()[0]
         assert spool["current_weight_g"] == 750.5
         assert spool["purchase_price"] == 11.59
+
+
+# ---------------------------------------------------------------------------
+# Spoolman export / import
+# ---------------------------------------------------------------------------
+
+class TestSpoolmanRefillPack:
+    def test_export_embeds_is_refill_pack_in_extra(self, client):
+        _create_spool(client, is_refill_pack=True)
+        r = client.get("/api/data/export-spoolman")
+        assert r.status_code == 200
+        spool = r.json()["spools"][0]
+        assert spool["extra"]["is_refill_pack"] is True
+
+    def test_export_extra_false_for_normal_spool(self, client):
+        _create_spool(client, is_refill_pack=False)
+        r = client.get("/api/data/export-spoolman")
+        spool = r.json()["spools"][0]
+        assert spool["extra"]["is_refill_pack"] is False
+
+    def test_import_reads_is_refill_pack_from_extra(self, client):
+        bundle = {
+            "spoolman_export": True,
+            "spools": [{
+                "filament": {
+                    "vendor": {"name": "Bambu Lab"},
+                    "material": "PLA",
+                    "name": "Black",
+                    "color_hex": "000000",
+                    "weight": 1000,
+                },
+                "initial_weight": 1000,
+                "remaining_weight": 1000,
+                "extra": {"is_refill_pack": True},
+            }],
+        }
+        r = client.post(
+            "/api/data/import-spoolman",
+            files={"file": ("bundle.json", json.dumps(bundle).encode(), "application/json")},
+        )
+        assert r.status_code == 200
+        assert r.json()["imported"] == 1
+        spool = client.get("/api/spools").json()[0]
+        assert spool["is_refill_pack"] is True
+
+    def test_import_defaults_false_when_extra_missing(self, client):
+        bundle = {
+            "spoolman_export": True,
+            "spools": [{
+                "filament": {
+                    "vendor": {"name": "Bambu Lab"},
+                    "material": "PLA",
+                    "name": "White",
+                    "color_hex": "FFFFFF",
+                    "weight": 1000,
+                },
+                "initial_weight": 1000,
+                "remaining_weight": 1000,
+            }],
+        }
+        r = client.post(
+            "/api/data/import-spoolman",
+            files={"file": ("bundle.json", json.dumps(bundle).encode(), "application/json")},
+        )
+        assert r.status_code == 200
+        spool = client.get("/api/spools").json()[0]
+        assert spool["is_refill_pack"] is False
