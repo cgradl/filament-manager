@@ -59,9 +59,14 @@ def update_spool(spool_id: int, body: SpoolUpdate, background_tasks: BackgroundT
     if not spool:
         raise HTTPException(404, "Spool not found")
     updates = body.model_dump(exclude_unset=True)
-    # Always re-resolve tare from brand config; ignore any client-supplied value
-    brand = updates.get("brand", spool.brand)
-    updates["spool_weight_g"] = _resolve_spool_weight(brand, db)
+    # Only re-resolve the brand tare when brand is actually changing — otherwise
+    # every unrelated PATCH (color, notes, weight, ...) would silently reset a
+    # spool's stored tare back to the current brand config (issue #71). The client
+    # can never set spool_weight_g directly either way — it's derived-only.
+    if "brand" in updates and updates["brand"] != spool.brand:
+        updates["spool_weight_g"] = _resolve_spool_weight(updates["brand"], db)
+    else:
+        updates.pop("spool_weight_g", None)
     weight_before = spool.current_weight_g
     for field, value in updates.items():
         setattr(spool, field, value)

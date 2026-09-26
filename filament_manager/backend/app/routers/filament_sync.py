@@ -156,6 +156,24 @@ def _cloud_hex(cloud: dict) -> str:
     return f"#{raw[:6].upper()}" if len(raw) >= 6 else "#888888"
 
 
+def _color_name_from_cloud_note(note: str) -> tuple[str, str]:
+    """Split a cloud note into (color_name, remaining_notes).
+
+    _local_to_cloud_body() embeds the local color_name into Bambu's note field
+    (Bambu's API has no dedicated color-name field — confirmed via BambuStudio's
+    own source, which has the identical limitation: "cloud has no direct
+    counterpart" for color_name). Recovering it here closes the round trip for
+    spools this app itself pushed. Only strips the name when the exact " — "
+    separator is present — a genuinely foreign Bambu note (never written by this
+    app, e.g. one entered directly in Bambu Studio) has no reliable color name
+    to extract and is left completely untouched (issue #70).
+    """
+    if " — " in note:
+        name, rest = note.split(" — ", 1)
+        return name.strip(), rest.strip()
+    return "", note
+
+
 def _cloud_summary(cloud: dict) -> str:
     parts = [
         cloud.get("filamentVendor") or "",
@@ -180,10 +198,14 @@ def _local_to_cloud_body(spool: Spool) -> dict:
     # doubling the brand in Bambu's "Parameter 1" display (vendor + filamentName).
     # Mapping color_name here is wrong — it shows the color as the material type.
     filament_name = _cloud_filament_name(spool)
-    # Preserve color name in note since Bambu has no dedicated color-name field
+    # Preserve color name in note since Bambu has no dedicated color-name field.
+    # Always include the " — " separator, even with no local notes — a bare
+    # "Red" would be indistinguishable from a genuine free-text Bambu note on
+    # import, and _color_name_from_cloud_note() could never recover it safely
+    # (issue #70).
     note = spool.notes or ""
     if spool.color_name and spool.color_name not in note:
-        note = spool.color_name + (f" — {note}" if note else "")
+        note = f"{spool.color_name} — {note}"
     return {
         # createType / colorType / filamentId / isSupport are required by the
         # Bambu Swagger schema (CreateFilamentV2Req). Manually-added spools have
@@ -547,6 +569,11 @@ async def apply_sync(body: ApplySyncRequest, db: Session = Depends(get_db)):
                 errors += 1
                 continue
             material = cloud.get("filamentType") or "PLA"
+            # Bambu has no dedicated color-name field; _local_to_cloud_body()
+            # embeds it in the note as "{color_name} — {notes}" for spools this
+            # app pushed. Recover it here, leaving genuinely foreign notes
+            # (no separator) untouched in `notes` (issue #70).
+            cloud_color_name, cloud_notes = _color_name_from_cloud_note(cloud.get("note") or "")
             new_spool = Spool(
                 bambu_spool_id=cloud_id,
                 brand=cloud.get("filamentVendor") or "",
@@ -556,12 +583,11 @@ async def apply_sync(body: ApplySyncRequest, db: Session = Depends(get_db)):
                 # — store it in subtype so push (_cloud_filament_name) can
                 # recompose it later instead of losing it (issue #67).
                 subtype=_subtype_from_cloud_name(cloud.get("filamentName") or "", material) or None,
-                color_name="",
+                color_name=cloud_color_name,
                 color_hex=_cloud_hex(cloud),
                 initial_weight_g=max(float(cloud.get("totalNetWeight") or 0), 1.0),
                 current_weight_g=max(float(cloud.get("netWeight") or 0), 0.0),
-                # Bambu's actual free-text note field (distinct from filamentName)
-                notes=cloud.get("note") or "",
+                notes=cloud_notes,
                 bambu_synced_at=now,
                 created_at=now,
                 updated_at=now,

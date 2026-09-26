@@ -1,6 +1,6 @@
 """
-Tests for the Filament Sync router — _subtype_from_cloud_name() and the
-apply_sync import-from-cloud path.
+Tests for the Filament Sync router — _subtype_from_cloud_name(),
+_color_name_from_cloud_note(), and the apply_sync import-from-cloud path.
 
 Issue #67: pulling a cloud filament whose display name carries variant info
 beyond the base material (e.g. a custom BambuStudio "Serial" field producing
@@ -9,10 +9,18 @@ import — it was dumped into notes instead of subtype — and lost it a second
 time when the spool was later pushed back (the automatic weight sync
 recomposes filamentName from material+subtype+subtype2, so a blank subtype
 silently drops "Recycled" from the cloud record on every subsequent sync).
+
+Issue #70: Bambu Cloud has no dedicated color-name field, so a cloud import
+always left color_name="" even for spools this app had itself pushed (which
+embed color_name in the cloud note field as a workaround). The import path
+never parsed that back out.
 """
 from unittest.mock import AsyncMock, patch
 
-from app.routers.filament_sync import _subtype_from_cloud_name, _cloud_filament_name
+from app.routers.filament_sync import (
+    _subtype_from_cloud_name, _cloud_filament_name,
+    _color_name_from_cloud_note, _local_to_cloud_body,
+)
 from app.models import Spool
 
 
@@ -52,6 +60,29 @@ class TestSubtypeFromCloudName:
         assert _subtype_from_cloud_name("pla Recycled", "PLA") == "Recycled"
 
 
+# ---------------------------------------------------------------------------
+# _color_name_from_cloud_note — unit tests
+# ---------------------------------------------------------------------------
+
+class TestColorNameFromCloudNote:
+    def test_separator_present_splits_name_and_notes(self):
+        assert _color_name_from_cloud_note("Black — Bought at the hardware store") == \
+            ("Black", "Bought at the hardware store")
+
+    def test_separator_with_empty_notes_tail(self):
+        # what _local_to_cloud_body() writes when the spool has no local notes
+        assert _color_name_from_cloud_note("Red — ") == ("Red", "")
+
+    def test_no_separator_is_left_completely_untouched(self):
+        # a genuine free-text Bambu note this app never wrote — must not be
+        # mis-parsed as a color name
+        note = "Bought at the hardware store"
+        assert _color_name_from_cloud_note(note) == ("", note)
+
+    def test_empty_note(self):
+        assert _color_name_from_cloud_note("") == ("", "")
+
+
 class TestRoundTrip:
     """The core regression for issue #67: pull then push must recover the
     original cloud filamentName instead of dropping the variant."""
@@ -64,6 +95,34 @@ class TestRoundTrip:
             initial_weight_g=1000.0, current_weight_g=1000.0,
         )
         assert _cloud_filament_name(spool) == "PLA Recycled"
+
+    def test_pushed_color_name_recovers_with_local_notes(self):
+        """Issue #70: push a spool that has both a color and local notes,
+        then confirm the cloud note this produces can be parsed back into
+        the original color_name + notes."""
+        spool = Spool(
+            brand="Generic", material="PLA", color_name="Black", color_hex="#000000",
+            notes="Bought at the hardware store",
+            initial_weight_g=1000.0, current_weight_g=1000.0,
+        )
+        cloud_body = _local_to_cloud_body(spool)
+        name, notes = _color_name_from_cloud_note(cloud_body["note"])
+        assert name == "Black"
+        assert notes == "Bought at the hardware store"
+
+    def test_pushed_color_name_recovers_with_no_local_notes(self):
+        """Same as above but with no local notes at all — the common case.
+        Without the always-include-separator fix in _local_to_cloud_body(),
+        this bare string would be indistinguishable from a foreign Bambu note
+        and could never be safely recovered."""
+        spool = Spool(
+            brand="Generic", material="PLA", color_name="Red", color_hex="#FF0000",
+            initial_weight_g=1000.0, current_weight_g=1000.0,
+        )
+        cloud_body = _local_to_cloud_body(spool)
+        name, notes = _color_name_from_cloud_note(cloud_body["note"])
+        assert name == "Red"
+        assert notes == ""
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +168,51 @@ class TestImportFromCloud:
         spool = session.query(Spool).filter(Spool.bambu_spool_id == "42").one()
         assert spool.material == "PLA"
         assert spool.subtype == "Recycled"
+        assert spool.notes == "Bought at the hardware store"
+
+    def test_color_name_recovered_from_round_tripped_note(self, client, session):
+        """Issue #70: a note in this app's own "{color_name} — {notes}" format
+        (i.e. a spool it previously pushed) must have color_name recovered on
+        import, with the remainder preserved in notes."""
+        cloud = [{
+            "id": 55,
+            "filamentVendor": "Generic",
+            "filamentType": "PLA",
+            "filamentName": "PLA",
+            "note": "Black — Bought at the hardware store",
+            "color": "000000",
+            "totalNetWeight": 1000,
+            "netWeight": 1000,
+        }]
+        p_status, p_list = self._patch_cloud(cloud)
+        with p_status, p_list:
+            r = _apply(client, import_from_cloud=["55"])
+
+        assert r.status_code == 200
+        spool = session.query(Spool).filter(Spool.bambu_spool_id == "55").one()
+        assert spool.color_name == "Black"
+        assert spool.notes == "Bought at the hardware store"
+
+    def test_foreign_note_without_separator_leaves_color_name_blank(self, client, session):
+        """A note this app never wrote (no " — " separator) has no reliable
+        color name to extract — must stay untouched, exactly as before."""
+        cloud = [{
+            "id": 56,
+            "filamentVendor": "Bambu Lab",
+            "filamentType": "PLA",
+            "filamentName": "PLA Basic",
+            "note": "Bought at the hardware store",
+            "color": "FFFFFF",
+            "totalNetWeight": 1000,
+            "netWeight": 1000,
+        }]
+        p_status, p_list = self._patch_cloud(cloud)
+        with p_status, p_list:
+            r = _apply(client, import_from_cloud=["56"])
+
+        assert r.status_code == 200
+        spool = session.query(Spool).filter(Spool.bambu_spool_id == "56").one()
+        assert spool.color_name == ""
         assert spool.notes == "Bought at the hardware store"
 
     def test_no_variant_leaves_subtype_blank(self, client, session):

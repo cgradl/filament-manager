@@ -5,7 +5,7 @@ and the materials/subtypes list endpoints.
 """
 import pytest
 from tests.conftest import make_spool_payload
-from app.models import BrandSpoolWeight, FilamentMaterial, FilamentSubtype
+from app.models import BrandSpoolWeight, FilamentMaterial, FilamentSubtype, Spool
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +185,45 @@ class TestUpdateSpool:
         session.commit()
         spool_id = client.post("/api/spools", json=make_spool_payload(brand="Bambu Lab")).json()["id"]
         r = client.patch(f"/api/spools/{spool_id}", json={"brand": "SUNLU"})
+        assert r.json()["spool_weight_g"] == 225.0
+
+    def test_update_unrelated_field_preserves_spool_weight_g(self, client, session):
+        """Issue #71: an unrelated PATCH must not silently reset spool_weight_g
+        back to the current brand-config tare."""
+        session.add(BrandSpoolWeight(brand="SUNLU", spool_weight_g=225.0))
+        session.commit()
+        spool_id = client.post("/api/spools", json=make_spool_payload(brand="SUNLU")).json()["id"]
+        # Simulate a pre-existing/legacy stored value that differs from the
+        # current brand config (e.g. the brand tare was changed after creation).
+        spool = session.get(Spool, spool_id)
+        spool.spool_weight_g = 300.0
+        session.commit()
+
+        r = client.patch(f"/api/spools/{spool_id}", json={"color_name": "Matt White"})
+        assert r.status_code == 200
+        assert r.json()["color_name"] == "Matt White"
+        assert r.json()["spool_weight_g"] == 300.0
+
+    def test_update_same_brand_preserves_spool_weight_g(self, client, session):
+        """Issue #71: PATCHing brand to its current value (not actually
+        changing it) must not re-resolve and overwrite a custom spool_weight_g."""
+        session.add(BrandSpoolWeight(brand="SUNLU", spool_weight_g=225.0))
+        session.commit()
+        spool_id = client.post("/api/spools", json=make_spool_payload(brand="SUNLU")).json()["id"]
+        spool = session.get(Spool, spool_id)
+        spool.spool_weight_g = 300.0
+        session.commit()
+
+        r = client.patch(f"/api/spools/{spool_id}", json={"brand": "SUNLU"})
+        assert r.json()["spool_weight_g"] == 300.0
+
+    def test_update_cannot_set_spool_weight_g_directly(self, client, session):
+        """spool_weight_g stays derived-only — a client-supplied value in a
+        PATCH with no brand change must be ignored, not applied."""
+        session.add(BrandSpoolWeight(brand="SUNLU", spool_weight_g=225.0))
+        session.commit()
+        spool_id = client.post("/api/spools", json=make_spool_payload(brand="SUNLU")).json()["id"]
+        r = client.patch(f"/api/spools/{spool_id}", json={"spool_weight_g": 999.0})
         assert r.json()["spool_weight_g"] == 225.0
 
     def test_update_nonexistent_returns_404(self, client):

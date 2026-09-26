@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.41.1
+
+- Fix: **Bambu Cloud import recovers color name** — importing a filament from Bambu Cloud always left Color Name blank (Bambu's API has no dedicated field for it); the app already works around this by embedding the color name in Bambu's note field when pushing a spool, but never read it back out on import. It now does, for spools this app previously pushed — a genuinely foreign Bambu note is left untouched. Existing local color names are never overwritten during matches — thanks to **[@Chriss122](https://github.com/Chriss122)** for the detailed report! (issue #70)
+- Fix: **Editing a spool no longer resets its tare weight** — `PATCH`ing any field (color, notes, weight, ...) on a spool unconditionally re-resolved and overwrote `spool_weight_g` from the current brand config, silently discarding a stored value that differed from it (e.g. after the brand's configured tare was changed). The tare is now only re-resolved when `brand` is actually part of the request and genuinely changing — thanks to **[@Chriss122](https://github.com/Chriss122)** for the clear reproduction steps! (issue #71)
+
 ## 0.41.0
 
 - Feature: **Refill pack flag for spools** — mark a spool as a refill pack (bulk filament bought without a new physical spool) with a new checkbox on the spool form; shown as a badge on the spool card and as a sortable column in the table; broken out separately on the Dashboard (count, weight, spend) whenever at least one refill-pack spool exists; included in all export/import paths (JSON backup, spool CSV, Spoolman) (issue #68)
