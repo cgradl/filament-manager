@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.41.2
+
+- Security: **Dependency update** — `cryptography` 48.0.1 → 50.0.1, resolving three Dependabot advisories (two high, one moderate): exponential path-building on duplicate self-signed intermediates, wildcard-DNS `permittedSubtrees` escape, and a PKCS#7 `EnvelopedData` Bleichenbacher timing oracle. None of the affected code paths (X.509 path-building, PKCS#7) are used by this app — only the high-level `Fernet` API for local credential encryption, unaffected by any of the three advisories and verified to still round-trip correctly
+
 ## 0.41.1
 
 - Fix: **Bambu Cloud import recovers color name** — importing a filament from Bambu Cloud always left Color Name blank (Bambu's API has no dedicated field for it); the app already works around this by embedding the color name in Bambu's note field when pushing a spool, but never read it back out on import. It now does, for spools this app previously pushed — a genuinely foreign Bambu note is left untouched. Existing local color names are never overwritten during matches — thanks to **[@Chriss122](https://github.com/Chriss122)** for the detailed report! (issue #70)

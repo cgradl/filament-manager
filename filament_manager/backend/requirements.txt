@@ -6,6 +6,6 @@ httpx==0.28.1
 python-multipart==0.0.31
 paho-mqtt==2.1.0
 requests==2.33.0
-cryptography==48.0.1
+cryptography==50.0.1
 tzdata==2025.3
 websockets==15.0.1
