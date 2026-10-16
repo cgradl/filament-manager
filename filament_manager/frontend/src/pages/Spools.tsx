@@ -1125,6 +1125,10 @@ export default function Spools() {
               storage_location: null,
               article_number: null,
               ams_slot: null,
+              // Whether THIS purchase was a refill pack is specific to each
+              // physical spool bought — must not silently carry over from
+              // the source spool being duplicated (issue #72).
+              is_refill_pack: false,
             }}
             onSave={handleSave}
             onCancel={() => setDuplicating(null)}
