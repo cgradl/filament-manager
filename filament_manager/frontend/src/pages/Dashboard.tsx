@@ -547,10 +547,10 @@ export default function Dashboard() {
     <div className="space-y-6">
       <h2 className="text-lg font-bold">{t('dashboard.title')}</h2>
 
-      {/* Running job — only shown when a print is active */}
-      {stats.running_job && (
-        <RunningJobCard job={stats.running_job} printers={printers} />
-      )}
+      {/* Running jobs — one card per active print (e.g. several printers at once) */}
+      {stats.running_jobs.map(job => (
+        <RunningJobCard key={job.id} job={job} printers={printers} />
+      ))}
 
       {/* AMS mismatch warnings — one card per printer with unmatched trays */}
       {cloudPrinters.map(p => (

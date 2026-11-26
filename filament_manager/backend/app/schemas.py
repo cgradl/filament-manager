@@ -296,7 +296,7 @@ class DashboardStats(BaseModel):
     printer_energy: list[PrinterEnergy] = []
     recent_prints: list[PrintJobOut] = []
     low_stock: list[SpoolOut] = []
-    running_job: PrintJobOut | None = None
+    running_jobs: list[PrintJobOut] = []
     prints_per_day: list[PrintsPerDay] = []
 
 

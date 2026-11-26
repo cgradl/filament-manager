@@ -143,13 +143,14 @@ async def get_dashboard(db: Session = Depends(get_db)):
         key=lambda x: x.printer,
     )
 
-    # Running job: most recent open print (no finished_at)
-    running_job = (
+    # Running jobs: all open prints (no finished_at), most recent first —
+    # one per printer when several printers are printing at the same time
+    running_jobs = (
         db.query(PrintJob)
         .filter(PrintJob.finished_at.is_(None))
         .options(joinedload(PrintJob.usages).joinedload(PrintUsage.spool))
         .order_by(PrintJob.started_at.desc())
-        .first()
+        .all()
     )
 
     # Recent prints: 5 most recent jobs only
@@ -198,7 +199,7 @@ async def get_dashboard(db: Session = Depends(get_db)):
         printer_energy=printer_energy,
         recent_prints=recent_prints,
         low_stock=sorted(low_stock, key=lambda s: s.remaining_pct),
-        running_job=running_job,
+        running_jobs=running_jobs,
         prints_per_day=prints_per_day,
     )
 

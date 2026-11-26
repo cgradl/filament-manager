@@ -63,6 +63,7 @@ class TestEmptyDashboard:
         assert s["price_by_location"] == []
         assert s["recent_prints"] == []
         assert s["low_stock"] == []
+        assert s["running_jobs"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +221,35 @@ class TestRecentPrints:
         _create_print(client, name="New", started_at="2024-12-01T00:00:00")
         recent = _stats(client)["recent_prints"]
         assert recent[0]["name"] == "New"
+
+
+# ---------------------------------------------------------------------------
+# Running jobs
+# ---------------------------------------------------------------------------
+
+class TestRunningJobs:
+    def test_empty_when_all_finished(self, client):
+        _create_print(client, name="Done", finished_at="2024-01-01T12:00:00")
+        assert _stats(client)["running_jobs"] == []
+
+    def test_single_running_job(self, client):
+        _create_print(client, name="Done", finished_at="2024-01-01T12:00:00")
+        _create_print(client, name="Running", printer_name="P1")
+        running = _stats(client)["running_jobs"]
+        assert [j["name"] for j in running] == ["Running"]
+
+    def test_multiple_printers_all_returned(self, client):
+        _create_print(client, name="Job A", printer_name="Printer A", started_at="2024-01-01T10:00:00")
+        _create_print(client, name="Job B", printer_name="Printer B", started_at="2024-01-01T11:00:00")
+        running = _stats(client)["running_jobs"]
+        assert len(running) == 2
+        assert {j["printer_name"] for j in running} == {"Printer A", "Printer B"}
+
+    def test_most_recent_first(self, client):
+        _create_print(client, name="Older", printer_name="A", started_at="2024-01-01T10:00:00")
+        _create_print(client, name="Newer", printer_name="B", started_at="2024-01-01T11:00:00")
+        running = _stats(client)["running_jobs"]
+        assert [j["name"] for j in running] == ["Newer", "Older"]
 
 
 # ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 A Home Assistant add-on for tracking 3D printer filament inventory, monitoring print history, and calculating material costs. Integrates natively with Bambu Lab printers via **Bambu Lab Cloud (MQTT)**.
 
-![Version](https://img.shields.io/badge/version-0.41.3-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
+![Version](https://img.shields.io/badge/version-0.42.0-blue) ![Platform](https://img.shields.io/badge/platform-Home%20Assistant-teal)
 
 ---
 
@@ -31,7 +31,7 @@ Spools, print history, and all other data are unaffected.
 - **Print Projects** — group print jobs into named projects; each project aggregates print count, total time, total filament, total cost, energy (kWh), energy cost, materials used, and nozzle diameters; the project card shows a color-coded filament breakdown (color dot + material + grams) sorted by grams; per-print cost breakdown (material, energy, total) shown in the expanded project view; prints can be individually marked as test prints with the flask icon; assign prints from the project page or from the print form; optional URL field shown as a clickable link icon; full export/import support
 - **AMS spool auto-match** — per-tray sparkle button and "Auto-match" header button find the best inventory spool by material + color; tiebreakers: lowest remaining weight first, then oldest purchase date (FiFo); Dashboard warns when a loaded AMS tray has no matching spool in inventory
 - **Cost analytics** — per-print cost, price per kg, inventory value, and spend by purchase location; all money values are displayed in your HA-configured currency with locale-aware formatting, and price inputs accept both comma and dot decimal separators
-- **Dashboard** — overview charts, low-stock alerts, and recent print history
+- **Dashboard** — overview charts, low-stock alerts, and recent print history; one live running-job card per active print, so several printers printing at once are all shown
 - **Print history search & date filter** — filter by name, printer, material, color; quick presets (this/last week/month)
 - **EN / DE / ES interface** — full translations; inherits language from your HA instance by default
 - **HA day/night theme** — follows Home Assistant light/dark mode and accent color

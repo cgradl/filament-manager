@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.42.0
+
+- Feature: **Running jobs for multiple printers on the Dashboard** — the Dashboard used to show only the most recently started print, even when several printers were printing at the same time. Now every active print gets its own card with live status (stage, progress, remaining time, weight, active tray) and its own "Mark as done" button. The dashboard API's `running_job` field is replaced by a `running_jobs` list (issue #74)
+
 ## 0.41.3
 
 - Fix: **Duplicating a spool no longer carries over the Refill Pack flag** — the Duplicate action already clears other purchase-specific fields (price, date, location, article number, AMS slot) but was missing `is_refill_pack` from that reset, so copies of a refill-pack spool silently stayed marked as refill packs even without checking the box (issue #72)

@@ -324,7 +324,7 @@ export interface DashboardStats {
   printer_energy: PrinterEnergy[]
   recent_prints: PrintJob[]
   low_stock: Spool[]
-  running_job: PrintJob | null
+  running_jobs: PrintJob[]
   prints_per_day: { date: string; count: number }[]
 }
 
