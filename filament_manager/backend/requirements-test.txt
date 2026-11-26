@@ -2,7 +2,7 @@
 #   pip install -r requirements.txt -r requirements-test.txt
 #   pytest
 pytest==9.0.3
-pytest-asyncio==0.24.0
+pytest-asyncio==1.5.0
 httpx==0.28.1
 # Transitive deps of bambu_cloud_client not pulled in by requirements.txt
 # on a bare dev box (installed inside Docker via requirements.txt):

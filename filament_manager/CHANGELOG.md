@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.42.1
+
+- Security: **Dependency update** — `i18next` 24 → 26.7.2, resolving Dependabot advisory GHSA-6jcc-5g8w-32mx (moderate): `deepExtend` recursed into inherited built-ins via `addResourceBundle(..., deep, overwrite)`, allowing corruption of shared built-in objects (DoS). The app never calls `addResourceBundle` — translations are loaded once via static `resources` at init — so it was not exploitable here; `react-i18next` 15 already supports i18next 26, and translations/language switching were verified to work unchanged
+- Dev: **Test requirements install again** — `pytest-asyncio` 0.24.0 → 1.5.0; the old pin required `pytest<9` and conflicted with the pinned `pytest==9.0.3`, so `pip install -r requirements-test.txt` failed on a fresh setup
+
 ## 0.42.0
 
 - Feature: **Running jobs for multiple printers on the Dashboard** — the Dashboard used to show only the most recently started print, even when several printers were printing at the same time. Now every active print gets its own card with live status (stage, progress, remaining time, weight, active tray) and its own "Mark as done" button. The dashboard API's `running_job` field is replaced by a `running_jobs` list (issue #74)
